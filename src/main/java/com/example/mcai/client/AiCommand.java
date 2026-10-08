@@ -2,6 +2,7 @@ package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
 import com.example.mcai.util.ClientChat;
+import com.example.mcai.util.Lang;
 import com.example.mcai.util.ModeCatalog;
 import com.example.mcai.util.ModelCatalog;
 import com.example.mcai.util.TokenStats;
@@ -20,14 +21,19 @@ import java.time.LocalDate;
 /**
  * {@code /ai} 客户端指令。
  *
- * <p><b>1.21.1 的坑：</b>{@code StringArgumentType.word()} 只接受 ASCII 字母数字，
- * 中文的 {@code 原始} 根本没法作为参数值解析。所以四个标准分辨率被注册成
- * brigadier 的 <b>literal 节点</b>——既绕开了限制，又顺带白送 Tab 补全。
- * 需要自定义高度时（例如 {@code 480p}）再走 ASCII 的 word 参数。
+ * <p><b>1.21.1 的坑：</b>{@code StringArgumentType.word()} 只接受 ASCII 字母数字。
+ * 所以分辨率的<b>标准值</b>本身就是 ASCII（{@code 360p / 720p / 1080p / original}），
+ * 把它们注册成 brigadier 的 <b>literal 节点</b>，既自带 Tab 补全，也不用去碰
+ * {@code word()} 的字符限制。中文写法 {@code 原始} 作为历史别名额外注册一个节点，
+ * 用「不缩放」而不用中文，是为了让 {@code mcai.json} 里存的值和语言无关。
  *
  * <p>指令是纯客户端的，改完配置由 ConfigManager 异步落盘，不会卡主线程。
+ * 所有回显文案走语言文件。
  */
 public final class AiCommand {
+
+    /** brigadier 的自定义高度参数名。保持 ASCII 且与语言无关，理由见 buildResolutionNode。 */
+    private static final String HEIGHT_ARG = "height";
 
     private AiCommand() {}
 
@@ -66,16 +72,27 @@ public final class AiCommand {
         LiteralArgumentBuilder<FabricClientCommandSource> node =
                 ClientCommandManager.literal("resolution");
 
-        // 四个标准值做成 literal：中文 "原始" 只能这样写，同时自带 Tab 补全
+        // 四个标准值做成 literal，自带 Tab 补全
         for (String option : VisionResolution.OPTIONS) {
             node.then(ClientCommandManager.literal(option)
                     .executes(context -> setResolution(context.getSource(), option)));
         }
 
+        // 旧版中文写法（"原始" / "原图"）继续接受，落到同一个处理逻辑
+        for (String legacy : VisionResolution.LEGACY_ORIGINAL) {
+            node.then(ClientCommandManager.literal(legacy)
+                    .executes(context -> setResolution(context.getSource(), legacy)));
+        }
+
         // 自定义高度（ASCII），例如 /ai resolution 480p
-        node.then(ClientCommandManager.argument("高度", StringArgumentType.word())
+        //
+        // 参数名故意用 ASCII 常量而不是 Lang.tr(...)：brigadier 的参数名在**注册时**
+        // 就固定下来了，而 Lang.tr 取的是**执行时**的语言；两者一旦不一致（玩家中途
+        // 切换语言，或者客户端初始化时语言资源还没加载）就会让 getString 找不到参数
+        // 而抛 IllegalArgumentException。参数名只出现在 brigadier 的报错里，不值得冒这个险。
+        node.then(ClientCommandManager.argument(HEIGHT_ARG, StringArgumentType.word())
                 .executes(context -> setResolution(context.getSource(),
-                        StringArgumentType.getString(context, "高度"))));
+                        StringArgumentType.getString(context, HEIGHT_ARG))));
 
         return node;
     }
@@ -85,55 +102,59 @@ public final class AiCommand {
     private static int status(FabricClientCommandSource source) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null) {
-            source.sendError(Text.literal("§c[AI] 配置尚未加载完成。"));
+            source.sendError(Text.literal(Lang.tr("mcai.cmd.status_not_ready")));
             return 0;
         }
 
-        source.sendFeedback(Text.literal("§b§l[mcAI] §r§f当前状态"));
-        source.sendFeedback(Text.literal("§7 · 模型：§f" + ModelCatalog.describe(config.model)
-                + (ModelCatalog.lookup(config.model).supportsVision() ? " §a可读图" : " §c不支持读图")));
-        source.sendFeedback(Text.literal("§7 · 模式：§f" + ModeCatalog.describe(config.mode)));
-        source.sendFeedback(Text.literal("§7 · 截图分辨率：§f"
-                + VisionResolution.display(config.visionResolution)
-                + " §8(" + describeTarget(config.visionResolution) + ")"));
-        source.sendFeedback(Text.literal("§7 · 今日消耗：§f" + TokenStats.todayTotal()
-                + " §7tokens §8(" + LocalDate.now() + ")"));
-        source.sendFeedback(Text.literal("§7 · 思考过程：§f"
-                + (config.showReasoning ? "显示" : "隐藏")
-                + "§7，最多 §f"
-                + (config.reasoningMaxChars == 0 ? "全部" : config.reasoningMaxChars + " 字")));
-        source.sendFeedback(Text.literal("§7 · 接口地址：§f" + config.apiUrl));
-        source.sendFeedback(Text.literal("§7 · API Key：§f" + maskKey(config.apiKey)));
-        source.sendFeedback(Text.literal("§8 /ai token 看明细 · /ai help 看全部功能"));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_title")));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_model",
+                ModelCatalog.describe(config.model)
+                        + (ModelCatalog.lookup(config.model).supportsVision()
+                        ? Lang.tr("mcai.cmd.vision_ok")
+                        : Lang.tr("mcai.cmd.vision_no")))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_mode",
+                ModeCatalog.describe(config.mode))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_resolution",
+                VisionResolution.label(config.visionResolution),
+                describeTarget(config.visionResolution))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_tokens",
+                TokenStats.todayTotal(), LocalDate.now())));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_reasoning",
+                Lang.tr(config.showReasoning ? "mcai.cmd.reasoning_on" : "mcai.cmd.reasoning_off"),
+                config.reasoningMaxChars == 0
+                        ? Lang.tr("mcai.cmd.reasoning_all")
+                        : Lang.tr("mcai.cmd.reasoning_chars", config.reasoningMaxChars))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_url", config.apiUrl)));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_key", maskKey(config.apiKey))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_hint")));
         return 1;
     }
 
     // ------------------------------------------------------------------- token
 
     private static int token(FabricClientCommandSource source) {
-        source.sendFeedback(Text.literal("§b[mcAI] §fToken 统计"));
-        source.sendFeedback(Text.literal("§7 · 今日（§f" + LocalDate.now() + "§7）：§f"
-                + TokenStats.todayTotal() + " §7tokens"));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.token_title")));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.token_today",
+                LocalDate.now(), TokenStats.todayTotal())));
 
         // 明细从 CSV 异步读，读完再补发到聊天栏
         UsageLog.readRecentAsync(8).whenComplete((entries, error) -> {
             if (error != null) {
-                ClientChat.sendLiteral("§c[AI] 读取使用明细失败：" + error.getMessage());
+                ClientChat.sendLiteral(Lang.tr("mcai.cmd.token_read_failed", error.getMessage()));
                 return;
             }
             if (entries == null || entries.isEmpty()) {
-                ClientChat.sendLiteral("§8 暂无历史明细。完成一次 !ai 提问或 H 截图后，"
-                        + "记录会写入 " + UsageLog.displayPath() + "");
+                ClientChat.sendLiteral(Lang.tr("mcai.cmd.token_empty", UsageLog.displayPath()));
                 return;
             }
 
-            ClientChat.sendLiteral("§7 · 最近 " + entries.size() + " 次调用：");
+            ClientChat.sendLiteral(Lang.tr("mcai.cmd.token_recent", entries.size()));
             for (UsageLog.Entry entry : entries) {
-                ClientChat.sendLiteral("§8   · §7" + entry.displayTime()
-                        + "  §f" + entry.tokens() + " §7tokens"
-                        + "  §8(" + entry.source() + ", " + entry.model() + ")");
+                ClientChat.sendLiteral(Lang.tr("mcai.cmd.token_entry",
+                        entry.displayTime(), entry.tokens(),
+                        sourceLabel(entry.source()), entry.model()));
             }
-            ClientChat.sendLiteral("§8 完整明细（可用 Excel 打开）：" + UsageLog.displayPath());
+            ClientChat.sendLiteral(Lang.tr("mcai.cmd.token_full", UsageLog.displayPath()));
         });
         return 1;
     }
@@ -142,18 +163,17 @@ public final class AiCommand {
 
     private static int setResolution(FabricClientCommandSource source, String raw) {
         if (!VisionResolution.isUsable(raw)) {
-            source.sendError(Text.literal("§c[AI] 无法识别的分辨率：§f" + raw
-                    + "§c。可用值：§f" + String.join(" / ", VisionResolution.OPTIONS)
-                    + "§c，或 §f480p§c 这类自定义高度。"));
+            source.sendError(Text.literal(Lang.tr("mcai.cmd.resolution_invalid",
+                    raw, String.join(" / ", VisionResolution.OPTIONS))));
             return 0;
         }
 
         String normalized = VisionResolution.normalize(raw);
         ConfigManager.getInstance().update(config -> config.visionResolution = normalized);
 
-        source.sendFeedback(Text.literal("§b[AI] 截图分辨率已设为 §f" + normalized
-                + " §7(" + describeTarget(normalized) + ")"));
-        source.sendFeedback(Text.literal("§8 配置已异步保存，下一次按 H 生效。"));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.resolution_set",
+                VisionResolution.label(normalized), describeTarget(normalized))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.resolution_saved")));
         return 1;
     }
 
@@ -163,15 +183,27 @@ public final class AiCommand {
     private static String describeTarget(String resolution) {
         int height = VisionResolution.targetHeight(resolution);
         if (height <= 0) {
-            return "不缩放，使用窗口原始尺寸";
+            return Lang.tr("mcai.cmd.target_original");
         }
-        return "最高 " + height + "px，超出则等比缩小，不放大";
+        return Lang.tr("mcai.cmd.target_height", height);
+    }
+
+    /** CSV 里存的是 ASCII 的 chat / vision，展示时翻成当前语言。 */
+    private static String sourceLabel(String source) {
+        if (source == null) {
+            return Lang.tr("mcai.value.unknown");
+        }
+        return switch (source.trim().toLowerCase(java.util.Locale.ROOT)) {
+            case "chat" -> Lang.tr("mcai.source.chat");
+            case "vision" -> Lang.tr("mcai.source.vision");
+            default -> source;
+        };
     }
 
     /** 聊天栏里不要把完整 key 打出来，避免直播 / 截图泄露。 */
     private static String maskKey(String apiKey) {
         if (apiKey == null || apiKey.isBlank()) {
-            return "§c未填写";
+            return Lang.tr("mcai.cmd.key_missing");
         }
         if (apiKey.length() <= 10) {
             return "****";

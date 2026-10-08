@@ -35,7 +35,7 @@ public final class McaiItemGiving {
             return;
         }
         player.giveItemStack(new ItemStack(item));
-        McaiMod.LOGGER.info("mcAI 已向 {} 发放切换器物品",
+        McaiMod.LOGGER.info("mcAI gave the switcher items to {}",
                 player.getName() == null ? "?" : player.getName().getString());
     }
 }

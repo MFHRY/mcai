@@ -28,6 +28,6 @@ public final class McaiItems {
                 Identifier.of(McaiMod.MOD_ID, "ai_model_switcher"), AI_MODEL_SWITCHER);
         Registry.register(Registries.ITEM,
                 Identifier.of(McaiMod.MOD_ID, "ai_mode_switcher"), AI_MODE_SWITCHER);
-        McaiMod.LOGGER.info("mcAI 已注册物品: ai_model_switcher, ai_mode_switcher");
+        McaiMod.LOGGER.info("mcAI registered items: ai_model_switcher, ai_mode_switcher");
     }
 }

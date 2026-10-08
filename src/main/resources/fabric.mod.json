@@ -3,7 +3,7 @@
 	"id": "mcai",
 	"version": "${version}",
 	"name": "mcAI",
-	"description": "Chat with an AI from the Minecraft chat bar via the '!ai' prefix, and press H to send a screenshot to a multimodal model. Includes chain-of-thought display, request timing, per-day token accounting with a CSV usage log, and Chinese-localized API error messages.",
+	"description": "Chat with an AI from the Minecraft chat bar via the '!ai' prefix, and press H to send a screenshot to a multimodal model. Includes chain-of-thought display, request timing, per-day token accounting with a CSV usage log, and fully localized UI text and API error messages (English / Chinese).",
 	"authors": [
 		"mfhry"
 	],

@@ -4,6 +4,7 @@ import com.example.mcai.ConfigManager;
 import com.example.mcai.item.McaiItems;
 import com.example.mcai.network.McaiSwitchPayload;
 import com.example.mcai.util.ClientChat;
+import com.example.mcai.util.Lang;
 import com.example.mcai.util.ModeCatalog;
 import com.example.mcai.util.ModelCatalog;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -50,28 +51,28 @@ public final class ItemSwitchHandler {
         ConfigManager.ConfigData config = manager.get();
 
         if (config == null) {
-            ClientChat.sendLiteral("§c[AI] 配置尚未加载完成，请稍后再试。");
+            ClientChat.sendLiteral(Lang.tr("mcai.switch.config_not_ready"));
             return TypedActionResult.success(stack);
         }
 
         if (isModelSwitcher) {
             String next = nextInCycle(config.availableModels, config.model);
             if (next == null) {
-                ClientChat.sendLiteral("§c[AI] 可用模型列表为空，无法切换。");
+                ClientChat.sendLiteral(Lang.tr("mcai.switch.no_models"));
                 return TypedActionResult.success(stack);
             }
             manager.update(c -> c.model = next);
             ClientPlayNetworking.send(new McaiSwitchPayload(McaiSwitchPayload.KIND_MODEL, next));
-            ClientChat.sendLiteral("§b[AI] 模型已切换为 §f" + ModelCatalog.describe(next));
+            ClientChat.sendLiteral(Lang.tr("mcai.switch.model_switched", ModelCatalog.describe(next)));
         } else {
             String next = nextInCycle(config.availableModes, config.mode);
             if (next == null) {
-                ClientChat.sendLiteral("§c[AI] 可用模式列表为空，无法切换。");
+                ClientChat.sendLiteral(Lang.tr("mcai.switch.no_modes"));
                 return TypedActionResult.success(stack);
             }
             manager.update(c -> c.mode = next);
             ClientPlayNetworking.send(new McaiSwitchPayload(McaiSwitchPayload.KIND_MODE, next));
-            ClientChat.sendLiteral("§b[AI] 模式已切换为 §f" + ModeCatalog.describe(next));
+            ClientChat.sendLiteral(Lang.tr("mcai.switch.mode_switched", ModeCatalog.describe(next)));
         }
 
         return TypedActionResult.success(stack);

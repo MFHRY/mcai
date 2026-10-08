@@ -2,6 +2,7 @@ package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
 import com.example.mcai.util.ClientChat;
+import com.example.mcai.util.Lang;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -31,6 +32,9 @@ import java.util.Optional;
  *       不是新版的 record。</li>
  *   <li>绘制多行 tooltip 要用带 {@code Optional<TooltipData>} 的那个重载。</li>
  * </ul>
+ *
+ * <p>所有界面文字走语言文件。蓝色提示链接与悬停说明在两份语言文件里是各自成句写的
+ * （不是逐字翻译），所以中英文读起来都自然。
  */
 public class ConfigScreen extends Screen {
 
@@ -38,9 +42,12 @@ public class ConfigScreen extends Screen {
     private static final int FIELD_HEIGHT = 20;
     private static final int REVEAL_WIDTH = 54;
 
-    /** 下方的蓝色提示文字。 */
+    /**
+     * 下方的蓝色提示文字。用 {@code Text.translatable} 而不是 {@code Text.literal}：
+     * 翻译是<b>渲染时</b>才解析的，所以即使游戏中途切换语言也会跟着变。
+     */
     private static final Text HELP_LINK =
-            Text.literal("API 是什么？在哪里获取？").formatted(Formatting.AQUA, Formatting.UNDERLINE);
+            Text.translatable("mcai.screen.help_link").formatted(Formatting.AQUA, Formatting.UNDERLINE);
 
     private final Screen parent;
 
@@ -59,7 +66,7 @@ public class ConfigScreen extends Screen {
     private int startY;
 
     public ConfigScreen(Screen parent) {
-        super(Text.literal("mcAI 设置"));
+        super(Text.translatable("mcai.screen.title"));
         this.parent = parent;
     }
 
@@ -74,7 +81,7 @@ public class ConfigScreen extends Screen {
         // ---------------- API Key ----------------
         int keyFieldWidth = FIELD_WIDTH - REVEAL_WIDTH - 4;
         apiKeyField = new TextFieldWidget(textRenderer, fieldX, startY + 26,
-                keyFieldWidth, FIELD_HEIGHT, Text.literal("API Key"));
+                keyFieldWidth, FIELD_HEIGHT, Lang.text("mcai.screen.api_key"));
         apiKeyField.setMaxLength(512);
         apiKeyField.setText(config == null ? "" : nullToEmpty(config.apiKey));
         apiKeyField.setPlaceholder(Text.literal("sk-...").formatted(Formatting.DARK_GRAY));
@@ -95,7 +102,7 @@ public class ConfigScreen extends Screen {
 
         // ---------------- 接口地址 ----------------
         apiUrlField = new TextFieldWidget(textRenderer, fieldX, startY + 88,
-                FIELD_WIDTH, FIELD_HEIGHT, Text.literal("api_url"));
+                FIELD_WIDTH, FIELD_HEIGHT, Lang.text("mcai.screen.api_url"));
         apiUrlField.setMaxLength(512);
         apiUrlField.setText(config == null ? "" : nullToEmpty(config.apiUrl));
         apiUrlField.setPlaceholder(Text.literal("https://api.deepseek.com/v1").formatted(Formatting.DARK_GRAY));
@@ -103,7 +110,7 @@ public class ConfigScreen extends Screen {
 
         // ---------------- 模型 ----------------
         modelField = new TextFieldWidget(textRenderer, fieldX, startY + 130,
-                FIELD_WIDTH, FIELD_HEIGHT, Text.literal("model"));
+                FIELD_WIDTH, FIELD_HEIGHT, Lang.text("mcai.screen.model"));
         modelField.setMaxLength(128);
         modelField.setText(config == null ? "" : nullToEmpty(config.model));
         modelField.setPlaceholder(Text.literal("deepseek-flash").formatted(Formatting.DARK_GRAY));
@@ -115,14 +122,14 @@ public class ConfigScreen extends Screen {
         int buttonsX = centerX - (buttonWidth * 2 + gap) / 2;
         int buttonY = startY + 164;
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("保存"), button -> save())
+        addDrawableChild(ButtonWidget.builder(Lang.text("mcai.screen.save"), button -> save())
                 .dimensions(buttonsX, buttonY, buttonWidth, FIELD_HEIGHT).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("取消"), button -> close())
+        addDrawableChild(ButtonWidget.builder(Lang.text("mcai.screen.cancel"), button -> close())
                 .dimensions(buttonsX + buttonWidth + gap, buttonY, buttonWidth, FIELD_HEIGHT).build());
     }
 
     private Text revealLabel() {
-        return Text.literal(revealKey ? "隐藏" : "显示");
+        return Lang.text(revealKey ? "mcai.screen.hide" : "mcai.screen.show");
     }
 
     /** API Key 默认打码，避免直播 / 截图时泄露。 */
@@ -145,14 +152,14 @@ public class ConfigScreen extends Screen {
 
         context.drawCenteredTextWithShadow(textRenderer, this.title, centerX, startY, 0xFFFFFF);
 
-        context.drawTextWithShadow(textRenderer, Text.literal("API Key"), helpX, startY + 14, 0xA0A0A0);
+        context.drawTextWithShadow(textRenderer, Lang.text("mcai.screen.api_key"), helpX, startY + 14, 0xA0A0A0);
         context.drawTextWithShadow(textRenderer, HELP_LINK, helpX, helpY, 0xFFFFFF);
 
-        context.drawTextWithShadow(textRenderer, Text.literal("接口地址"), helpX, startY + 76, 0xA0A0A0);
-        context.drawTextWithShadow(textRenderer, Text.literal("模型"), helpX, startY + 118, 0xA0A0A0);
+        context.drawTextWithShadow(textRenderer, Lang.text("mcai.screen.api_url"), helpX, startY + 76, 0xA0A0A0);
+        context.drawTextWithShadow(textRenderer, Lang.text("mcai.screen.model"), helpX, startY + 118, 0xA0A0A0);
 
         context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("支持任意 OpenAI 兼容接口").formatted(Formatting.DARK_GRAY),
+                Lang.text("mcai.screen.compat").formatted(Formatting.DARK_GRAY),
                 centerX, startY + 156, 0xFFFFFF);
 
         // 鼠标悬停在蓝色文字上时解释什么是 API
@@ -166,27 +173,26 @@ public class ConfigScreen extends Screen {
                 && mouseY >= helpY && mouseY <= helpY + 9;
     }
 
-    /** 悬停提示的正文。 */
+    /** 悬停提示的正文。网址与 {@code sk-} 前缀保持原样，其余跟随游戏语言。 */
     private static List<Text> helpTooltip() {
         List<Text> lines = new ArrayList<>();
-        lines.add(Text.literal("什么是 API Key？").formatted(Formatting.AQUA, Formatting.BOLD));
-        lines.add(Text.literal("它是调用 AI 服务的「通行证」。本模组拿着这串密钥").formatted(Formatting.GRAY));
-        lines.add(Text.literal("去请求 AI 公司的服务器，对方凭它识别你的账号并计费。").formatted(Formatting.GRAY));
+        lines.add(Lang.text("mcai.help.title").formatted(Formatting.AQUA, Formatting.BOLD));
+        lines.add(Lang.text("mcai.help.body1").formatted(Formatting.GRAY));
+        lines.add(Lang.text("mcai.help.body2").formatted(Formatting.GRAY));
         lines.add(Text.empty());
-        lines.add(Text.literal("在哪里获取？（以 DeepSeek 为例）").formatted(Formatting.AQUA, Formatting.BOLD));
-        lines.add(Text.literal("1. 打开开放平台  ").formatted(Formatting.GRAY)
+        lines.add(Lang.text("mcai.help.where").formatted(Formatting.AQUA, Formatting.BOLD));
+        lines.add(Lang.text("mcai.help.step1").formatted(Formatting.GRAY)
                 .append(Text.literal("platform.deepseek.com").formatted(Formatting.WHITE)));
-        lines.add(Text.literal("2. 注册并登录，进入「API Keys」页面").formatted(Formatting.GRAY));
-        lines.add(Text.literal("3. 点「创建 API Key」，复制生成的 ").formatted(Formatting.GRAY)
+        lines.add(Lang.text("mcai.help.step2").formatted(Formatting.GRAY));
+        lines.add(Lang.text("mcai.help.step3a").formatted(Formatting.GRAY)
                 .append(Text.literal("sk-").formatted(Formatting.WHITE))
-                .append(Text.literal(" 开头的字符串").formatted(Formatting.GRAY)));
-        lines.add(Text.literal("4. 粘贴到上面的输入框，点「保存」").formatted(Formatting.GRAY));
+                .append(Lang.text("mcai.help.step3b").formatted(Formatting.GRAY)));
+        lines.add(Lang.text("mcai.help.step4").formatted(Formatting.GRAY));
         lines.add(Text.empty());
-        lines.add(Text.literal("注意事项").formatted(Formatting.AQUA, Formatting.BOLD));
-        lines.add(Text.literal("· 密钥等同密码，不要发给别人，也别在直播/截图里露出").formatted(Formatting.GRAY));
-        lines.add(Text.literal("· 账户需要有余额，否则会返回 ").formatted(Formatting.GRAY)
-                .append(Text.literal("402 余额不足").formatted(Formatting.RED)));
-        lines.add(Text.literal("· 换用别的服务商时，只需改「接口地址」和「模型」").formatted(Formatting.GRAY));
+        lines.add(Lang.text("mcai.help.notes").formatted(Formatting.AQUA, Formatting.BOLD));
+        lines.add(Lang.text("mcai.help.note1").formatted(Formatting.GRAY));
+        lines.add(Lang.text("mcai.help.note2a").formatted(Formatting.GRAY)
+                .append(Lang.text("mcai.help.note2b").formatted(Formatting.RED)));
         return lines;
     }
 
@@ -214,10 +220,10 @@ public class ConfigScreen extends Screen {
         });
 
         if (key.isEmpty()) {
-            ClientChat.sendLiteral("§e[AI] 设置已保存，但 API Key 还是空的，暂时无法使用。");
+            ClientChat.sendLiteral(Lang.tr("mcai.screen.saved_empty"));
         } else {
-            ClientChat.sendLiteral("§b[AI] 设置已保存：§f" + mask(key));
-            ClientChat.sendLiteral("§8 已异步写入 config/mcai.json，现在可以用 §f!ai§8 提问了。");
+            ClientChat.sendLiteral(Lang.tr("mcai.screen.saved", mask(key)));
+            ClientChat.sendLiteral(Lang.tr("mcai.screen.saved_hint"));
         }
         close();
     }

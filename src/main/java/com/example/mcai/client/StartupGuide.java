@@ -2,6 +2,7 @@ package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
 import com.example.mcai.util.ClientChat;
+import com.example.mcai.util.Lang;
 import com.example.mcai.util.ModeCatalog;
 import com.example.mcai.util.ModelCatalog;
 import com.example.mcai.util.VisionResolution;
@@ -18,6 +19,8 @@ import net.minecraft.text.Text;
  * 且 {@code player / inGameHud} 都就绪时再真正输出，保证一定看得见。
  *
  * <p>每次启动游戏只打印一次，避免反复进出世界刷屏。
+ *
+ * <p>整份清单都走语言文件，所以中文玩家看到中文、英文玩家看到英文。
  */
 public final class StartupGuide {
 
@@ -47,30 +50,30 @@ public final class StartupGuide {
     public static void show() {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
 
-        String model = config == null ? "未知" : config.model;
-        String mode = config == null ? "未知" : config.mode;
+        String unknown = Lang.tr("mcai.value.unknown");
+        String model = config == null ? unknown : config.model;
+        String mode = config == null ? unknown : config.mode;
         String resolution = config == null
                 ? VisionResolution.DEFAULT
-                : VisionResolution.display(config.visionResolution);
+                : VisionResolution.label(config.visionResolution);
 
-        ClientChat.sendLiteral("§b§l[mcAI] §r§f功能与指令一览");
-        ClientChat.sendLiteral("§e /ai config §8→ §7打开设置窗口，填写 API Key");
-        ClientChat.sendLiteral("§e !ai §7<问题> §8→ §7在聊天栏向 AI 提问§8（§7冷却 8 秒§8）");
-        ClientChat.sendLiteral("§e 右键「模型切换器」 §8→ §7循环切换 AI 模型");
-        ClientChat.sendLiteral("§e 右键「模式切换器」 §8→ §7循环切换 聊天 / 视觉 模式");
-        ClientChat.sendLiteral("§e H §8→ §7截取当前画面交给 AI 识别§8（§7冷却 3 秒§8）");
-        ClientChat.sendLiteral("§e /ai status §8→ §7查看当前模型、模式、分辨率、今日消耗");
-        ClientChat.sendLiteral("§e /ai token §8→ §7查看今日 token 消耗 + 最近调用明细");
-        ClientChat.sendLiteral("§e /ai resolution §7<分辨率> §8→ §7调整截图清晰度§8（Tab 可补全）");
-        ClientChat.sendLiteral("§e /ai help §8→ §7重新显示这份清单");
-        ClientChat.sendLiteral("§8  · 当前模型：§f" + ModelCatalog.describe(model));
-        ClientChat.sendLiteral("§8  · 当前模式：§f" + ModeCatalog.describe(mode));
-        ClientChat.sendLiteral("§8  · 截图分辨率：§f" + resolution
-                + " §8（可在 mcai.json 里改 vision_resolution）");
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.title"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.config"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.ask"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.model_switcher"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.mode_switcher"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.vision"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.status"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.token"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.resolution"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.help"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.current_model", ModelCatalog.describe(model)));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.current_mode", ModeCatalog.describe(mode)));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.current_resolution", resolution));
 
         // 还没填 Key 时给一条醒目、可点击的提示
         if (config != null && (config.apiKey == null || config.apiKey.isBlank())) {
-            ClientChat.send(Text.literal("§c[!] 还没有填写 API Key —— 点这里打开设置窗口")
+            ClientChat.send(Text.literal(Lang.tr("mcai.guide.no_key"))
                     .styled(style -> style.withClickEvent(new ClickEvent(
                             ClickEvent.Action.SUGGEST_COMMAND, "/ai config"))));
         }

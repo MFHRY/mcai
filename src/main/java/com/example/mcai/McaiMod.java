@@ -13,7 +13,7 @@ public class McaiMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("正在初始化 mcAI 主入口...");
+        LOGGER.info("Initializing mcAI common entrypoint...");
         ConfigManager.getInstance();
 
         // ---- 模块 1：双重切换器（物品）----

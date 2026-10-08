@@ -93,7 +93,7 @@ public final class UsageLog {
                 Files.writeString(path, payload, StandardCharsets.UTF_8,
                         StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
-                System.err.println("[mcAI] 写入 token 明细失败: " + e.getMessage());
+                System.err.println("[mcAI] Failed to append usage log: " + e.getMessage());
             }
         });
     }
@@ -120,7 +120,7 @@ public final class UsageLog {
             }
             return entries;
         } catch (Exception e) {
-            System.err.println("[mcAI] 读取 token 明细失败: " + e.getMessage());
+            System.err.println("[mcAI] Failed to read usage log: " + e.getMessage());
             return Collections.emptyList();
         }
     }

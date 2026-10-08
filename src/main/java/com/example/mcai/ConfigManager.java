@@ -127,7 +127,7 @@ public class ConfigManager {
                 writeToDisk(loaded);
             }
         }, ioExecutor).exceptionally(ex -> {
-            System.err.println("[mcAI] 配置加载失败: " + ex.getMessage());
+            System.err.println("[mcAI] Failed to load config: " + ex.getMessage());
             return null;
         });
     }
@@ -143,7 +143,7 @@ public class ConfigManager {
             JsonObject jsonObject = JsonParser.parseReader(reader).getAsJsonObject();
             return gson.fromJson(jsonObject, ConfigData.class);
         } catch (Exception e) {
-            System.err.println("[mcAI] 读取配置文件失败: " + e.getMessage());
+            System.err.println("[mcAI] Failed to read config file: " + e.getMessage());
             return null;
         }
     }
@@ -157,7 +157,7 @@ public class ConfigManager {
             }
             Files.move(tmpPath, configPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
-            System.err.println("[mcAI] 写入配置文件失败: " + e.getMessage());
+            System.err.println("[mcAI] Failed to write config file: " + e.getMessage());
         } finally {
             try { Files.deleteIfExists(tmpPath); } catch (IOException ignored) {}
         }

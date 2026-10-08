@@ -6,9 +6,9 @@ import com.example.mcai.client.ThinkingIndicator;
 import com.example.mcai.util.AiResponseParser;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.HttpErrorCatalog;
+import com.example.mcai.util.Lang;
 import com.example.mcai.util.ModelCatalog;
 import com.example.mcai.util.TokenStats;
-import com.example.mcai.util.VisionResolution;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -43,6 +43,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p><b>模型差异（实测）：</b> {@code deepseek-flash} 能真正读图（实测准确读出隐藏文字），
  * 而 {@code deepseek-v4-pro} <b>不支持图片输入</b>，它不会报错，只会礼貌地回一句
  * "我无法读取这张图片" —— 既浪费 token 又让人困惑。所以这里在发请求前先拦一道。
+ *
+ * <p>所有面向玩家的文案都走语言文件，中英文共用一个 jar。
  */
 public final class VisionHandler {
 
@@ -54,9 +56,6 @@ public final class VisionHandler {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(90);
-
-    private static final String VISION_PROMPT =
-            "请用简洁的中文描述你在这张 Minecraft 游戏截图里看到的内容。";
 
     private static KeyBinding visionKey;
 
@@ -103,33 +102,32 @@ public final class VisionHandler {
         long allowedAt = nextAllowedTime.get();
         if (now < allowedAt) {
             long remainSeconds = (allowedAt - now + 999L) / 1000L;
-            ClientChat.sendLiteral("§e[AI] 截图识别冷却中，还需等待 " + remainSeconds + " 秒。");
+            ClientChat.sendLiteral(Lang.tr("mcai.vision.cooldown", remainSeconds));
             return;
         }
 
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null) {
-            ClientChat.sendLiteral("§c[AI] 配置加载失败，请检查配置文件。");
+            ClientChat.sendLiteral(Lang.tr("mcai.error.config_load"));
             return;
         }
         if (config.apiKey == null || config.apiKey.isBlank()) {
-            ClientChat.sendLiteral("§c[AI] 还没有填写 apiKey，请先修改配置文件。");
+            ClientChat.sendLiteral(Lang.tr("mcai.error.no_apikey"));
             return;
         }
         if (config.apiUrl == null || config.apiUrl.isBlank()) {
-            ClientChat.sendLiteral("§c[AI] 还没有填写 apiUrl，请先修改配置文件。");
+            ClientChat.sendLiteral(Lang.tr("mcai.error.no_apiurl"));
             return;
         }
         if (config.model == null || config.model.isBlank()) {
-            ClientChat.sendLiteral("§c[AI] 还没有选择模型。");
+            ClientChat.sendLiteral(Lang.tr("mcai.error.no_model"));
             return;
         }
 
         // 实测 deepseek-v4-pro 不支持图片输入，且它不会报错、只会敷衍一句，
         // 所以这里直接拦下来并告诉玩家怎么办，省得白烧 token。
         if (!ModelCatalog.lookup(config.model).supportsVision()) {
-            ClientChat.sendLiteral("§c[AI] 当前模型 " + config.model
-                    + " 不支持图片识别。请用「模型切换器」切换到支持视觉的模型（例如 deepseek-flash）。");
+            ClientChat.sendLiteral(Lang.tr("mcai.vision.no_vision", config.model));
             return;
         }
 
@@ -146,12 +144,12 @@ public final class VisionHandler {
             image = ScreenshotCapture.grab();
         } catch (Throwable t) {
             thinking.finish();
-            ClientChat.sendLiteral("§c[AI] 截图失败：" + rootMessage(t));
+            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
             return;
         }
         if (image == null) {
             thinking.finish();
-            ClientChat.sendLiteral("§c[AI] 截图失败：拿不到当前画面。");
+            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_null"));
             return;
         }
 
@@ -167,13 +165,13 @@ public final class VisionHandler {
                 ScreenshotCapture.EncodedImage encoded =
                         ScreenshotCapture.encode(image, config.visionResolution);
 
-                McaiMod.LOGGER.info("mcAI 截图已压缩: {}x{}, JPEG {} KB, 分辨率配置={}",
+                McaiMod.LOGGER.info("mcAI screenshot encoded: {}x{}, JPEG {} KB, vision_resolution={}",
                         encoded.width(), encoded.height(),
                         encoded.jpegBytes() / 1024, config.visionResolution);
 
                 sendRequest(config, encoded.base64(), thinking);
             } catch (Throwable t) {
-                ClientChat.sendLiteral("§c[AI] 截图处理失败：" + rootMessage(t));
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.encode_failed", rootMessage(t)));
             } finally {
                 // 幂等兜底：任何漏网的路径都不会让加载符号永远转下去
                 thinking.finish();
@@ -197,7 +195,7 @@ public final class VisionHandler {
                     .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                     .build();
         } catch (IllegalArgumentException e) {
-            ClientChat.sendLiteral("§c[AI] 截图识别失败 (0: 接口地址不合法)");
+            ClientChat.sendLiteral(Lang.tr("mcai.vision.failed", Lang.tr("mcai.error.code0")));
             return;
         }
 
@@ -209,25 +207,25 @@ public final class VisionHandler {
             if (statusCode == 200) {
                 handleSuccess(response.body(), thinking.finish());
             } else {
-                // 401 / 402 / 429 等按统一字典给出中文解释
-                ClientChat.sendLiteral("§c[AI] 截图识别失败 ("
-                        + statusCode + ": " + HttpErrorCatalog.describe(statusCode) + ")");
+                // 401 / 402 / 429 等按统一字典给出解释（跟随游戏语言）
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.failed",
+                        statusCode + ": " + HttpErrorCatalog.describe(statusCode)));
             }
         } catch (Throwable t) {
-            ClientChat.sendLiteral("§c[AI] 截图识别失败 (网络错误: " + rootMessage(t) + ")");
+            ClientChat.sendLiteral(Lang.tr("mcai.vision.failed_network", rootMessage(t)));
         }
     }
 
     private static void handleSuccess(String responseBody, long elapsedMillis) {
         JsonObject root = AiResponseParser.parseObject(responseBody);
         if (root == null) {
-            ClientChat.sendLiteral("§c[AI] 接口返回了无法识别的内容。");
+            ClientChat.sendLiteral(Lang.tr("mcai.error.unparsable"));
             return;
         }
 
         String reply = AiResponseParser.extractContent(root);
         if (reply == null || reply.isBlank()) {
-            reply = "（接口没有返回内容）";
+            reply = Lang.tr("mcai.reply.empty");
         }
 
         // Token 统计与聊天共用同一套跨天清零逻辑，并写一条使用明细
@@ -255,13 +253,14 @@ public final class VisionHandler {
     private static String buildRequestBody(String model, String base64) {
         JsonObject systemMessage = new JsonObject();
         systemMessage.addProperty("role", "system");
-        systemMessage.addProperty("content", "你是一个 Minecraft 游戏助手，请用简洁的中文回答玩家的问题。");
+        // 每次请求时才取：语言文件里的提示词就是"让 AI 用哪种语言回答"的开关
+        systemMessage.addProperty("content", Lang.tr("mcai.prompt.system"));
 
         JsonArray content = new JsonArray();
 
         JsonObject textPart = new JsonObject();
         textPart.addProperty("type", "text");
-        textPart.addProperty("text", VISION_PROMPT);
+        textPart.addProperty("text", Lang.tr("mcai.vision.prompt"));
         content.add(textPart);
 
         JsonObject imageUrl = new JsonObject();

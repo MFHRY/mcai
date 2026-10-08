@@ -1,6 +1,7 @@
 package com.example.mcai.client;
 
 import com.example.mcai.util.ClientChat;
+import com.example.mcai.util.Lang;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
@@ -53,7 +54,8 @@ public final class ThinkingIndicator {
                 frameIndex = (frameIndex + 1) % FRAMES.length;
             }
             client.inGameHud.setOverlayMessage(
-                    Text.literal("§b" + FRAMES[frameIndex] + " §7AI 正在思考中..."), false);
+                    Text.literal("§b" + FRAMES[frameIndex] + " §7" + Lang.tr("mcai.thinking.actionbar")),
+                    false);
         });
     }
 
@@ -64,7 +66,7 @@ public final class ThinkingIndicator {
 
     private static void beginRequest() {
         if (ACTIVE.incrementAndGet() == 1) {
-            ClientChat.sendLiteral("§7[⏳] AI 正在思考中...");
+            ClientChat.sendLiteral(Lang.tr("mcai.thinking.chat"));
         }
     }
 
@@ -88,10 +90,10 @@ public final class ThinkingIndicator {
         return Math.max(0, ACTIVE.get());
     }
 
-    /** 格式化成 {@code §7(思考：3.2秒)}。 */
+    /** 格式化成 {@code §7(思考：3.2秒)} / {@code §7(3.2s)}，跟随游戏语言。 */
     public static String formatElapsed(long millis) {
         long safe = Math.max(0L, millis);
-        return "§7(思考：" + String.format(Locale.ROOT, "%.1f", safe / 1000.0) + "秒)";
+        return Lang.tr("mcai.thinking.elapsed", String.format(Locale.ROOT, "%.1f", safe / 1000.0));
     }
 
     /** 一次请求的生命周期。 */

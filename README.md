@@ -25,11 +25,39 @@
 
 ### 亮点
 
-- **全中文提示**，包括 API 错误码（`401 密钥无效` / `402 余额不足` / `429 请求过于频繁`…）
+- **中英双语提示**：跟随游戏语言自动切换，不用装两个版本。中文环境显示中文（`401 密钥无效` / `402 余额不足` / `429 请求过于频繁`…），英文环境显示英文（`Invalid API key` / `Insufficient balance` / `Too many requests`…）
+- **连 AI 的回答语言也跟着切换**：系统提示词按语言生效，英文环境下 AI 直接用英文回答
 - **跨天自动清零** Token 计数（依据 `token_date` 字段）
 - **所有网络请求和文件读写都是异步的**，不会卡住游戏主线程
 - **配置读写有防内存泄漏处理**：截图产生的 `NativeImage`（堆外内存）和 `BufferedImage` 都会被显式释放
 - 会**主动拦截不支持读图的模型**，避免白烧 token
+
+---
+
+## 多语言 / Localization
+
+同一个 jar 同时内置中文和英文，**跟随游戏的语言设置自动切换**，不需要下载单独的"英文版"。
+
+已本地化的内容：
+
+| 内容 | 键前缀 | 例子（中文 → 英文） |
+| --- | --- | --- |
+| 物品名与悬浮提示 | `item.mcai.*` / `tooltip.mcai.*` | 模型切换器 → AI Model Switcher |
+| 快捷键与分类 | `key.mcai.*` / `category.mcai` | 截图识别（视觉） → Screenshot Recognition (Vision) |
+| 聊天栏全部提示 | `mcai.chat.*` / `mcai.error.*` | 请不要刷屏 → Please slow down |
+| API 错误码解释 | `mcai.http.*` | 402 余额不足 → Insufficient balance |
+| 思考过程与耗时 | `mcai.reasoning.*` / `mcai.thinking.*` | `(思考：3.2秒)` → `(3.2s)` |
+| 厂商名与能力等级 | `mcai.vendor.*` / `mcai.tier.*` | 深度求索 → DeepSeek |
+| 游戏内设置窗口 | `mcai.screen.*` / `mcai.help.*` | API 是什么？ → What is an API? |
+| `/ai` 全部回显 | `mcai.cmd.*` | 今日消耗 → Today |
+| 进服功能清单 | `mcai.guide.*` | 功能与指令一览 → Features and commands |
+| 发给 AI 的系统提示词 | `mcai.prompt.system` | 决定 AI 用中文还是英文回答 |
+
+想加别的语言（比如 `ja_jp` / `ru_ru`），只要在 `src/main/resources/assets/mcai/lang/` 下
+新建 `xx_xx.json`，把那 146 个键翻译一遍即可，**不用改任何 Java 代码**。
+
+> 只有游戏内文案会翻译；`config/mcai.json` 里存的值和 `config/mcai-usage.csv` 里的记录
+> 始终保持 ASCII 且与语言无关，切换语言不会破坏已有配置和历史统计。
 
 ---
 
@@ -44,7 +72,7 @@
 ```
 .minecraft/mods/
 ├── fabric-api-0.116.17+1.21.1.jar
-└── mcai-1.0.0.jar
+└── mcai-1.1.0.jar
 ```
 
 ### 2. 填写 API Key
@@ -86,14 +114,17 @@
 | --- | --- |
 | `/ai status` | 查看当前模型、模式、截图分辨率、今日消耗、思考显示设置（API Key 会打码） |
 | `/ai token` | 今日 Token 消耗 + 最近 8 次调用明细（时间 / token 数 / 来源 / 模型） |
-| `/ai resolution <360p\|720p\|1080p\|原始>` | 调整截图清晰度，**支持 Tab 补全**；也接受 `480p` 这类自定义高度 |
+| `/ai resolution <360p\|720p\|1080p\|original>` | 调整截图清晰度，**支持 Tab 补全**；也接受 `480p` 这类自定义高度，以及旧写法 `原始` |
 | `/ai help` | 重新显示功能清单 |
 
 ### 截图分辨率怎么选
 
 - `360p` / `720p` / `1080p`：**只缩小、不放大**。窗口比目标还小时保持原样，因为放大只会浪费 token 而不增加信息量。
-- `原始`：完全不缩放。
+- `原始` / `original`：完全不缩放。命令行参数请用 `original`（`原始` 仍作为兼容写法保留）。
 - 分辨率越低，请求越快越省 token，但字太小的画面可能识别不准。
+
+> 配置文件里存的值**始终是 ASCII**（`original` 而不是 `原始`），这样切换游戏语言不会
+> 影响已有配置，国际玩家的配置文件也不会出现编码问题。
 
 > 实测：一张 1280×720 的图压到 **360p**，JPEG 约 **14 KB**，模型依然能准确读出画面里的文字。
 
@@ -111,7 +142,7 @@
 | `available_models` | `["deepseek-flash", "deepseek-v4-pro"]` | 「模型切换器」右键循环的列表 |
 | `mode` | `chat` | 当前模式 |
 | `available_modes` | `["chat", "vision"]` | 「模式切换器」右键循环的列表 |
-| `vision_resolution` | `720p` | `H` 截图的目标分辨率 |
+| `vision_resolution` | `720p` | `H` 截图的目标分辨率，取值 `360p` / `720p` / `1080p` / `original` |
 | `show_reasoning` | `true` | 是否在聊天栏显示思维链 |
 | `reasoning_max_chars` | `500` | 思维链最多显示多少字；**设为 `0` 显示完整思考**（可能刷屏，实测单个问题可达 4000~6600 字） |
 | `daily_tokens` | `0` | 今日消耗，程序自动维护 |
@@ -173,7 +204,7 @@ time,model,source,tokens
 ./gradlew clean build
 ```
 
-产物在 `build/libs/mcai-1.0.0.jar`。
+产物在 `build/libs/mcai-1.1.0.jar`。
 
 ### ⚠️ 关于 JDK 版本
 
@@ -213,7 +244,8 @@ org.gradle.java.home=C:/path/to/your/jdk-21
 | 截图后手动 `mirrorVertically()` | 它**内部已经翻转过**了，再翻一次图会上下颠倒 |
 | `UseItemCallback` 返回 `ActionResult` | 返回 **`TypedActionResult<ItemStack>`**（1.21.1 的 `ActionResult` 只是普通 enum） |
 | `PacketCodec.of(ValueEncoder, …)` | 第一个参数类型是 **`ValueFirstEncoder`** |
-| `StringArgumentType.word()` 接收任意文本 | **只接受 ASCII**，中文参数（如 `原始`）会解析失败，必须用 literal 节点 |
+| `StringArgumentType.word()` 接收任意文本 | **只接受 ASCII**，中文参数（如 `原始`）会解析失败，必须用 literal 节点。本模组因此把标准值定成 ASCII 的 `original`，中文只作为额外的 literal 别名 |
+| `I18n.translate()` 到处用 | 它在 `net.minecraft.client.*` 里，装到**专用服务端**会 `NoClassDefFoundError`。改用 common 包里的 `Text.translatable(...).getString()`，两端都安全 |
 | `NativeImage.getColor()` 通道顺序 | 返回 **ARGB**（名字里的 `RGBA` 有歧义，已用真实类实测确认） |
 | `NativeImage` 不用管 | 占**堆外内存**，不 `close()` 会真泄漏 |
 

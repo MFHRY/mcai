@@ -4,6 +4,7 @@ import com.example.mcai.client.ThinkingIndicator;
 import com.example.mcai.util.AiResponseParser;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.HttpErrorCatalog;
+import com.example.mcai.util.Lang;
 import com.example.mcai.util.TokenStats;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -24,7 +25,6 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class ChatHandler {
     private static final String PREFIX = "!ai";
     private static final long COOLDOWN_MILLIS = 8000L;
-    private static final String SYSTEM_PROMPT = "你是一个 Minecraft 游戏助手，请用简洁的中文回答玩家的问题。";
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
 
@@ -66,7 +66,7 @@ public final class ChatHandler {
             question = question.substring(1).trim();
         }
         if (question.isEmpty()) {
-            sendLocalMessage(mc, "§e[AI] 请输入你的问题，例如：!ai 怎么合成钻石镐？");
+            sendLocalMessage(mc, Lang.tr("mcai.chat.empty"));
             return;
         }
 
@@ -74,7 +74,7 @@ public final class ChatHandler {
         long allowedAt = nextAllowedTime.get();
         if (now < allowedAt) {
             long remainSeconds = (allowedAt - now + 999L) / 1000L;
-            sendLocalMessage(mc, "§e[AI] 请不要刷屏，还需等待 " + remainSeconds + " 秒。");
+            sendLocalMessage(mc, Lang.tr("mcai.chat.cooldown", remainSeconds));
             return;
         }
         nextAllowedTime.set(now + COOLDOWN_MILLIS);
@@ -83,15 +83,15 @@ public final class ChatHandler {
         ConfigManager.ConfigData config = configManager.get();
 
         if (config == null) {
-            sendLocalMessage(mc, "§c[AI] 配置加载失败，请检查配置文件。");
+            sendLocalMessage(mc, Lang.tr("mcai.error.config_load"));
             return;
         }
         if (config.apiKey == null || config.apiKey.isBlank()) {
-            sendLocalMessage(mc, "§c[AI] 还没有填写 apiKey，请先修改配置文件。");
+            sendLocalMessage(mc, Lang.tr("mcai.error.no_apikey"));
             return;
         }
         if (config.apiUrl == null || config.apiUrl.isBlank()) {
-            sendLocalMessage(mc, "§c[AI] 还没有填写 apiUrl，请先修改配置文件。");
+            sendLocalMessage(mc, Lang.tr("mcai.error.no_apiurl"));
             return;
         }
 
@@ -114,7 +114,7 @@ public final class ChatHandler {
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
                     .build();
         } catch (IllegalArgumentException e) {
-            sendLocalMessage(mc, "§c" + question + " (0: 接口地址不合法)");
+            sendLocalMessage(mc, "§c" + question + " (" + Lang.tr("mcai.error.code0") + ")");
             return;
         }
 
@@ -129,7 +129,8 @@ public final class ChatHandler {
             long elapsedMillis = thinking.finish();
             try {
                 if (throwable != null) {
-                    sendLocalMessage(mc, "§c" + question + " (网络错误: " + rootMessage(throwable) + ")");
+                    sendLocalMessage(mc, "§c" + question
+                            + " (" + Lang.tr("mcai.error.network", rootMessage(throwable)) + ")");
                     return;
                 }
                 int statusCode = response.statusCode();
@@ -139,7 +140,8 @@ public final class ChatHandler {
                     handleHttpError(mc, question, statusCode);
                 }
             } catch (Throwable t) {
-                sendLocalMessage(mc, "§c" + question + " (处理响应失败: " + rootMessage(t) + ")");
+                sendLocalMessage(mc, "§c" + question
+                        + " (" + Lang.tr("mcai.error.response", rootMessage(t)) + ")");
             } finally {
                 // 幂等兜底：即使上面某条路径漏了，也保证动画一定会停
                 thinking.finish();
@@ -161,7 +163,8 @@ public final class ChatHandler {
     private static String buildRequestBody(String model, String question) {
         JsonObject systemMessage = new JsonObject();
         systemMessage.addProperty("role", "system");
-        systemMessage.addProperty("content", SYSTEM_PROMPT);
+        // 每次请求时才取：玩家中途切换游戏语言也能立刻生效
+        systemMessage.addProperty("content", Lang.tr("mcai.prompt.system"));
 
         JsonObject userMessage = new JsonObject();
         userMessage.addProperty("role", "user");
@@ -182,7 +185,7 @@ public final class ChatHandler {
     private void handleSuccess(MinecraftClient mc, String responseBody, long elapsedMillis) {
         JsonObject root = AiResponseParser.parseObject(responseBody);
         if (root == null) {
-            sendLocalMessage(mc, "§c[AI] 接口返回了无法识别的内容。");
+            sendLocalMessage(mc, Lang.tr("mcai.error.unparsable"));
             return;
         }
 
@@ -194,7 +197,7 @@ public final class ChatHandler {
 
         String reply = AiResponseParser.extractContent(root);
         if (reply == null || reply.isBlank()) {
-            reply = "（接口没有返回内容）";
+            reply = Lang.tr("mcai.reply.empty");
         }
         sendLocalMessage(mc, "§f[AI] " + reply.replace("\n", " ").trim()
                 + " " + ThinkingIndicator.formatElapsed(elapsedMillis));

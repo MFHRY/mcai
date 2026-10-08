@@ -9,11 +9,13 @@ package com.example.mcai.util;
  *
  * <p>所以默认只显示前 {@code reasoning_max_chars} 个字（默认 500，可在 mcai.json 里改），
  * 并标注完整长度；把 {@code reasoning_max_chars} 设为 {@code 0} 即可显示完整思考过程。
+ *
+ * <p>前缀与截断说明都走语言文件，中英文各自成句（不是逐字翻译）。
  */
 public final class ReasoningFormatter {
 
-    /** 前缀，浅灰 [思考] + 深灰正文，视觉上和白色答案区分开。 */
-    private static final String PREFIX = "§7[思考] §8";
+    /** 前缀键，浅灰 [思考] + 深灰正文，视觉上和白色答案区分开。 */
+    private static final String PREFIX_KEY = "mcai.reasoning.prefix";
 
     private ReasoningFormatter() {}
 
@@ -36,11 +38,11 @@ public final class ReasoningFormatter {
             return null;
         }
 
+        String prefix = Lang.tr(PREFIX_KEY);
         if (maxChars > 0 && text.length() > maxChars) {
-            return PREFIX + text.substring(0, maxChars)
-                    + " §8…（省略 " + (text.length() - maxChars) + " 字，共 " + text.length()
-                    + " 字；把 mcai.json 的 reasoning_max_chars 设为 0 可显示完整思考）";
+            return prefix + text.substring(0, maxChars)
+                    + Lang.tr("mcai.reasoning.truncated", text.length() - maxChars, text.length());
         }
-        return PREFIX + text;
+        return prefix + text;
     }
 }
