@@ -1,0 +1,9 @@
+{
+  "item.mcai.ai_model_switcher": "模型切换器",
+  "item.mcai.ai_mode_switcher": "模式切换器",
+  "tooltip.mcai.model_switcher.action": "右键：切换到下一个模型",
+  "tooltip.mcai.mode_switcher.action": "右键：切换到下一个模式",
+  "tooltip.mcai.current": "当前：%s",
+  "category.mcai": "mcAI 智能助手",
+  "key.mcai.vision": "截图识别（视觉）"
+}

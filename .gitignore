@@ -1,0 +1,59 @@
+# gradle
+
+.gradle/
+build/
+out/
+classes/
+
+# eclipse
+
+*.launch
+
+# idea
+
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# vscode
+
+.settings/
+.vscode/
+bin/
+.classpath
+.project
+
+# macos
+
+*.DS_Store
+
+# fabric
+
+run/
+
+# java
+
+hs_err_*.log
+replay_*.log
+*.hprof
+*.jfr
+
+# ---------------------------------------------------------------------------
+# Quarantined Fabric template sources
+#
+# This project does NOT enable loom { splitEnvironmentSourceSets() }, so
+# src/client is not part of any source set and would never be compiled. It is
+# kept out of the repository to avoid confusing contributors with dead code.
+# ---------------------------------------------------------------------------
+src/_unused_client_sourceSet/
+
+# ---------------------------------------------------------------------------
+# Never commit real credentials.
+# mcai.json holds the API key and mcai-usage.csv holds the token history.
+# In a dev environment they live under run/config/ (already ignored above);
+# these entries are a safety net in case the game directory is ever redirected
+# into the project folder.
+# ---------------------------------------------------------------------------
+mcai.json
+mcai-usage.csv

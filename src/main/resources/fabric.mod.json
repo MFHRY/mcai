@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "mcai",
+	"version": "${version}",
+	"name": "mcAI",
+	"description": "Chat with an AI from the Minecraft chat bar via the '!ai' prefix, and press H to send a screenshot to a multimodal model. Includes chain-of-thought display, request timing, per-day token accounting with a CSV usage log, and Chinese-localized API error messages.",
+	"authors": [
+		"mfhry"
+	],
+	"contact": {
+		"homepage": "https://github.com/MFHRY/mcai",
+		"sources": "https://github.com/MFHRY/mcai",
+		"issues": "https://github.com/MFHRY/mcai/issues"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/mcai/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.example.mcai.McaiMod"
+		],
+		"client": [
+			"com.example.mcai.McaiModClient"
+		]
+	},
+	"mixins": [
+		"modid.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

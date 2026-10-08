@@ -1,0 +1,9 @@
+{
+  "item.mcai.ai_model_switcher": "AI Model Switcher",
+  "item.mcai.ai_mode_switcher": "AI Mode Switcher",
+  "tooltip.mcai.model_switcher.action": "Right-click: switch to the next model",
+  "tooltip.mcai.mode_switcher.action": "Right-click: switch to the next mode",
+  "tooltip.mcai.current": "Current: %s",
+  "category.mcai": "mcAI Assistant",
+  "key.mcai.vision": "Screenshot Recognition (Vision)"
+}
