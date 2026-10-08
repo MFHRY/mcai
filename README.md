@@ -238,7 +238,13 @@ mcAI 完全免费，以 **CC0** 协议开源 —— 可自由使用、修改、�
 
 - ⭐ **给仓库点个 Star** —— 这是最实际的支持，能帮更多人看到它
 - 🐛 在 [Issues](https://github.com/MFHRY/mcai/issues) 里反馈问题或建议
-- 💰 **资金支持** —— 见仓库顶部的 **Sponsor** 按钮，或 [`.github/FUNDING.yml`](.github/FUNDING.yml)（渠道正在陆续配置中）
+- 💰 **请作者喝杯咖啡** —— [爱发电主页](https://afdian.com/a/1145141919810aaac)
+
+| 支付宝 | 微信支付 |
+| :---: | :---: |
+| <img src="docs/donate/alipay.jpg" width="230" alt="支付宝赞赏码"> | <img src="docs/donate/wechat.jpg" width="230" alt="微信赞赏码"> |
+
+> 赞助完全自愿。**不赞助也能使用全部功能，而且永远如此。**
 
 感谢每一位使用者 ❤️
 
