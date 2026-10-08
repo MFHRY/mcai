@@ -229,6 +229,21 @@ org.gradle.java.home=C:/path/to/your/jdk-21
 
 ---
 
+## 支持这个项目
+
+mcAI 完全免费，以 **CC0** 协议开源 —— 可自由使用、修改、再分发（含商用），无需署名。
+项目不设付费功能、没有广告，也不会因为你没赞助而限制任何东西。
+
+如果它确实帮到了你，欢迎：
+
+- ⭐ **给仓库点个 Star** —— 这是最实际的支持，能帮更多人看到它
+- 🐛 在 [Issues](https://github.com/MFHRY/mcai/issues) 里反馈问题或建议
+- 💰 **资金支持** —— 见仓库顶部的 **Sponsor** 按钮，或 [`.github/FUNDING.yml`](.github/FUNDING.yml)（渠道正在陆续配置中）
+
+感谢每一位使用者 ❤️
+
+---
+
 ## 许可证
 
 [CC0 1.0 Universal](LICENSE) — 公共领域贡献，可自由使用、修改、再分发。

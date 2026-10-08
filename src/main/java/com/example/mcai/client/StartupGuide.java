@@ -7,6 +7,8 @@ import com.example.mcai.util.ModelCatalog;
 import com.example.mcai.util.VisionResolution;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.minecraft.text.ClickEvent;
+import net.minecraft.text.Text;
 
 /**
  * 进入世界后，在聊天栏打印一份「本模组所有触发方式 + 功能」清单。
@@ -52,6 +54,7 @@ public final class StartupGuide {
                 : VisionResolution.display(config.visionResolution);
 
         ClientChat.sendLiteral("§b§l[mcAI] §r§f功能与指令一览");
+        ClientChat.sendLiteral("§e /ai config §8→ §7打开设置窗口，填写 API Key");
         ClientChat.sendLiteral("§e !ai §7<问题> §8→ §7在聊天栏向 AI 提问§8（§7冷却 8 秒§8）");
         ClientChat.sendLiteral("§e 右键「模型切换器」 §8→ §7循环切换 AI 模型");
         ClientChat.sendLiteral("§e 右键「模式切换器」 §8→ §7循环切换 聊天 / 视觉 模式");
@@ -64,5 +67,12 @@ public final class StartupGuide {
         ClientChat.sendLiteral("§8  · 当前模式：§f" + ModeCatalog.describe(mode));
         ClientChat.sendLiteral("§8  · 截图分辨率：§f" + resolution
                 + " §8（可在 mcai.json 里改 vision_resolution）");
+
+        // 还没填 Key 时给一条醒目、可点击的提示
+        if (config != null && (config.apiKey == null || config.apiKey.isBlank())) {
+            ClientChat.send(Text.literal("§c[!] 还没有填写 API Key —— 点这里打开设置窗口")
+                    .styled(style -> style.withClickEvent(new ClickEvent(
+                            ClickEvent.Action.SUGGEST_COMMAND, "/ai config"))));
+        }
     }
 }

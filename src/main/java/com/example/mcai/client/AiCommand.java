@@ -12,6 +12,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 
 import java.time.LocalDate;
@@ -45,6 +46,13 @@ public final class AiCommand {
             root.then(ClientCommandManager.literal("help")
                     .executes(context -> {
                         StartupGuide.show();
+                        return 1;
+                    }));
+
+            // 打开游戏内设置窗口（填写 API Key 等）
+            root.then(ClientCommandManager.literal("config")
+                    .executes(context -> {
+                        MinecraftClient.getInstance().setScreen(new ConfigScreen(null));
                         return 1;
                     }));
 
