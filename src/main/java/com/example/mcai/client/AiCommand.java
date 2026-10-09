@@ -1,13 +1,22 @@
 package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
+import com.example.mcai.ChatHandler;
 import com.example.mcai.util.ClientChat;
+import com.example.mcai.util.HistoryStore;
 import com.example.mcai.util.Lang;
+import com.example.mcai.util.LocalProvider;
 import com.example.mcai.util.ModeCatalog;
 import com.example.mcai.util.ModelCatalog;
+import com.example.mcai.util.PersonaCatalog;
+import com.example.mcai.util.PricingCatalog;
+import com.example.mcai.util.RecipeHelper;
+import com.example.mcai.util.TextReader;
 import com.example.mcai.util.TokenStats;
 import com.example.mcai.util.UsageLog;
 import com.example.mcai.util.VisionResolution;
+import com.example.mcai.util.WorldContext;
+import com.example.mcai.vision.VisionHandler;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -48,6 +57,56 @@ public final class AiCommand {
 
             root.then(ClientCommandManager.literal("token")
                     .executes(context -> token(context.getSource())));
+
+            // #11 花费明细:今日花了多少钱 + 是否超预算
+            root.then(ClientCommandManager.literal("cost")
+                    .executes(context -> cost(context.getSource())));
+
+            // #7 清空本地内存里的多轮上下文
+            root.then(ClientCommandManager.literal("clear")
+                    .executes(context -> {
+                        HistoryStore.clear();
+                        context.getSource().sendFeedback(
+                                Text.literal(Lang.tr("mcai.cmd.clear_done")));
+                        return 1;
+                    }));
+
+            // #9 人格预设
+            root.then(buildPersonaNode());
+
+            // #17 最近 7 天用量曲线
+            root.then(ClientCommandManager.literal("chart")
+                    .executes(context -> chart(context.getSource())));
+
+            // #3 地理顾问:把当前坐标/群系/光照/维度发给 AI
+            root.then(ClientCommandManager.literal("where")
+                    .executes(context -> where(context.getSource(), null))
+                    .then(ClientCommandManager.argument("question", StringArgumentType.greedyString())
+                            .executes(context -> where(context.getSource(),
+                                    StringArgumentType.getString(context, "question")))));
+
+            // #5 翻译眼前的告示牌 / 手中的成书(纯文本,不烧图片 token)
+            root.then(ClientCommandManager.literal("read")
+                    .executes(context -> read(context.getSource())));
+
+            // #16 无障碍:把屏幕上有什么念给玩家听
+            root.then(ClientCommandManager.literal("describe")
+                    .executes(context -> {
+                        VisionHandler.trigger(Lang.tr("mcai.vision.prompt.describe"));
+                        return 1;
+                    }));
+
+            // #10 背包懒汉包:列出当前材料就能做出来的东西(零 token)
+            root.then(ClientCommandManager.literal("craft")
+                    .executes(context -> craft(context.getSource())));
+
+            // #19 AI 任务:按背包内容生成任务 / 查看 / 清除
+            root.then(ClientCommandManager.literal("task")
+                    .executes(context -> taskGenerate(context.getSource()))
+                    .then(ClientCommandManager.literal("show")
+                            .executes(context -> taskShow(context.getSource())))
+                    .then(ClientCommandManager.literal("clear")
+                            .executes(context -> taskClear(context.getSource()))));
 
             root.then(ClientCommandManager.literal("help")
                     .executes(context -> {
@@ -125,9 +184,32 @@ public final class AiCommand {
                         ? Lang.tr("mcai.cmd.reasoning_all")
                         : Lang.tr("mcai.cmd.reasoning_chars", config.reasoningMaxChars))));
         source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_url", config.apiUrl)));
+        if (LocalProvider.isLocal(config.apiUrl)) {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_local")));
+        }
         source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_key", maskKey(config.apiKey))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_cost",
+                formatYuan(TokenStats.todayCost()), budgetLabel(config))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_persona",
+                PersonaCatalog.describe(config.persona))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_history",
+                Math.max(0, config.historyTurns))));
         source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_hint")));
         return 1;
+    }
+
+    /** 今日预算的说明文字(未启用/剩余多少)。 */
+    private static String budgetLabel(ConfigManager.ConfigData config) {
+        if (config.dailyBudgetYuan <= 0) {
+            return Lang.tr("mcai.cmd.budget_off");
+        }
+        double remain = Math.max(0.0, config.dailyBudgetYuan - TokenStats.todayCost());
+        return Lang.tr("mcai.cmd.budget_remain", formatYuan(remain));
+    }
+
+    /** 元,保留 2 位小数。 */
+    private static String formatYuan(double yuan) {
+        return String.format(java.util.Locale.ROOT, "%.2f", Math.max(0.0, yuan));
     }
 
     // ------------------------------------------------------------------- token
@@ -159,11 +241,197 @@ public final class AiCommand {
         return 1;
     }
 
+    // ------------------------------------------------------------------- cost
+
+    private static int cost(FabricClientCommandSource source) {
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_title")));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_today",
+                LocalDate.now(), formatYuan(TokenStats.todayCost()))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_tokens",
+                TokenStats.todayTotal())));
+
+        PricingCatalog.Quote quote = PricingCatalog.find(config == null ? null : config.model);
+        if (quote == null) {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_unknown",
+                    config == null ? "?" : config.model)));
+        } else {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_rate",
+                    formatYuan(quote.inputPerMillion()), formatYuan(quote.outputPerMillion()),
+                    Lang.tr(PricingCatalog.isPeakHour()
+                            ? "mcai.cmd.rate_peak" : "mcai.cmd.rate_off"))));
+        }
+
+        if (config != null && config.dailyBudgetYuan > 0) {
+            if (TokenStats.isOverDailyBudget()) {
+                source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.budget_over",
+                        formatYuan(config.dailyBudgetYuan))));
+            } else {
+                source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.budget_remain",
+                        formatYuan(config.dailyBudgetYuan - TokenStats.todayCost()))));
+            }
+        } else {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.budget_off")));
+        }
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_note")));
+        return 1;
+    }
+
+    // ---------------------------------------------------------------- persona
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> buildPersonaNode() {
+        LiteralArgumentBuilder<FabricClientCommandSource> node =
+                ClientCommandManager.literal("persona");
+        for (String id : PersonaCatalog.ids()) {
+            node.then(ClientCommandManager.literal(id)
+                    .executes(context -> setPersona(context.getSource(), id)));
+        }
+        return node;
+    }
+
+    private static int setPersona(FabricClientCommandSource source, String id) {
+        ConfigManager.getInstance().update(config -> {
+            config.persona = id;
+            java.util.List<String> list = new java.util.ArrayList<>(
+                    config.availablePersonas == null ? java.util.List.of() : config.availablePersonas);
+            if (!list.contains(id)) {
+                list.add(id);
+            }
+            config.availablePersonas = java.util.List.copyOf(list);
+        });
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.persona_set",
+                PersonaCatalog.describe(id))));
+        return 1;
+    }
+
+    // ----------------------------------------------------------------- chart
+
+    /** #17 最近 7 天用量柱状图（纯文字，聊天栏直接显示）。 */
+    private static int chart(FabricClientCommandSource source) {
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.chart_title")));
+        UsageLog.dailyTotalsAsync(7).whenComplete((days, error) -> {
+            if (error != null || days == null || days.isEmpty()) {
+                ClientChat.sendLiteral(Lang.tr("mcai.cmd.token_read_failed",
+                        error == null ? "?" : String.valueOf(error.getMessage())));
+                return;
+            }
+            int max = 0;
+            for (UsageLog.DayTotal d : days) {
+                max = Math.max(max, d.tokens());
+            }
+            if (max <= 0) {
+                ClientChat.sendLiteral(Lang.tr("mcai.cmd.chart_empty"));
+                return;
+            }
+            for (UsageLog.DayTotal d : days) {
+                int bars = (int) Math.round(d.tokens() * 20.0 / max);
+                if (d.tokens() > 0 && bars < 1) {
+                    bars = 1; // 有记录就至少给一根，别显示成空
+                }
+                String bar = "§a" + "|".repeat(bars);
+                ClientChat.sendLiteral(Lang.tr("mcai.cmd.chart_row",
+                        d.date().substring(5), bar, d.tokens(), formatYuan(d.cost())));
+            }
+            ClientChat.sendLiteral(Lang.tr("mcai.cmd.chart_note", formatYuan(TokenStats.todayCost())));
+        });
+        return 1;
+    }
+
+    // ------------------------------------------------------------------ where
+
+    /** #3 地理顾问。 */
+    private static int where(FabricClientCommandSource source, String question) {
+        String prompt = WorldContext.asPrompt(question);
+        if (WorldContext.snapshot() == null) {
+            source.sendError(Text.literal(Lang.tr("mcai.ctx.not_in_world")));
+            return 0;
+        }
+        ChatHandler.ask(prompt);
+        return 1;
+    }
+
+    // ------------------------------------------------------------------- read
+
+    /** #5 读取眼前的告示牌或手中的成书并请 AI 翻译。 */
+    private static int read(FabricClientCommandSource source) {
+        TextReader.Found found = TextReader.read();
+        if (found == null) {
+            source.sendError(Text.literal(Lang.tr("mcai.read.not_found")));
+            return 0;
+        }
+        // 文字原样附在提问后面,让模型翻译。纯文本请求,比截图便宜得多。
+        String prompt = Lang.tr("mcai.read.ask", found.source()) + "\n\n" + found.text();
+        ChatHandler.ask(prompt);
+        return 1;
+    }
+
+    // ------------------------------------------------------------------ craft
+
+    /** #10 背包懒汉包：列出材料够的配方。纯本地计算，不花 token。 */
+    private static int craft(FabricClientCommandSource source) {
+        java.util.List<RecipeHelper.Craftable> list = RecipeHelper.craftableNow();
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_title")));
+        if (list.isEmpty()) {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_empty")));
+            return 1;
+        }
+        int shown = 0;
+        for (RecipeHelper.Craftable item : list) {
+            if (shown >= 12) {
+                source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_more",
+                        list.size() - shown)));
+                break;
+            }
+            String ingredients = item.ingredients().isEmpty()
+                    ? Lang.tr("mcai.craft.unknown_ingredients")
+                    : String.join(Lang.tr("mcai.craft.separator"), item.ingredients());
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_entry",
+                    item.count() > 1 ? item.output() + " x" + item.count() : item.output(),
+                    ingredients)));
+            shown++;
+        }
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_note")));
+        return 1;
+    }
+
+    // ------------------------------------------------------------------- task
+
+    /** #19 按背包内容生成任务。 */
+    private static int taskGenerate(FabricClientCommandSource source) {
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.task_generating")));
+        // 回答回来后存成任务；ask 内部会处理冷却、预算、错误提示
+        ChatHandler.ask(TaskTracker.buildTaskPrompt(), reply -> {
+            TaskTracker.set(reply);
+            ClientChat.sendLiteral(Lang.tr("mcai.cmd.task_saved"));
+        });
+        return 1;
+    }
+
+    private static int taskShow(FabricClientCommandSource source) {
+        String task = TaskTracker.current();
+        if (task == null) {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.task_none")));
+            return 1;
+        }
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.task_title")));
+        for (String line : task.split("\n")) {
+            if (!line.isBlank()) {
+                source.sendFeedback(Text.literal("§7 " + line.trim()));
+            }
+        }
+        return 1;
+    }
+
+    private static int taskClear(FabricClientCommandSource source) {
+        TaskTracker.clear();
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.task_cleared")));
+        return 1;
+    }
+
     // -------------------------------------------------------------- resolution
 
     private static int setResolution(FabricClientCommandSource source, String raw) {
-        if (!VisionResolution.isUsable(raw)) {
-            source.sendError(Text.literal(Lang.tr("mcai.cmd.resolution_invalid",
+        if (!VisionResolution.isUsable(raw)) {            source.sendError(Text.literal(Lang.tr("mcai.cmd.resolution_invalid",
                     raw, String.join(" / ", VisionResolution.OPTIONS))));
             return 0;
         }

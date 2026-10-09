@@ -3,7 +3,7 @@
 	"id": "mcai",
 	"version": "${version}",
 	"name": "mcAI",
-	"description": "Chat with an AI from the Minecraft chat bar via the '!ai' prefix, and press H to send a screenshot to a multimodal model. Includes chain-of-thought display, request timing, per-day token accounting with a CSV usage log, and fully localized UI text and API error messages (English / Chinese).",
+	"description": "Chat with an AI from the Minecraft chat bar via the '!ai' prefix, press H to send a screenshot to a multimodal model, and press G to analyse a build or redstone circuit. Local models (Ollama / LM Studio) need no API key. Includes multi-turn context kept in memory, cost estimation with an optional daily budget cap, multiple API keys with automatic failover, persona presets, sign/book translation, a world-context advisor, a local recipe helper that costs no tokens, death recap and Discord webhooks, streaming output, and fully localized UI text and API error messages (English / Chinese).",
 	"authors": [
 		"mfhry"
 	],

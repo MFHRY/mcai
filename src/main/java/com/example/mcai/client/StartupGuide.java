@@ -3,6 +3,7 @@ package com.example.mcai.client;
 import com.example.mcai.ConfigManager;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.Lang;
+import com.example.mcai.util.LocalProvider;
 import com.example.mcai.util.ModeCatalog;
 import com.example.mcai.util.ModelCatalog;
 import com.example.mcai.util.VisionResolution;
@@ -63,6 +64,16 @@ public final class StartupGuide {
         ClientChat.sendLiteral(Lang.tr("mcai.guide.model_switcher"));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.mode_switcher"));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.vision"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.build"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.where"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.read"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.craft"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.task"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.describe"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.cost"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.chart"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.persona"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.clear"));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.status"));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.token"));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.resolution"));
@@ -71,8 +82,9 @@ public final class StartupGuide {
         ClientChat.sendLiteral(Lang.tr("mcai.guide.current_mode", ModeCatalog.describe(mode)));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.current_resolution", resolution));
 
-        // 还没填 Key 时给一条醒目、可点击的提示
-        if (config != null && (config.apiKey == null || config.apiKey.isBlank())) {
+        // 还没填 Key 时给一条醒目、可点击的提示。
+        // 指向本机推理服务（Ollama / LM Studio）时不需要 key，别把人吓着去办 key。
+        if (config != null && LocalProvider.requiresApiKey(config.apiUrl, config.apiKey)) {
             ClientChat.send(Text.literal(Lang.tr("mcai.guide.no_key"))
                     .styled(style -> style.withClickEvent(new ClickEvent(
                             ClickEvent.Action.SUGGEST_COMMAND, "/ai config"))));

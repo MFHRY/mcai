@@ -46,8 +46,13 @@ public final class ScreenshotCapture {
 
     private ScreenshotCapture() {}
 
-    /** 编码结果。 */
-    public record EncodedImage(String base64, int width, int height, int jpegBytes) {}
+    /** 编码结果。{@code jpeg} 是原始 JPEG 字节（Discord 播报要用），{@code base64} 是给模型的。 */
+    public record EncodedImage(String base64, byte[] jpeg, int width, int height) {
+        /** JPEG 字节数，日志用。 */
+        public int jpegBytes() {
+            return jpeg == null ? 0 : jpeg.length;
+        }
+    }
 
     /**
      * 步骤 1：抓取当前画面。<b>必须在客户端渲染线程调用。</b>
@@ -70,31 +75,81 @@ public final class ScreenshotCapture {
      * 并 flush 掉中间产生的每一个 BufferedImage。
      */
     public static EncodedImage encode(NativeImage image, String resolution) throws IOException {
+        return encode(image, resolution, null);
+    }
+
+    /**
+     * 步骤 2：像素转换 + 可选裁剪 + 按配置缩放 + JPEG(0.8) + Base64。<b>耗时操作，必须放在后台线程。</b>
+     *
+     * <p>本方法<b>接管 image 的所有权</b>：无论成功失败都会 close 掉它，
+     * 并 flush 掉中间产生的每一个 BufferedImage。
+     *
+     * @param crop 可为 null。非 null 时先按比例裁出这块区域再缩放（#4 GUI 感知：
+     *             只发界面那一块，图片 token 大约降到四分之一）
+     */
+    public static EncodedImage encode(NativeImage image, String resolution,
+                                      com.example.mcai.util.ScreenCrop.Region crop) throws IOException {
         BufferedImage source = null;
+        BufferedImage cropped = null;
         BufferedImage working = null;
         try {
             source = toBufferedImage(image);
 
+            BufferedImage base = source;
+            if (crop != null) {
+                cropped = cropRegion(source, crop);
+                if (cropped != null) {
+                    base = cropped;
+                }
+            }
+
             int targetHeight = VisionResolution.targetHeight(resolution);
-            if (targetHeight > 0 && source.getHeight() > targetHeight) {
-                working = scaleToHeight(source, targetHeight);
+            if (targetHeight > 0 && base.getHeight() > targetHeight) {
+                working = scaleToHeight(base, targetHeight);
             } else {
                 // 不缩放，但 JPEG 没有 alpha 通道，仍需转成 TYPE_INT_RGB
-                working = toRgb(source);
+                working = toRgb(base);
             }
 
             byte[] jpeg = toJpeg(working, JPEG_QUALITY);
             String base64 = Base64.getEncoder().encodeToString(jpeg);
-            return new EncodedImage(base64, working.getWidth(), working.getHeight(), jpeg.length);
+            return new EncodedImage(base64, jpeg, working.getWidth(), working.getHeight());
         } finally {
             // 堆外内存，必须释放
             image.close();
-            if (working != null && working != source) {
+            if (working != null && working != source && working != cropped) {
                 working.flush();
+            }
+            if (cropped != null) {
+                cropped.flush();
             }
             if (source != null) {
                 source.flush();
             }
+        }
+    }
+
+    /** 按比例裁出一块区域；区域非法（太小/越界）时返回 null，让调用方用原图。 */
+    private static BufferedImage cropRegion(BufferedImage source, com.example.mcai.util.ScreenCrop.Region crop) {
+        int x = (int) Math.floor(crop.x0() * source.getWidth());
+        int y = (int) Math.floor(crop.y0() * source.getHeight());
+        int w = (int) Math.round(crop.width() * source.getWidth());
+        int h = (int) Math.round(crop.height() * source.getHeight());
+
+        // 夹到图片范围内，避免 setRGB 越界抛异常
+        x = Math.max(0, Math.min(x, source.getWidth() - 1));
+        y = Math.max(0, Math.min(y, source.getHeight() - 1));
+        w = Math.max(1, Math.min(w, source.getWidth() - x));
+        h = Math.max(1, Math.min(h, source.getHeight() - y));
+
+        try {
+            BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            // getRGB 整块取出来、整块塞进去，比逐像素快很多
+            int[] pixels = source.getRGB(x, y, w, h, null, 0, w);
+            out.setRGB(0, 0, w, h, pixels, 0, w);
+            return out;
+        } catch (Throwable t) {
+            return null;
         }
     }
 

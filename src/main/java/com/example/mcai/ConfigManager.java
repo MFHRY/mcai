@@ -9,6 +9,7 @@ import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
+import com.example.mcai.util.LocalProvider;
 import com.example.mcai.util.VisionResolution;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -192,6 +193,18 @@ public class ConfigManager {
         @SerializedName("daily_tokens") public int dailyTokens = 0;
         @SerializedName("token_date") public LocalDate tokenDate = LocalDate.now();
 
+        // ---- 1.20 新增字段 ----
+        @SerializedName("daily_cost_yuan") public double dailyCostYuan = 0.0;
+        @SerializedName("daily_budget_yuan") public double dailyBudgetYuan = 0.0;
+        @SerializedName("backup_api_keys") public List<String> backupApiKeys = List.of();
+        @SerializedName("history_turns") public int historyTurns = 4;
+        @SerializedName("death_recap") public boolean deathRecap = false;
+        @SerializedName("discord_webhook") public String discordWebhook = "";
+        @SerializedName("persona") public String persona = "default";
+        @SerializedName("available_personas") public List<String> availablePersonas = List.of("default");
+        @SerializedName("recipe_cache") public boolean recipeCache = true;
+        @SerializedName("streaming") public boolean streaming = true;
+
         public ConfigData() {}
 
         public ConfigData(ConfigData src) {
@@ -202,6 +215,12 @@ public class ConfigManager {
             this.visionResolution = src.visionResolution; this.dailyTokens = src.dailyTokens;
             this.showReasoning = src.showReasoning; this.reasoningMaxChars = src.reasoningMaxChars;
             this.tokenDate = src.tokenDate;
+            this.dailyCostYuan = src.dailyCostYuan; this.dailyBudgetYuan = src.dailyBudgetYuan;
+            this.backupApiKeys = src.backupApiKeys != null ? List.copyOf(src.backupApiKeys) : List.of();
+            this.historyTurns = src.historyTurns; this.deathRecap = src.deathRecap;
+            this.discordWebhook = src.discordWebhook; this.persona = src.persona;
+            this.availablePersonas = src.availablePersonas != null ? List.copyOf(src.availablePersonas) : List.of("default");
+            this.recipeCache = src.recipeCache; this.streaming = src.streaming;
         }
 
         public boolean fillDefaults() {
@@ -215,6 +234,12 @@ public class ConfigManager {
             if (visionResolution == null || visionResolution.isBlank()) { visionResolution = VisionResolution.DEFAULT; changed = true; }
             if (reasoningMaxChars < 0) { reasoningMaxChars = DEFAULT_REASONING_MAX_CHARS; changed = true; }
             if (tokenDate == null) { tokenDate = LocalDate.now(); changed = true; }
+            if (backupApiKeys == null) { backupApiKeys = List.of(); changed = true; }
+            if (availablePersonas == null || availablePersonas.isEmpty()) { availablePersonas = List.of("default"); changed = true; }
+            if (persona == null || persona.isBlank()) { persona = "default"; changed = true; }
+            if (dailyBudgetYuan < 0.0) { dailyBudgetYuan = 0.0; changed = true; }
+            if (historyTurns < 0) { historyTurns = 0; changed = true; }
+            if (discordWebhook == null) { discordWebhook = ""; changed = true; }
             return changed;
         }
     }

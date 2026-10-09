@@ -85,15 +85,30 @@ public final class AiResponseParser {
 
     /** 取 {@code usage.total_tokens}；没有该字段返回 {@code -1}。 */
     public static int extractTotalTokens(JsonObject root) {
+        return extractToken(root, "total_tokens");
+    }
+
+    /** 取 {@code usage.prompt_tokens}；没有返回 -1。用于估算输入费。 */
+    public static int extractPromptTokens(JsonObject root) {
+        return extractToken(root, "prompt_tokens");
+    }
+
+    /** 取 {@code usage.completion_tokens}；没有返回 -1。用于估算输出费。
+     *  优先读 {@code completion_tokens}，其次回退到 {@code completion_tokens_details} 里的总和。 */
+    public static int extractCompletionTokens(JsonObject root) {
+        return extractToken(root, "completion_tokens");
+    }
+
+    private static int extractToken(JsonObject root, String field) {
         if (root == null || !root.has("usage") || !root.get("usage").isJsonObject()) {
             return -1;
         }
         JsonObject usage = root.getAsJsonObject("usage");
-        if (!usage.has("total_tokens") || usage.get("total_tokens").isJsonNull()) {
+        if (!usage.has(field) || usage.get(field).isJsonNull()) {
             return -1;
         }
         try {
-            return usage.get("total_tokens").getAsInt();
+            return usage.get(field).getAsInt();
         } catch (Exception e) {
             return -1;
         }
@@ -116,6 +131,39 @@ public final class AiResponseParser {
             value = readString(message, "reasoning");
         }
         return (value == null || value.isBlank()) ? null : value;
+    }
+
+    /**
+     * 取流式响应里这一小段新增的正文（#8）。
+     *
+     * <p>流式分片的形状是 {@code choices[0].delta.content}，跟非流式的
+     * {@code message.content} 不同。首个分片和结尾的 usage 分片都可能没有 content，
+     * 这时返回 null（调用方直接跳过即可）。
+     */
+    public static String extractDeltaContent(JsonObject root) {
+        return deltaField(root, "content");
+    }
+
+    /** 取流式分片里的思维链增量（{@code delta.reasoning_content}）。 */
+    public static String extractDeltaReasoning(JsonObject root) {
+        String value = deltaField(root, "reasoning_content");
+        return value != null ? value : deltaField(root, "reasoning");
+    }
+
+    private static String deltaField(JsonObject root, String field) {
+        if (root == null || !root.has("choices") || !root.get("choices").isJsonArray()
+                || root.getAsJsonArray("choices").isEmpty()) {
+            return null;
+        }
+        JsonElement first = root.getAsJsonArray("choices").get(0);
+        if (!first.isJsonObject()) {
+            return null;
+        }
+        JsonObject choice = first.getAsJsonObject();
+        if (!choice.has("delta") || !choice.get("delta").isJsonObject()) {
+            return null;
+        }
+        return readString(choice.getAsJsonObject("delta"), field);
     }
 
     private static JsonObject firstMessage(JsonObject root) {
