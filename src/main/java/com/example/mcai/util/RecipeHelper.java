@@ -51,11 +51,15 @@ public final class RecipeHelper {
         try {
             // 用产物的显示名去重，避免同一个东西因为多个配方（比如不同木材）刷屏
             Map<String, Craftable> unique = new LinkedHashMap<>();
+            int scanned = 0;
+            int crafting = 0;
             for (RecipeEntry<?> entry : world.getRecipeManager().values()) {
+                scanned++;
                 Recipe<?> recipe = entry.value();
                 if (!(recipe instanceof CraftingRecipe)) {
                     continue;
                 }
+                crafting++;
                 if (!canCraftFromInventory(recipe, player)) {
                     continue;
                 }
@@ -67,8 +71,14 @@ public final class RecipeHelper {
                 unique.putIfAbsent(name, new Craftable(
                         name, result.getCount(), describeIngredients(recipe)));
             }
+            // 诊断：扫了多少、其中合成配方多少、最后命中多少。
+            // 结果为空时靠这条日志就能区分"配方表拿不到"和"材料确实不够"。
+            com.example.mcai.McaiMod.LOGGER.info(
+                    "mcAI recipe scan: {} total, {} crafting, {} craftable now",
+                    scanned, crafting, unique.size());
             out.addAll(unique.values());
         } catch (Throwable t) {
+            com.example.mcai.McaiMod.LOGGER.warn("mcAI recipe scan failed: {}", t.toString());
             System.err.println("[mcAI] Recipe scan failed: " + t.getMessage());
         }
         return out;

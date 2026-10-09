@@ -22,6 +22,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 
@@ -44,10 +45,30 @@ public final class AiCommand {
     /** brigadier 的自定义高度参数名。保持 ASCII 且与语言无关，理由见 buildResolutionNode。 */
     private static final String HEIGHT_ARG = "height";
 
+    /**
+     * 待打开的界面。
+     *
+     * <p><b>为什么要延迟到下一个 tick：</b>客户端指令是<b>在聊天界面里</b>执行的，
+     * 而聊天界面执行完指令之后才会自己调用 {@code setScreen(null)} 关闭。
+     * 如果我们在指令里直接 {@code setScreen(新界面)}，那一句会被紧随其后的关闭动作覆盖，
+     * 玩家看到的就是"输入 /ai config 之后毫无反应"。
+     * 所以这里只登记一个意图，等下一个 tick（聊天界面已经关掉了）再去真正打开。
+     */
+    private static Runnable pendingScreen = null;
+
     private AiCommand() {}
 
     /** 在 McaiModClient.onInitializeClient() 里调用。 */
     public static void register() {
+        // 每个 tick 检查一次"有没有界面要打开"
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            Runnable action = pendingScreen;
+            if (action != null) {
+                pendingScreen = null;
+                action.run();
+            }
+        });
+
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             LiteralArgumentBuilder<FabricClientCommandSource> root =
                     ClientCommandManager.literal("ai");
@@ -96,9 +117,12 @@ public final class AiCommand {
                         return 1;
                     }));
 
-            // #10 背包懒汉包:列出当前材料就能做出来的东西(零 token)
+            // #10 配方：不带参数=列出你现在能做的；带名字=查那样东西怎么做
             root.then(ClientCommandManager.literal("craft")
-                    .executes(context -> craft(context.getSource())));
+                    .executes(context -> craft(context.getSource(), null))
+                    .then(ClientCommandManager.argument("item", StringArgumentType.greedyString())
+                            .executes(context -> craft(context.getSource(),
+                                    StringArgumentType.getString(context, "item")))));
 
             // #19 AI 任务:按背包内容生成任务 / 查看 / 清除
             root.then(ClientCommandManager.literal("task")
@@ -117,9 +141,43 @@ public final class AiCommand {
             // 打开游戏内设置窗口（填写 API Key 等）
             root.then(ClientCommandManager.literal("config")
                     .executes(context -> {
-                        MinecraftClient.getInstance().setScreen(new ConfigScreen(null));
+                        // 不能在这里直接 setScreen：聊天界面稍后会把自己关掉并覆盖掉它。
+                        // 登记到下一个 tick 再打开，见 pendingScreen 的说明。
+                        pendingScreen = () -> MinecraftClient.getInstance().setScreen(new ConfigScreen(null));
                         return 1;
                     }));
+
+            // ---- 1.20 开关：让新功能不用手改 mcai.json 也能开 ----
+            root.then(ClientCommandManager.literal("death")
+                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "death", true)))
+                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "death", false))));
+
+            root.then(ClientCommandManager.literal("streaming")
+                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "streaming", true)))
+                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "streaming", false))));
+
+            root.then(ClientCommandManager.literal("recipe")
+                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "recipe", true)))
+                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "recipe", false))));
+
+            root.then(ClientCommandManager.literal("budget")
+                    .then(ClientCommandManager.argument("yuan",
+                                    com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(0.0))
+                            .executes(c -> setBudget(c.getSource(),
+                                    com.mojang.brigadier.arguments.DoubleArgumentType.getDouble(c, "yuan")))));
+
+            root.then(ClientCommandManager.literal("history")
+                    .then(ClientCommandManager.argument("turns",
+                                    com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 20))
+                            .executes(c -> setHistory(c.getSource(),
+                                    com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "turns")))));
+
+            root.then(ClientCommandManager.literal("discord")
+                    .then(ClientCommandManager.literal("clear")
+                            .executes(c -> setDiscord(c.getSource(), "")))
+                    .then(ClientCommandManager.argument("url", StringArgumentType.greedyString())
+                            .executes(c -> setDiscord(c.getSource(),
+                                    StringArgumentType.getString(c, "url")))));
 
             root.then(buildResolutionNode());
 
@@ -367,9 +425,19 @@ public final class AiCommand {
 
     // ------------------------------------------------------------------ craft
 
-    /** #10 背包懒汉包：列出材料够的配方。纯本地计算，不花 token。 */
-    private static int craft(FabricClientCommandSource source) {
+    /**
+     * #10 配方查询。纯本地计算，不花 token。
+     *
+     * @param query null 表示列出"现在材料够做的"；否则按名字查那样东西的配方
+     */
+    private static int craft(FabricClientCommandSource source, String query) {
+        if (query != null && !query.isBlank()) {
+            return craftLookup(source, query.trim());
+        }
+
         java.util.List<RecipeHelper.Craftable> list = RecipeHelper.craftableNow();
+        // 打进日志：万一结果不对，从日志就能看出是扫描失败还是配方确实不匹配
+        com.example.mcai.McaiMod.LOGGER.info("mcAI /ai craft: {} craftable recipe(s) found", list.size());
         source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_title")));
         if (list.isEmpty()) {
             source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_empty")));
@@ -389,6 +457,23 @@ public final class AiCommand {
                     item.count() > 1 ? item.output() + " x" + item.count() : item.output(),
                     ingredients)));
             shown++;
+        }
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_note")));
+        return 1;
+    }
+
+    /** 按名字查配方（不需要背包里有材料）。 */
+    private static int craftLookup(FabricClientCommandSource source, String query) {
+        java.util.List<net.minecraft.recipe.RecipeEntry<?>> found = RecipeHelper.findByName(query);
+        com.example.mcai.McaiMod.LOGGER.info("mcAI /ai craft {}: {} recipe(s) matched",
+                query, found.size());
+        if (found.isEmpty()) {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_lookup_none", query)));
+            return 1;
+        }
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_lookup_title", query)));
+        for (net.minecraft.recipe.RecipeEntry<?> entry : found) {
+            source.sendFeedback(Text.literal("§7 " + RecipeHelper.describe(entry)));
         }
         source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_note")));
         return 1;
@@ -425,6 +510,70 @@ public final class AiCommand {
     private static int taskClear(FabricClientCommandSource source) {
         TaskTracker.clear();
         source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.task_cleared")));
+        return 1;
+    }
+
+    // ------------------------------------------------------- 1.20 开关指令
+
+    /**
+     * 切换一个布尔设置。用一个字符串 id 分派，避免为每个开关重复写一遍指令节点。
+     */
+    private static int setFlag(FabricClientCommandSource source, String id, boolean value) {
+        String label;
+        ConfigManager.getInstance().update(config -> {
+            switch (id) {
+                case "death" -> config.deathRecap = value;
+                case "streaming" -> config.streaming = value;
+                case "recipe" -> config.recipeCache = value;
+                default -> { }
+            }
+        });
+        label = Lang.tr("mcai.cmd.flag_" + id);
+        source.sendFeedback(Text.literal(Lang.tr(value
+                ? "mcai.cmd.flag_on" : "mcai.cmd.flag_off", label)));
+        return 1;
+    }
+
+    /** 设置每日预算（元）；0 表示不限制。 */
+    private static int setBudget(FabricClientCommandSource source, double yuan) {
+        double safe = Math.max(0.0, yuan);
+        ConfigManager.getInstance().update(config -> config.dailyBudgetYuan = safe);
+        if (safe <= 0.0) {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.budget_cleared")));
+        } else {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.budget_set", formatYuan(safe))));
+        }
+        return 1;
+    }
+
+    /** 设置保留几轮上下文；0 表示关闭多轮。 */
+    private static int setHistory(FabricClientCommandSource source, int turns) {
+        int safe = Math.max(0, Math.min(20, turns));
+        ConfigManager.getInstance().update(config -> config.historyTurns = safe);
+        HistoryStore.setMaxTurns(safe);
+        if (safe == 0) {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.history_off")));
+        } else {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.history_set", safe)));
+        }
+        return 1;
+    }
+
+    /** 设置/清除 Discord webhook。 */
+    private static int setDiscord(FabricClientCommandSource source, String url) {
+        String value = url == null ? "" : url.trim();
+        if (!value.isEmpty() && !value.startsWith("https://")) {
+            source.sendError(Text.literal(Lang.tr("mcai.cmd.discord_invalid")));
+            return 0;
+        }
+        ConfigManager.getInstance().update(config -> config.discordWebhook = value);
+        if (value.isEmpty()) {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.discord_cleared")));
+        } else {
+            // 不把完整 URL 打在聊天栏里，避免直播/截图泄露（和 API Key 一样的处理）
+            String masked = value.length() <= 40 ? value : value.substring(0, 40) + "…";
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.discord_set", masked)));
+        }
         return 1;
     }
 

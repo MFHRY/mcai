@@ -73,6 +73,7 @@ public final class StartupGuide {
         ClientChat.sendLiteral(Lang.tr("mcai.guide.cost"));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.chart"));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.persona"));
+        ClientChat.sendLiteral(Lang.tr("mcai.guide.toggles"));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.clear"));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.status"));
         ClientChat.sendLiteral(Lang.tr("mcai.guide.token"));

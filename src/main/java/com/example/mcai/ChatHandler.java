@@ -206,6 +206,7 @@ public final class ChatHandler {
 
         STREAM_EXECUTOR.execute(() -> {
             StringBuilder content = new StringBuilder();
+            StringBuilder reasoning = new StringBuilder();
             String usageChunk = null;
             try {
                 HttpResponse<java.util.stream.Stream<String>> response =
@@ -249,6 +250,11 @@ public final class ChatHandler {
                             content.append(delta);
                             StreamingHud.update(content.toString());
                         }
+                        // 思维链也是分片到达的，先攒起来，收完再按和非流式一样的规则显示
+                        String reasonDelta = AiResponseParser.extractDeltaReasoning(chunk);
+                        if (reasonDelta != null && !reasonDelta.isEmpty()) {
+                            reasoning.append(reasonDelta);
+                        }
                         // 带 usage 的那个分片要留着，收完再一起记统计
                         if (chunk.has("usage") && !chunk.get("usage").isJsonNull()) {
                             usageChunk = chunk.toString();
@@ -258,7 +264,8 @@ public final class ChatHandler {
 
                 long elapsedMillis = thinking.finish();
                 StreamingHud.clear();
-                finishStreaming(mc, question, content.toString(), usageChunk, elapsedMillis, onReply);
+                finishStreaming(mc, question, content.toString(), reasoning.toString(),
+                        usageChunk, elapsedMillis, onReply);
             } catch (Throwable t) {
                 thinking.finish();
                 StreamingHud.clear();
@@ -268,8 +275,8 @@ public final class ChatHandler {
         });
     }
 
-    /** 流式收完后：记统计、写聊天栏、记历史、回调。 */
-    private void finishStreaming(MinecraftClient mc, String question, String content,
+    /** 流式收完后：记统计、显示思维链、写聊天栏、记历史、回调。 */
+    private void finishStreaming(MinecraftClient mc, String question, String content, String reasoning,
                                  String usageChunk, long elapsedMillis,
                                  java.util.function.Consumer<String> onReply) {
         if (usageChunk != null) {
@@ -283,6 +290,9 @@ public final class ChatHandler {
         if (reply.isEmpty()) {
             reply = Lang.tr("mcai.reply.empty");
         }
+
+        // 先补上思维链，再发答案——和非流式链路的顺序保持一致
+        ClientChat.sendReasoningText(reasoning);
 
         HistoryStore.remember(question, reply);
         if (onReply != null) {

@@ -49,6 +49,13 @@ public final class ThinkingIndicator {
                 return;
             }
 
+            // #8 流式输出已经在往这块 Action Bar 上写正文了。
+            // 两边都写会互相覆盖（转圈符号一帧、正文一帧，看起来就是在闪），
+            // 所以流式期间让位给正文，转圈只在"还没开始吐字"的时候显示。
+            if (StreamingHud.isActive()) {
+                return;
+            }
+
             tickCounter++;
             if (tickCounter % TICKS_PER_FRAME == 0) {
                 frameIndex = (frameIndex + 1) % FRAMES.length;

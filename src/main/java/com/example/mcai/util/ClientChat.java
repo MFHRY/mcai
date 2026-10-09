@@ -50,4 +50,25 @@ public final class ClientChat {
             sendLiteral(text);
         }
     }
+
+    /**
+     * 按配置把<b>已经拼好的</b>思维链文本发到聊天栏（#8 流式输出用）。
+     *
+     * <p>流式响应里思维链是分成很多小片（{@code delta.reasoning_content}）陆续到达的，
+     * 没有完整 JSON 可以交给 {@link #sendReasoning}，所以调用方自己拼好再送进来。
+     * 截断、前缀、语言都和非流式路径共用同一套逻辑，两条链路的观感保持一致。
+     */
+    public static void sendReasoningText(String reasoning) {
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        if (config == null || !config.showReasoning) {
+            return;
+        }
+        if (reasoning == null || reasoning.isBlank()) {
+            return;
+        }
+        String text = ReasoningFormatter.format(reasoning, config.reasoningMaxChars);
+        if (text != null) {
+            sendLiteral(text);
+        }
+    }
 }

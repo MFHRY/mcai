@@ -2,6 +2,7 @@ package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
 import com.example.mcai.util.ClientChat;
+import com.example.mcai.util.HistoryStore;
 import com.example.mcai.util.Lang;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -56,6 +57,18 @@ public class ConfigScreen extends Screen {
     private TextFieldWidget modelField;
     private ButtonWidget revealButton;
 
+    // ---- 1.20 新增：开关与数值 ----
+    private ButtonWidget deathButton;
+    private ButtonWidget streamingButton;
+    private ButtonWidget recipeButton;
+    private TextFieldWidget budgetField;
+    private TextFieldWidget historyField;
+
+    /** 按钮上显示的开关状态（本界面内即时切换，保存时才写盘）。 */
+    private boolean deathOn;
+    private boolean streamingOn;
+    private boolean recipeOn;
+
     private boolean revealKey = false;
 
     /** 蓝色提示文字的位置，用于鼠标悬停判定。 */
@@ -76,7 +89,8 @@ public class ConfigScreen extends Screen {
 
         int centerX = this.width / 2;
         int fieldX = centerX - FIELD_WIDTH / 2;
-        this.startY = Math.max(18, (this.height - 190) / 2);
+        // 内容变多了（多了三个开关 + 两个数值输入），窗口高度按 260 预留
+        this.startY = Math.max(18, (this.height - 260) / 2);
 
         // ---------------- API Key ----------------
         int keyFieldWidth = FIELD_WIDTH - REVEAL_WIDTH - 4;
@@ -126,6 +140,78 @@ public class ConfigScreen extends Screen {
                 .dimensions(buttonsX, buttonY, buttonWidth, FIELD_HEIGHT).build());
         addDrawableChild(ButtonWidget.builder(Lang.text("mcai.screen.cancel"), button -> close())
                 .dimensions(buttonsX + buttonWidth + gap, buttonY, buttonWidth, FIELD_HEIGHT).build());
+
+        // ---------------- 1.20 开关（三个一行） ----------------
+        deathOn = config != null && config.deathRecap;
+        streamingOn = config == null || config.streaming;
+        recipeOn = config == null || config.recipeCache;
+
+        int toggleWidth = 84;
+        int toggleGap = 8;
+        int toggleTotal = toggleWidth * 3 + toggleGap * 2;
+        int toggleX = centerX - toggleTotal / 2;
+        int toggleY = startY + 192;
+
+        deathButton = ButtonWidget.builder(deathLabel(), b -> {
+            deathOn = !deathOn;
+            b.setMessage(deathLabel());
+        }).dimensions(toggleX, toggleY, toggleWidth, FIELD_HEIGHT).build();
+        addDrawableChild(deathButton);
+
+        streamingButton = ButtonWidget.builder(streamingLabel(), b -> {
+            streamingOn = !streamingOn;
+            b.setMessage(streamingLabel());
+        }).dimensions(toggleX + toggleWidth + toggleGap, toggleY, toggleWidth, FIELD_HEIGHT).build();
+        addDrawableChild(streamingButton);
+
+        recipeButton = ButtonWidget.builder(recipeLabel(), b -> {
+            recipeOn = !recipeOn;
+            b.setMessage(recipeLabel());
+        }).dimensions(toggleX + (toggleWidth + toggleGap) * 2, toggleY, toggleWidth, FIELD_HEIGHT).build();
+        addDrawableChild(recipeButton);
+
+        // ---------------- 1.20 数值：每日预算 / 上下文轮数 ----------------
+        budgetField = new TextFieldWidget(textRenderer, fieldX, startY + 224,
+                FIELD_WIDTH / 2 - 6, FIELD_HEIGHT, Lang.text("mcai.screen.budget"));
+        budgetField.setMaxLength(16);
+        budgetField.setText(config == null ? "0" : formatNumber(config.dailyBudgetYuan));
+        budgetField.setPlaceholder(Text.literal("0").formatted(Formatting.DARK_GRAY));
+        addDrawableChild(budgetField);
+
+        historyField = new TextFieldWidget(textRenderer, fieldX + FIELD_WIDTH / 2 + 6, startY + 224,
+                FIELD_WIDTH / 2 - 6, FIELD_HEIGHT, Lang.text("mcai.screen.history"));
+        historyField.setMaxLength(2);
+        historyField.setText(config == null ? "4" : String.valueOf(config.historyTurns));
+        historyField.setPlaceholder(Text.literal("4").formatted(Formatting.DARK_GRAY));
+        addDrawableChild(historyField);
+    }
+
+    private Text deathLabel() {
+        return toggleLabel("mcai.screen.toggle_death", deathOn);
+    }
+
+    private Text streamingLabel() {
+        return toggleLabel("mcai.screen.toggle_streaming", streamingOn);
+    }
+
+    private Text recipeLabel() {
+        return toggleLabel("mcai.screen.toggle_recipe", recipeOn);
+    }
+
+    /** 开关按钮的文案：{@code 名称: 开/关}，颜色跟着状态走。 */
+    private static Text toggleLabel(String nameKey, boolean on) {
+        return Lang.text(nameKey).copy()
+                .append(Text.literal(": "))
+                .append(Lang.text(on ? "mcai.screen.on" : "mcai.screen.off")
+                        .formatted(on ? Formatting.GREEN : Formatting.RED));
+    }
+
+    /** 0 显示成 "0" 而不是 "0.00"。 */
+    private static String formatNumber(double value) {
+        if (value == Math.floor(value) && !Double.isInfinite(value)) {
+            return String.valueOf((long) value);
+        }
+        return String.format(java.util.Locale.ROOT, "%.2f", value);
     }
 
     private Text revealLabel() {
@@ -161,6 +247,16 @@ public class ConfigScreen extends Screen {
         context.drawCenteredTextWithShadow(textRenderer,
                 Lang.text("mcai.screen.compat").formatted(Formatting.DARK_GRAY),
                 centerX, startY + 156, 0xFFFFFF);
+
+        // 1.20 新增项的标签
+        int half = FIELD_WIDTH / 2;
+        context.drawTextWithShadow(textRenderer, Lang.text("mcai.screen.budget"),
+                centerX - FIELD_WIDTH / 2, startY + 212, 0xA0A0A0);
+        context.drawTextWithShadow(textRenderer, Lang.text("mcai.screen.history"),
+                centerX - FIELD_WIDTH / 2 + half + 6, startY + 212, 0xA0A0A0);
+        context.drawCenteredTextWithShadow(textRenderer,
+                Lang.text("mcai.screen.hint").formatted(Formatting.DARK_GRAY),
+                centerX, startY + 246, 0xFFFFFF);
 
         // 鼠标悬停在蓝色文字上时解释什么是 API
         if (isHoveringHelp(mouseX, mouseY)) {
@@ -200,6 +296,9 @@ public class ConfigScreen extends Screen {
         String key = apiKeyField.getText().trim();
         String url = apiUrlField.getText().trim();
         String model = modelField.getText().trim();
+        // 数值输入容错：解析失败就保持原值，不要把玩家填错的东西写成 0
+        Double budget = parseDoubleOrNull(budgetField.getText());
+        Integer history = parseIntOrNull(historyField.getText());
 
         ConfigManager manager = ConfigManager.getInstance();
         manager.update(config -> {
@@ -217,15 +316,50 @@ public class ConfigScreen extends Screen {
                 }
                 config.availableModels = List.copyOf(models);
             }
+            // 1.20 新增项
+            config.deathRecap = deathOn;
+            config.streaming = streamingOn;
+            config.recipeCache = recipeOn;
+            if (budget != null) {
+                config.dailyBudgetYuan = Math.max(0.0, budget);
+            }
+            if (history != null) {
+                config.historyTurns = Math.max(0, Math.min(20, history));
+            }
         });
+        // 让多轮上下文立刻生效，不用重启
+        HistoryStore.setMaxTurns(
+                history == null ? 4 : Math.max(0, Math.min(20, history)));
 
         if (key.isEmpty()) {
             ClientChat.sendLiteral(Lang.tr("mcai.screen.saved_empty"));
         } else {
             ClientChat.sendLiteral(Lang.tr("mcai.screen.saved", mask(key)));
-            ClientChat.sendLiteral(Lang.tr("mcai.screen.saved_hint"));
         }
+        ClientChat.sendLiteral(Lang.tr("mcai.screen.saved_hint"));
         close();
+    }
+
+    private static Double parseDoubleOrNull(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(text.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer parseIntOrNull(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(text.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static String mask(String key) {

@@ -33,6 +33,11 @@ public final class StreamingHud {
     private static volatile long lastUpdate = 0L;
     private static volatile boolean active = false;
 
+    /** 是否正在显示流式正文。ThinkingIndicator 靠它决定要不要让出 Action Bar。 */
+    public static boolean isActive() {
+        return active;
+    }
+
     /** 更新正在生成的内容。 */
     public static void update(String partial) {
         if (partial == null) {
