@@ -4,8 +4,41 @@
 
 一个面向 **Minecraft 1.21.1 / Fabric** 的客户端模组：在聊天栏用 `!ai` 提问、按 `H` 截取当前画面交给多模态模型识别，并附带思考过程显示、耗时统计和 Token 用量记录。
 
+> **1.20 起，不花钱也能用**：把接口地址指向本机模型（Ollama / LM Studio）就不需要 API Key，完全离线。
+> 另有 `/ai craft` 这类**零 token** 的本地功能——它读服务器已经同步给你的配方表，不联网、不花钱。
+
 > 核心链路（`!ai` 问答、`H` 截图识别）是**纯客户端**的，因此**在任意服务器上都能用**，包括原版服务器。
 > 只有「切换器物品」的发放依赖服务端（见下方[兼容性说明](#服务器兼容性)）。
+
+---
+
+## 1.20 新功能
+
+| 功能 | 触发方式 | 说明 |
+| --- | --- | --- |
+| **本地模型免 Key** | 改 `api_url` | 指向 `http://localhost:11434/v1`（Ollama）或 LM Studio，**离线免费** |
+| **花费估算** | `/ai cost` | 按 DeepSeek 官方价格表估算人民币，**自动区分高峰/空闲**两档单价 |
+| **每日硬预算** | `/ai budget <元>` | 达到上限直接拒绝新请求，不会月底才发现超支 |
+| **多 Key 降级** | 配置 `backup_api_keys` | 遇到 401 / 402 / 429 自动切到下一个 Key |
+| **多轮上下文** | `/ai history <轮数>` | **只存内存**，不写盘；`/ai clear` 立即忘记 |
+| **人格预设** | `/ai persona <id>` | `builder` / `redstone` / `survival` / `english`，改变 AI 的回答口吻与侧重 |
+| **流式输出** | `/ai streaming on` | 回答边生成边显示在头顶 Action Bar |
+| **建筑/红石读图** | 按 `G` | 同一个截图链路，换成"分析原理 + 给改进建议"的提示词 |
+| **无障碍朗读** | `/ai describe` | 把屏幕上的界面、方块、生物、危险念出来 |
+| **自动裁剪界面** | 开着箱子按 `H` | 只发容器那一块，**图片 token 降到约四分之一**，格子也更容易看清 |
+| **死亡复盘** | `/ai death on` | 截取死亡界面，告诉你被什么杀了、下次该怎么做（**默认关闭**） |
+| **Discord 播报** | `/ai discord <网址>` | 死亡时推送到 webhook（**不调用模型，零 token**） |
+| **零 token 配方** | `/ai craft` | 列出你背包材料现在能做出的东西 |
+| **配方反查** | `/ai craft <物品名>` | 例如 `/ai craft 钻石镐`，直接查那样东西怎么做 |
+| **本地回答配方** | `!ai 怎么做钻石镐` | 命中时**完全不发请求**，本地直接答 |
+| **环境顾问** | `/ai where [问题]` | 把坐标、群系、光照、维度、生命值作为上下文发出去 |
+| **告示牌/成书翻译** | `/ai read` | **发文本而不是图片**，比 OCR 便宜得多、也准得多 |
+| **用量曲线** | `/ai chart` | 最近 7 天的 token 用量柱状图 |
+| **背包任务** | `/ai task` | 根据背包里真实有的东西生成 3 个小任务 |
+
+> **1.21 修好了 1.20 的四个 bug**（`/ai config` 打不开、流式看不见、流式丢思维链、
+> 新功能只能手改 `mcai.json`）。完整清单见 [CHANGELOG.md](CHANGELOG.md)。
+> **1.21 起所有开关都能在游戏里设置**，不必再手改配置文件。
 
 ---
 
@@ -27,10 +60,11 @@
 
 - **中英双语提示**：跟随游戏语言自动切换，不用装两个版本。中文环境显示中文（`401 密钥无效` / `402 余额不足` / `429 请求过于频繁`…），英文环境显示英文（`Invalid API key` / `Insufficient balance` / `Too many requests`…）
 - **连 AI 的回答语言也跟着切换**：系统提示词按语言生效，英文环境下 AI 直接用英文回答
-- **跨天自动清零** Token 计数（依据 `token_date` 字段）
+- **跨天自动清零** Token 计数与当日花费（依据 `token_date` 字段）
 - **所有网络请求和文件读写都是异步的**，不会卡住游戏主线程
 - **配置读写有防内存泄漏处理**：截图产生的 `NativeImage`（堆外内存）和 `BufferedImage` 都会被显式释放
 - 会**主动拦截不支持读图的模型**，避免白烧 token
+- **花费是估算，不是账单**：价格表内置 DeepSeek 官方单价，未收录的模型显示"无法估算"而不是瞎猜
 
 ---
 
@@ -54,7 +88,7 @@
 | 发给 AI 的系统提示词 | `mcai.prompt.system` | 决定 AI 用中文还是英文回答 |
 
 想加别的语言（比如 `ja_jp` / `ru_ru`），只要在 `src/main/resources/assets/mcai/lang/` 下
-新建 `xx_xx.json`，把那 146 个键翻译一遍即可，**不用改任何 Java 代码**。
+新建 `xx_xx.json`，把那 247 个键翻译一遍即可，**不用改任何 Java 代码**。
 
 > 只有游戏内文案会翻译；`config/mcai.json` 里存的值和 `config/mcai-usage.csv` 里的记录
 > 始终保持 ASCII 且与语言无关，切换语言不会破坏已有配置和历史统计。
@@ -72,18 +106,21 @@
 ```
 .minecraft/mods/
 ├── fabric-api-0.116.17+1.21.1.jar
-└── mcai-1.1.0.jar
+└── mcai-1.21.jar
 ```
 
 ### 2. 填写 API Key
 
-第一次启动游戏后会自动生成配置文件：
+**最快的方式：进游戏里用 `/ai config`** —— 会打开一个设置窗口，可以填 API Key、接口地址、
+模型，还能直接开关死亡复盘 / 流式输出 / 本地配方，并设置每日预算和上下文轮数。
+
+也可以手改配置文件。第一次启动游戏后会自动生成：
 
 ```
 .minecraft/config/mcai.json
 ```
 
-把 `api_key` 填上即可。默认配置指向 **DeepSeek 官方 API**：
+默认配置指向 **DeepSeek 官方 API**：
 
 ```json
 {
@@ -96,6 +133,27 @@
 > 任何 **OpenAI 兼容**的接口都能用：把 `api_url` 改成你的服务地址（程序会自动补 `/chat/completions`），
 > `model` 填对应的模型 ID。
 
+#### 不想花钱？用本机模型
+
+把 `api_url` 指向本机跑的 OpenAI 兼容服务，**`api_key` 可以留空**：
+
+```json
+{
+  "api_key": "",
+  "api_url": "http://localhost:11434/v1",
+  "model": "qwen2.5:7b"
+}
+```
+
+- **Ollama**：装好后 `ollama pull qwen2.5:7b`，地址填 `http://localhost:11434/v1`
+- **LM Studio**：启动本地服务器，地址填它显示的地址（通常是 `http://localhost:1234/v1`）
+
+> 程序会识别 `localhost` / `127.0.0.1` / `[::1]`，这些地址**不再要求填 Key**，
+> 也不会因为没有 Key 而报错。局域网上的其他机器（如 `192.168.x.x`）**不算本地**——
+> 它同样可能把你的截图发到别处，所以仍需填写 Key。
+>
+> 本地小模型的看图能力远不如云端大模型，别期待它准确读出画面里的细节文字。
+
 ### 3. 开始使用
 
 进入世界后聊天栏会列出所有功能，然后：
@@ -104,7 +162,7 @@
 !ai 怎么合成钻石镐？
 ```
 
-或直接按 `H` 让它看你的屏幕。
+或直接按 `H` 让它看你的屏幕，按 `G` 分析你正在看的建筑/红石电路。
 
 ---
 
@@ -112,9 +170,26 @@
 
 | 命令 | 作用 |
 | --- | --- |
-| `/ai status` | 查看当前模型、模式、截图分辨率、今日消耗、思考显示设置（API Key 会打码） |
+| `/ai config` | **打开游戏内设置窗口**：API Key、接口地址、模型，以及 1.20 的三个开关和预算/上下文输入框 |
+| `/ai status` | 查看当前模型、模式、截图分辨率、今日消耗与花费、人格、上下文轮数（API Key 会打码） |
 | `/ai token` | 今日 Token 消耗 + 最近 8 次调用明细（时间 / token 数 / 来源 / 模型） |
+| `/ai cost` | 今日花费估算、当前单价（高峰/空闲）、预算剩余 |
+| `/ai chart` | 最近 7 天 token 用量柱状图 |
 | `/ai resolution <360p\|720p\|1080p\|original>` | 调整截图清晰度，**支持 Tab 补全**；也接受 `480p` 这类自定义高度，以及旧写法 `原始` |
+| `/ai where [问题]` | 带上坐标、群系、光照、维度、生命值去问 AI |
+| `/ai read` | 翻译准星指向的告示牌，或手中的成书（**发文本，不发图**） |
+| `/ai describe` | 朗读屏幕内容（无障碍） |
+| `/ai craft` | 列出背包材料现在能做出的东西（**零 token**） |
+| `/ai craft <物品名>` | 按名字反查配方，例如 `/ai craft 钻石镐` |
+| `/ai task` | 根据背包生成任务；`/ai task show` 查看、`/ai task clear` 清除 |
+| `/ai persona <id>` | 切换人格：`default` / `builder` / `redstone` / `survival` / `english` |
+| `/ai death on\|off` | 死亡复盘开关（默认关） |
+| `/ai streaming on\|off` | 流式输出开关 |
+| `/ai recipe on\|off` | 本地配方回答开关 |
+| `/ai budget <元>` | 每日预算（元），`0` 表示不限制 |
+| `/ai history <轮数>` | 保留几轮对话上下文，`0` 关闭 |
+| `/ai discord <网址\|clear>` | 设置/清除 Discord 播报 webhook |
+| `/ai clear` | 清空内存中的对话上下文 |
 | `/ai help` | 重新显示功能清单 |
 
 ### 截图分辨率怎么选
@@ -136,17 +211,29 @@
 
 | 字段 | 默认值 | 说明 |
 | --- | --- | --- |
-| `api_key` | `""` | **必填**，你的 API Key |
-| `api_url` | `https://api.deepseek.com/v1` | 接口地址，自动补 `/chat/completions` |
+| `api_key` | `""` | 你的 API Key。**指向本机模型时可以留空** |
+| `api_url` | `https://api.deepseek.com/v1` | 接口地址，自动补 `/chat/completions`。填 `http://localhost:11434/v1` 即可用 Ollama |
 | `model` | `deepseek-flash` | 当前使用的模型 |
 | `available_models` | `["deepseek-flash", "deepseek-v4-pro"]` | 「模型切换器」右键循环的列表 |
 | `mode` | `chat` | 当前模式 |
 | `available_modes` | `["chat", "vision"]` | 「模式切换器」右键循环的列表 |
 | `vision_resolution` | `720p` | `H` 截图的目标分辨率，取值 `360p` / `720p` / `1080p` / `original` |
 | `show_reasoning` | `true` | 是否在聊天栏显示思维链 |
-| `reasoning_max_chars` | `500` | 思维链最多显示多少字；**设为 `0` 显示完整思考**（可能刷屏，实测单个问题可达 4000~6600 字） |
+| `reasoning_max_chars` | `500` | 思维链最多显示多少字；**设为 `0` 显示完整思考**（可能刷屏，实测单个问题可达 4000~6600 字）。注意这只影响**显示**，不减少花费 |
 | `daily_tokens` | `0` | 今日消耗，程序自动维护 |
+| `daily_cost_yuan` | `0.0` | 今日花费估算（元），程序自动维护 |
 | `token_date` | 当天日期 | 用于跨天清零，程序自动维护 |
+| `daily_budget_yuan` | `0.0` | **每日预算（元）**，`0` 表示不限制；达到上限后拒绝新请求 |
+| `backup_api_keys` | `[]` | 备用 API Key，主 Key 遇到 401/402/429 时自动切换 |
+| `history_turns` | `4` | 多轮上下文保留几轮，`0` 关闭。**只存内存，不写盘** |
+| `streaming` | `true` | 是否使用流式输出（回答实时显示在 Action Bar） |
+| `recipe_cache` | `true` | 是否让"怎么做 X"在本地直接用配方表回答（零 token） |
+| `persona` | `default` | 人格预设 |
+| `death_recap` | `false` | **死亡复盘**，默认关闭。会自动把死亡画面发给模型，介意隐私就别开 |
+| `discord_webhook` | `""` | Discord 播报地址，留空即关闭 |
+
+> 以上每一项目前都能在游戏里设置（`/ai config` 或对应的 `/ai` 指令），
+> 手改 `mcai.json` 也可以 —— 两种方式等价，改完即时生效。
 
 ### Token 使用明细
 
@@ -157,7 +244,7 @@ config/mcai-usage.csv
 ```
 
 ```csv
-time,model,source,tokens
+time,model,source,tokens,cost
 2026-10-08 21:26:01,deepseek-flash,chat,3985
 2026-10-08 21:26:01,deepseek-flash,vision,666
 ```
@@ -204,7 +291,7 @@ time,model,source,tokens
 ./gradlew clean build
 ```
 
-产物在 `build/libs/mcai-1.1.0.jar`。
+产物在 `build/libs/mcai-1.21.jar`。
 
 ### ⚠️ 关于 JDK 版本
 
