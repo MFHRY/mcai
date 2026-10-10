@@ -92,9 +92,10 @@ public final class RecipeHelper {
      * 合成界面，背包里也没有格子布局。我们真正想回答的是"这些材料够不够"，
      * 所以直接统计材料数量即可，而且这样做对有序/无序配方都成立。
      *
-     * <p>材料之间可能互相替代（比如任意木板），这里按顺序做贪心匹配：
-     * 每个格子挑一种"还有存货"的材料消耗掉，挑不到就判定做不了。
-     * 贪心不保证数学上最优，但对"懒汉包"这个用途足够，且永远不会误报成"能做"却做不了。
+     * <p>材料之间可能互相替代（比如任意木板），这里把「配方槽位」和「背包物品」建成一张
+     * 二分图跑最大匹配（Kuhn 算法）：只有当每个槽位都能分到一份不同的背包物品时才判定为
+     * 可合成。这也修正了早期贪心匹配的<b>漏报</b>——贪心会先把某一种替代材料用掉，把另一
+     * 种更稀缺的材料提前耗尽，从而把「其实能合成」判成不能。
      */
     private static boolean canCraftFromInventory(Recipe<?> recipe, ClientPlayerEntity player) {
         List<Ingredient> required = new ArrayList<>();
@@ -121,24 +122,92 @@ public final class RecipeHelper {
             return false;
         }
 
+        // 见类注释：材料之间可能互相替代，用二分图最大匹配判断是否每个槽位都能
+        // 分到一份不同的背包物品，比贪心更准。
+        return maxMatchingSatisfies(required, available);
+    }
+
+    /**
+     * 二分图最大匹配（Kuhn 算法）判断能否给每个必需槽位分配一份（不重复的）背包物品。
+     *
+     * <p>左部＝配方槽位；右部＝把每种背包物品按数量摊开成的一「份」。
+     * 只要存在覆盖全部槽位的匹配，就判定为可合成。n 很小（合成配方最多 9 个槽位），
+     * 运行开销可以忽略。
+     */
+    private static boolean maxMatchingSatisfies(List<Ingredient> required,
+                                                Map<net.minecraft.item.Item, Integer> available) {
+        int n = required.size();
+        // 每个槽位可选哪些物品类型（只保留背包里真实有货的）
+        List<java.util.List<net.minecraft.item.Item>> slotItems = new ArrayList<>(n);
+        java.util.Set<net.minecraft.item.Item> allItems = new java.util.HashSet<>();
         for (Ingredient ingredient : required) {
-            boolean consumed = false;
+            java.util.Set<net.minecraft.item.Item> opts = new java.util.HashSet<>();
             for (ItemStack option : ingredient.getMatchingStacks()) {
                 if (option == null || option.isEmpty()) {
                     continue;
                 }
-                Integer have = available.get(option.getItem());
-                if (have != null && have > 0) {
-                    available.put(option.getItem(), have - 1);
-                    consumed = true;
-                    break;
+                net.minecraft.item.Item item = option.getItem();
+                if (available.containsKey(item)) {
+                    opts.add(item);
                 }
             }
-            if (!consumed) {
-                return false;
+            if (opts.isEmpty()) {
+                return false; // 该槽位没有任何一种可用的替代材料
+            }
+            slotItems.add(new ArrayList<>(opts));
+            allItems.addAll(opts);
+        }
+
+        // 右部顶点：把每种物品按数量摊开成多份（每份只能被一个槽位独占）
+        List<net.minecraft.item.Item> unitItems = new ArrayList<>();
+        for (net.minecraft.item.Item item : allItems) {
+            int cap = Math.min(available.get(item), n);
+            for (int c = 0; c < cap; c++) {
+                unitItems.add(item);
             }
         }
-        return true;
+        if (unitItems.isEmpty()) {
+            return false;
+        }
+
+        // 邻接表：槽位 -> 它能接受的「份」的下标
+        List<java.util.List<Integer>> adj = new ArrayList<>(n);
+        for (java.util.List<net.minecraft.item.Item> opts : slotItems) {
+            java.util.List<Integer> list = new ArrayList<>();
+            for (int u = 0; u < unitItems.size(); u++) {
+                if (opts.contains(unitItems.get(u))) {
+                    list.add(u);
+                }
+            }
+            adj.add(list);
+        }
+
+        // Kuhn 算法求最大匹配；能盖住全部槽位即为可合成
+        int[] matchSlot = new int[unitItems.size()];
+        java.util.Arrays.fill(matchSlot, -1);
+        int matches = 0;
+        for (int slot = 0; slot < n; slot++) {
+            if (augment(slot, adj, matchSlot, new boolean[unitItems.size()])) {
+                matches++;
+            }
+        }
+        return matches == n;
+    }
+
+    /** 为 slot 尝试找一条增广路；找到并更新匹配后返回 true。 */
+    private static boolean augment(int slot, List<java.util.List<Integer>> adj,
+                                   int[] matchSlot, boolean[] visited) {
+        for (int u : adj.get(slot)) {
+            if (visited[u]) {
+                continue;
+            }
+            visited[u] = true;
+            if (matchSlot[u] == -1 || augment(matchSlot[u], adj, matchSlot, visited)) {
+                matchSlot[u] = slot;
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 取配方的产物图标（只用于拿名字和数量）。 */

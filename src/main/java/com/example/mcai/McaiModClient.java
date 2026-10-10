@@ -1,6 +1,7 @@
 package com.example.mcai;
 
 import com.example.mcai.client.AiCommand;
+import com.example.mcai.client.ChatHandler;
 import com.example.mcai.client.DeathRecap;
 import com.example.mcai.client.ItemSwitchHandler;
 import com.example.mcai.client.StartupGuide;

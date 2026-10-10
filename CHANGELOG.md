@@ -7,6 +7,71 @@ mcAI 的所有版本改动，**最新版本在最上面**。
 
 ---
 
+## 1.22 — 2026-10-10
+
+A cleanup + quality-of-life release on top of 1.21: three new features, and the internal
+fixes found while reviewing the codebase.
+
+### New
+
+- **Configurable trigger prefix** — `!ai` is no longer hardcoded. `/ai prefix <value>`
+  (e.g. `/ai prefix @ai`) changes what starts an AI chat; `/ai status` shows it.
+- **AI translation** — `/ai tl <text>` translates to the default target language,
+  `/ai tl <lang> <text>` to a specific one (`/ai translate` is an alias), and
+  `/ai tlang <lang>` sets the default target language.
+- **Persona management** — `/ai persona` shows the current persona, `/ai persona list`
+  lists all presets (builder / redstone / survival / english / default).
+
+### Fixed
+
+- Anthropic model ids in the model catalog were empty strings; real ids are now filled in,
+  and blank ids are rejected outright.
+- `TokenStats` writes through the same copy-on-write `ConfigManager.update` as everything
+  else; the daily rollover read path no longer mutates config.
+- `ApiKeyManager` returns a `PickedKey` handle so exactly the key used in a request gets
+  blacklisted on failure; the dead-key set is now thread-safe.
+- The 8-second cooldown is only consumed after every validation passes (config ready, key
+  present, budget OK) — no more "cooldown eaten by a request that never ran".
+- `ConfigManager` waits for the initial disk load before applying edits, removing a startup
+  race that could overwrite `mcai.json`.
+- Removed the never-enabled `ExampleMixin` and its mixins config.
+- Dead code cleaned from `VisionHandler` / `ChatHandler`.
+- `RecipeHelper` craftability now uses bipartite maximum matching instead of greedy
+  consumption, so substitutable materials (e.g. planks) are handled correctly.
+- `ItemSwitchHandler` only sends the c2s payload when the channel is actually open.
+- README usage-CSV sample rows updated to the real 5-column format.
+- `ChatHandler` moved into the client package (the only client-only class that lived in the
+  common package).
+
+### 中文版
+
+在 1.21 基础上的一次「内部清理 + 三个新功能」更新。
+
+### 新增
+
+- **可配置触发前缀**：`!ai` 不再写死，`/ai prefix <值>`（如 `/ai prefix @ai`）即可修改，
+  `/ai status` 会显示当前值。
+- **AI 翻译**：`/ai tl <文本>` 翻成默认目标语言，`/ai tl <语言> <文本>` 指定语言
+  （`/ai translate` 是别名），`/ai tlang <语言>` 设置默认目标语言。
+- **人格管理**：`/ai persona` 查看当前人格，`/ai persona list` 列出全部预设。
+
+### 修复
+
+- 模型目录里 Anthropic 的 5 个模型 id 原本是空字符串，已补成真实 id，并加入空值校验。
+- `TokenStats` 统一走 `ConfigManager.update` 的写时复制；跨天清理由“读时清零”改为只读判断。
+- `ApiKeyManager` 返回 `PickedKey` 句柄，失败时精确拉黑本次请求用掉的那把 key；
+  失效 key 集合改为线程安全。
+- 8 秒冷却移到**所有校验通过之后**才消耗，不再出现“配置没填好还先扣冷却”的问题。
+- `ConfigManager` 会先等磁盘配置加载完成再应用修改，消除启动竞态覆盖 `mcai.json` 的隐患。
+- 移除从未启用的 `ExampleMixin` 及 mixins 配置。
+- 清理 `VisionHandler` / `ChatHandler` 中的死代码。
+- `RecipeHelper` 可合成判定改用**二分图最大匹配**，正确处理可替代材料（如木板）。
+- `ItemSwitchHandler` 只在对应网络通道可用时才发包。
+- README 中用量 CSV 示例改成真实的 5 列格式。
+- `ChatHandler` 移入 client 包（common 包里唯一的客端专属类）。
+
+---
+
 ## 1.21 — 2026-10-09
 
 > **1.20 有四个真实 bug，1.21 全部修复，建议所有 1.20 用户升级。**
@@ -84,7 +149,7 @@ context-length fields.
 
 **Do not put the `-sources.jar` in your `mods` folder.** It ships a `fabric.mod.json` with the
 same mod id and an unexpanded `${version}`, so Fabric sees two mods named `mcai` and warns
-that the version cannot be parsed. Only `mcai-1.21.jar` goes in `mods`.
+that the version cannot be parsed. Only `mcai-1.22.jar` goes in `mods`.
 
 ---
 
@@ -174,7 +239,7 @@ This release is a bug-fix release: no feature was removed.
 
 **不要把 `-sources.jar` 放进 `mods` 文件夹。** 它里面带着一个 `fabric.mod.json`,mod id
 相同、版本号是未经替换的 `${version}`,于是 Fabric 会看到两个叫 `mcai` 的 mod 并警告版本
-无法解析。放进 `mods` 的只能是 `mcai-1.21.jar`。
+无法解析。放进 `mods` 的只能是 `mcai-1.22.jar`。
 
 ---
 

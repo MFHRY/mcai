@@ -106,7 +106,7 @@
 ```
 .minecraft/mods/
 ├── fabric-api-0.116.17+1.21.1.jar
-└── mcai-1.21.jar
+└── mcai-1.22.jar
 ```
 
 ### 2. 填写 API Key
@@ -245,8 +245,8 @@ config/mcai-usage.csv
 
 ```csv
 time,model,source,tokens,cost
-2026-10-08 21:26:01,deepseek-flash,chat,3985
-2026-10-08 21:26:01,deepseek-flash,vision,666
+2026-10-08 21:26:01,deepseek-flash,chat,3985,0.00
+2026-10-08 21:26:01,deepseek-flash,vision,666,0.00
 ```
 
 标准 CSV 格式，**可以直接用 Excel 打开**做统计分析。
@@ -291,7 +291,7 @@ time,model,source,tokens,cost
 ./gradlew clean build
 ```
 
-产物在 `build/libs/mcai-1.21.jar`。
+产物在 `build/libs/mcai-1.22.jar`。
 
 ### ⚠️ 关于 JDK 版本
 

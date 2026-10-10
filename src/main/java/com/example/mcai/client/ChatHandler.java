@@ -1,7 +1,6 @@
-package com.example.mcai;
+package com.example.mcai.client;
 
-import com.example.mcai.client.StreamingHud;
-import com.example.mcai.client.ThinkingIndicator;
+import com.example.mcai.ConfigManager;
 import com.example.mcai.util.AiResponseParser;
 import com.example.mcai.util.ApiKeyManager;
 import com.example.mcai.util.ClientChat;
@@ -28,7 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class ChatHandler {
-    private static final String PREFIX = "!ai";
+    private static final String DEFAULT_PREFIX = "!ai";
     private static final long COOLDOWN_MILLIS = 8000L;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
@@ -59,13 +58,22 @@ public final class ChatHandler {
         });
     }
 
+    /** 当前配置的触发词前缀；配置缺失或为空时回退到默认值 !ai。 */
+    private static String prefix() {
+        ConfigManager.ConfigData c = ConfigManager.getInstance().get();
+        String p = c == null ? null : c.chatPrefix;
+        return (p == null || p.isBlank()) ? DEFAULT_PREFIX : p;
+    }
+
     private static boolean isAiMessage(String message) {
-        if (message == null || message.length() < PREFIX.length()) return false;
-        return message.toLowerCase(java.util.Locale.ROOT).startsWith(PREFIX);
+        if (message == null) return false;
+        String prefix = prefix();
+        if (message.length() < prefix.length()) return false;
+        return message.toLowerCase(java.util.Locale.ROOT).startsWith(prefix.toLowerCase(java.util.Locale.ROOT));
     }
 
     private void handleAiMessage(String message) {
-        String question = message.substring(PREFIX.length()).trim();
+        String question = message.substring(prefix().length()).trim();
         if (question.startsWith(":") || question.startsWith("：")) {
             question = question.substring(1).trim();
         }
@@ -112,8 +120,10 @@ public final class ChatHandler {
             sendLocalMessage(mc, Lang.tr("mcai.chat.cooldown", remainSeconds));
             return;
         }
-        INSTANCE.nextAllowedTime.set(now + COOLDOWN_MILLIS);
 
+        // 所有校验都放在「消耗冷却」之前。
+        // 以前 nextAllowedTime 是在下面这一段校验之前就写掉的，于是玩家只要 key 还没填好，
+        // 就会先被扣掉 8 秒冷却，改完配置还得干等——看起来就像"改了不起作用"。
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null) {
             sendLocalMessage(mc, Lang.tr("mcai.error.config_load"));
@@ -133,18 +143,25 @@ public final class ChatHandler {
         if (blockedByBudget(mc)) {
             return;
         }
+
+        // ---- 校验全部通过，正式开跑，此时才消耗冷却 ----
+        INSTANCE.nextAllowedTime.set(now + COOLDOWN_MILLIS);
+
         // 多轮上下文(本地内存存储),<=0 表示关闭
         HistoryStore.setMaxTurns(config.historyTurns);
-        String apiKey = LocalProvider.isLocal(config.apiUrl)
-                ? LocalProvider.effectiveApiKey(config.apiUrl, config.apiKey)
+        // 本地服务不需要 key；云端走多 key 轮换，并记住这一轮用的是哪一把，
+        // 好让响应回来时能精确拉黑失败的那一把（见 ApiKeyManager.PickedKey）。
+        ApiKeyManager.PickedKey picked = LocalProvider.isLocal(config.apiUrl)
+                ? new ApiKeyManager.PickedKey(LocalProvider.effectiveApiKey(config.apiUrl, config.apiKey), null)
                 : ApiKeyManager.pick(config.apiKey, config.backupApiKeys);
+        String apiKey = picked.key();
         // #8 流式输出：开了就走 SSE，边生成边在 Action Bar 上显示
         if (config.streaming) {
-            INSTANCE.sendStreamingRequest(mc, apiKey, config.apiUrl, model, question, onReply);
+            INSTANCE.sendStreamingRequest(mc, picked, config.apiUrl, model, question, onReply);
             return;
         }
 
-        INSTANCE.sendRequest(mc, apiKey, config.apiUrl, model, question, onReply);
+        INSTANCE.sendRequest(mc, picked, config.apiUrl, model, question, onReply);
     }
 
     /** 请求真正发出前检查今日预算;超了就拦下并提示。 */
@@ -154,10 +171,6 @@ public final class ChatHandler {
         }
         sendLocalMessage(mc, Lang.tr("mcai.cmd.budget_blocked"));
         return true;
-    }
-
-    private void sendRequest(MinecraftClient mc, String apiKey, String apiUrl, String model, String question) {
-        sendRequest(mc, apiKey, apiUrl, model, question, null);
     }
 
     // ------------------------------------------------------- #8 流式输出
@@ -182,7 +195,7 @@ public final class ChatHandler {
      *   <li>{@code [DONE]} 是流结束标志，收到就停。</li>
      * </ul>
      */
-    private void sendStreamingRequest(MinecraftClient mc, String apiKey, String apiUrl, String model,
+    private void sendStreamingRequest(MinecraftClient mc, ApiKeyManager.PickedKey picked, String apiUrl, String model,
                                       String question, java.util.function.Consumer<String> onReply) {
         String endpoint = buildEndpoint(apiUrl);
         String requestBody = buildRequestBody(model, question, true);
@@ -194,7 +207,7 @@ public final class ChatHandler {
                     .timeout(REQUEST_TIMEOUT)
                     .header("Content-Type", "application/json; charset=UTF-8")
                     .header("Accept", "text/event-stream")
-                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Authorization", "Bearer " + picked.key())
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
                     .build();
         } catch (IllegalArgumentException e) {
@@ -213,7 +226,7 @@ public final class ChatHandler {
                         HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofLines());
 
                 int statusCode = response.statusCode();
-                ApiKeyManager.recordResult(statusCode);
+                ApiKeyManager.recordResult(picked, statusCode);
                 if (statusCode != 200) {
                     // 错误响应是普通 JSON，读掉它免得连接挂起，然后走统一错误提示
                     try (var body = response.body()) {
@@ -307,7 +320,7 @@ public final class ChatHandler {
                 + " " + ThinkingIndicator.formatElapsed(elapsedMillis));
     }
 
-    private void sendRequest(MinecraftClient mc, String apiKey, String apiUrl, String model,
+    private void sendRequest(MinecraftClient mc, ApiKeyManager.PickedKey picked, String apiUrl, String model,
                              String question, java.util.function.Consumer<String> onReply) {
         String endpoint = buildEndpoint(apiUrl);
         String requestBody = buildRequestBody(model, question);
@@ -319,7 +332,7 @@ public final class ChatHandler {
                     .timeout(REQUEST_TIMEOUT)
                     .header("Content-Type", "application/json; charset=UTF-8")
                     .header("Accept", "application/json")
-                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Authorization", "Bearer " + picked.key())
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
                     .build();
         } catch (IllegalArgumentException e) {
@@ -343,7 +356,7 @@ public final class ChatHandler {
                     return;
                 }
                 int statusCode = response.statusCode();
-                ApiKeyManager.recordResult(statusCode);
+                ApiKeyManager.recordResult(picked, statusCode);
                 if (statusCode == 200) {
                     handleSuccess(mc, response.body(), question, elapsedMillis, onReply);
                 } else {

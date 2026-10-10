@@ -88,17 +88,28 @@ public class ConfigManager {
     });
 
     private final AtomicReference<ConfigData> configRef = new AtomicReference<>();
+    private final ConfigData initial;
     private ScheduledFuture<?> pendingWrite = null;
+
+    /**
+     * 初始磁盘加载完成的信号。{@link #update} / {@link #save} 会先等它一份，
+     * 否则玩家在配置还没读进来时就做了修改，会被随后到达的磁盘值覆盖——相当于把
+     * mcai.json 里的真实配置冲掉。
+     */
+    private final CompletableFuture<Void> initialLoad = new CompletableFuture<>();
 
     private ConfigManager() {
         configPath = FabricLoader.getInstance().getConfigDir().resolve(CONFIG_FILE);
-        configRef.set(new ConfigData());
+        this.initial = new ConfigData();
+        configRef.set(initial);
         loadAsync();
     }
 
     public ConfigData get() { return configRef.get(); }
 
     public void update(Consumer<ConfigData> mutator) {
+        // 修改前先等初始加载完成，避免基于默认占位快照做修改（会丢掉磁盘里的真实配置）
+        awaitInitialLoad();
         ConfigData updated;
         ConfigData current;
         do {
@@ -113,6 +124,20 @@ public class ConfigManager {
         return CompletableFuture.runAsync(() -> writeToDisk(configRef.get()), ioExecutor);
     }
 
+    /** 等初始加载完成（最多 5 秒），防止启动竞态覆盖玩家刚做的修改。 */
+    private void awaitInitialLoad() {
+        if (initialLoad.isDone()) {
+            return;
+        }
+        try {
+            initialLoad.get(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
+            System.err.println("[mcAI] Timed out waiting for initial config load: " + e.getMessage());
+        }
+    }
+
     private void loadAsync() {
         CompletableFuture.runAsync(() -> {
             ConfigData loaded;
@@ -123,13 +148,19 @@ public class ConfigManager {
                 loaded = new ConfigData();
             }
             boolean needsWrite = loaded.fillDefaults();
-            configRef.set(loaded);
-            if (needsWrite || !Files.exists(configPath)) {
-                writeToDisk(loaded);
+            // 只在 configRef 仍是「构造时的那个初始占位」时才应用磁盘配置。
+            // update() 和 save() 都在等 initialLoad，正常情况下这里不会有并发修改，
+            // 但万一有，CAS 失败就放弃本次加载，以已经发生的修改为准。
+            if (configRef.compareAndSet(initial, loaded)) {
+                if (needsWrite || !Files.exists(configPath)) {
+                    writeToDisk(loaded);
+                }
             }
-        }, ioExecutor).exceptionally(ex -> {
-            System.err.println("[mcAI] Failed to load config: " + ex.getMessage());
-            return null;
+        }, ioExecutor).whenComplete((ignored, ex) -> {
+            if (ex != null) {
+                System.err.println("[mcAI] Failed to load config: " + ex.getMessage());
+            }
+            initialLoad.complete(null);
         });
     }
 
@@ -204,6 +235,9 @@ public class ConfigManager {
         @SerializedName("available_personas") public List<String> availablePersonas = List.of("default");
         @SerializedName("recipe_cache") public boolean recipeCache = true;
         @SerializedName("streaming") public boolean streaming = true;
+        // ---- 触发词前缀 & 翻译（本次新增） ----
+        @SerializedName("chat_prefix") public String chatPrefix = "!ai";
+        @SerializedName("translate_lang") public String translateLang = "中文";
 
         public ConfigData() {}
 
@@ -221,6 +255,7 @@ public class ConfigManager {
             this.discordWebhook = src.discordWebhook; this.persona = src.persona;
             this.availablePersonas = src.availablePersonas != null ? List.copyOf(src.availablePersonas) : List.of("default");
             this.recipeCache = src.recipeCache; this.streaming = src.streaming;
+            this.chatPrefix = src.chatPrefix; this.translateLang = src.translateLang;
         }
 
         public boolean fillDefaults() {
@@ -240,6 +275,8 @@ public class ConfigManager {
             if (dailyBudgetYuan < 0.0) { dailyBudgetYuan = 0.0; changed = true; }
             if (historyTurns < 0) { historyTurns = 0; changed = true; }
             if (discordWebhook == null) { discordWebhook = ""; changed = true; }
+            if (chatPrefix == null || chatPrefix.isBlank()) { chatPrefix = "!ai"; changed = true; }
+            if (translateLang == null || translateLang.isBlank()) { translateLang = "中文"; changed = true; }
             return changed;
         }
     }

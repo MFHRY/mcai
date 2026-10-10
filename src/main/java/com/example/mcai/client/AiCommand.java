@@ -1,7 +1,6 @@
 package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
-import com.example.mcai.ChatHandler;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.HistoryStore;
 import com.example.mcai.util.Lang;
@@ -181,6 +180,22 @@ public final class AiCommand {
 
             root.then(buildResolutionNode());
 
+            // 触发词前缀（把 !ai 改成别的，聊天栏用新前缀提问）
+            root.then(ClientCommandManager.literal("prefix")
+                    .then(ClientCommandManager.argument("value", StringArgumentType.greedyString())
+                            .executes(context -> setPrefix(context.getSource(),
+                                    StringArgumentType.getString(context, "value")))));
+
+            // 翻译：/ai tl <文本>（翻成默认目标语言）或 /ai tl <语言> <文本>
+            root.then(buildTranslateNode("tl"));
+            root.then(buildTranslateNode("translate"));
+
+            // 默认翻译目标语言
+            root.then(ClientCommandManager.literal("tlang")
+                    .then(ClientCommandManager.argument("lang", StringArgumentType.greedyString())
+                            .executes(context -> setTranslateLang(context.getSource(),
+                                    StringArgumentType.getString(context, "lang")))));
+
             dispatcher.register(root);
         });
     }
@@ -252,6 +267,7 @@ public final class AiCommand {
                 PersonaCatalog.describe(config.persona))));
         source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_history",
                 Math.max(0, config.historyTurns))));
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_prefix", chatPrefix(config))));
         source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_hint")));
         return 1;
     }
@@ -344,6 +360,9 @@ public final class AiCommand {
             node.then(ClientCommandManager.literal(id)
                     .executes(context -> setPersona(context.getSource(), id)));
         }
+        node.then(ClientCommandManager.literal("list")
+                .executes(context -> personaList(context.getSource())));
+        node.executes(context -> personaShow(context.getSource()));
         return node;
     }
 
@@ -359,6 +378,24 @@ public final class AiCommand {
         });
         source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.persona_set",
                 PersonaCatalog.describe(id))));
+        return 1;
+    }
+
+    /** 列出所有可用人格预设。 */
+    private static int personaList(FabricClientCommandSource source) {
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.persona_list_title")));
+        for (String id : PersonaCatalog.ids()) {
+            source.sendFeedback(Text.literal("§7 · " + PersonaCatalog.describe(id)));
+        }
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.persona_usage")));
+        return 1;
+    }
+
+    /** /ai persona（不带参数）：查看当前人格。 */
+    private static int personaShow(FabricClientCommandSource source) {
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.persona_current",
+                config == null ? PersonaCatalog.describe("default") : PersonaCatalog.describe(config.persona))));
         return 1;
     }
 
@@ -603,6 +640,73 @@ public final class AiCommand {
             return Lang.tr("mcai.cmd.target_original");
         }
         return Lang.tr("mcai.cmd.target_height", height);
+    }
+
+    // ------------------------------------------------------ prefix & translate
+
+    /** 当前配置的触发词前缀（配置缺失或空白时用默认值 !ai）。 */
+    private static String chatPrefix(ConfigManager.ConfigData config) {
+        if (config == null || config.chatPrefix == null || config.chatPrefix.isBlank()) {
+            return "!ai";
+        }
+        return config.chatPrefix;
+    }
+
+    private static int setPrefix(FabricClientCommandSource source, String raw) {
+        String value = raw == null ? "" : raw.trim();
+        if (value.isEmpty() || value.chars().anyMatch(Character::isWhitespace)) {
+            source.sendError(Text.literal(Lang.tr("mcai.cmd.prefix_invalid")));
+            return 0;
+        }
+        ConfigManager.getInstance().update(config -> config.chatPrefix = value);
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.prefix_set", value)));
+        return 1;
+    }
+
+    private static int setTranslateLang(FabricClientCommandSource source, String raw) {
+        String value = raw == null ? "" : raw.trim();
+        if (value.isEmpty()) {
+            source.sendError(Text.literal(Lang.tr("mcai.cmd.tlang_invalid")));
+            return 0;
+        }
+        ConfigManager.getInstance().update(config -> config.translateLang = value);
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.tlang_set", value)));
+        return 1;
+    }
+
+    /**
+     * 翻译指令的节点构建：
+     *   /&lt;literal&gt; &lt;lang&gt; &lt;text&gt;   （指定目标语言，lang 是单个 ASCII 词，如 en / zh / ja）
+     *   /&lt;literal&gt; &lt;text&gt;            （用配置的默认目标语言）
+     * 两者是不同参数形态的两个子节点，brigadier 会给 <lang> 优先，给不出就落到纯文本那条。
+     */
+    private static LiteralArgumentBuilder<FabricClientCommandSource> buildTranslateNode(String literal) {
+        LiteralArgumentBuilder<FabricClientCommandSource> node =
+                ClientCommandManager.literal(literal);
+        node.then(ClientCommandManager.argument("lang", StringArgumentType.word())
+                .then(ClientCommandManager.argument("text", StringArgumentType.greedyString())
+                        .executes(context -> translate(context.getSource(),
+                                StringArgumentType.getString(context, "lang"),
+                                StringArgumentType.getString(context, "text")))));
+        node.then(ClientCommandManager.argument("text", StringArgumentType.greedyString())
+                .executes(context -> translate(context.getSource(), null,
+                        StringArgumentType.getString(context, "text"))));
+        return node;
+    }
+
+    private static int translate(FabricClientCommandSource source, String lang, String text) {
+        if (text == null || text.isBlank()) {
+            source.sendError(Text.literal(Lang.tr("mcai.cmd.tl_empty")));
+            return 0;
+        }
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        String target = (lang == null || lang.isBlank())
+                ? (config == null ? "中文" : (config.translateLang == null || config.translateLang.isBlank()
+                    ? "中文" : config.translateLang))
+                : lang.trim();
+        String prompt = Lang.tr("mcai.cmd.tl_ask", target) + "\n\n" + text.trim();
+        ChatHandler.ask(prompt);
+        return 1;
     }
 
     /** CSV 里存的是 ASCII 的 chat / vision，展示时翻成当前语言。 */

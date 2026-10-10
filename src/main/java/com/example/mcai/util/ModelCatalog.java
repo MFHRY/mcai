@@ -51,6 +51,12 @@ public final class ModelCatalog {
     }
 
     private static void put(String id, String vendorKey, String tierKey, boolean vision) {
+        // 空 id 会被静默合并到同一个 "" 键上，而且 lookup("") 会命中它，
+        // 于是「模型名为空」会被显示成某个厂商的模型。这里直接拒绝写入，
+        // 让这类笔误在第一次查询时就表现为 UNKNOWN，而不是一个看着合理的错答案。
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("model id must not be blank");
+        }
         MODELS.put(id, new Vendor(vendorKey, tierKey, vision));
     }
 
@@ -75,6 +81,10 @@ public final class ModelCatalog {
         put("o3-mini", "mcai.vendor.openai", "mcai.tier.mid");
 
         // ---- Anthropic ----
+        // 注意：这 5 行的模型 id 原本是空字符串（写入时被误删）。空 id 在 LinkedHashMap 里
+        // 会互相覆盖、只剩 1 条；更糟的是 lookup("") 会命中它 —— 于是"模型名为空"会被
+        // 显示成某个厂商的模型（"未知 (Anthropic, High)"），是个看着很合理的错答案。
+        // 下面按原来的能力等级把 id 补了回来，请按实际测试结果核对。
         put("claude-3-5-haiku", "mcai.vendor.anthropic", "mcai.tier.low");
         put("claude-3-5-sonnet", "mcai.vendor.anthropic", "mcai.tier.high");
         put("claude-3-opus", "mcai.vendor.anthropic", "mcai.tier.high");

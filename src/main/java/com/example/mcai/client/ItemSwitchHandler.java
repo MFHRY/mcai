@@ -62,7 +62,12 @@ public final class ItemSwitchHandler {
                 return TypedActionResult.success(stack);
             }
             manager.update(c -> c.model = next);
-            ClientPlayNetworking.send(new McaiSwitchPayload(McaiSwitchPayload.KIND_MODEL, next));
+            // 服务端没装本模组时不会注册这个通道，直接 send 会抛异常/记警告。
+            // 切换模型/模式本来就是纯客户端的（config 已改好），拿不到服务器回执也能用，
+            // 所以这里先探测再发，发给原版服务器也不会报错。
+            if (ClientPlayNetworking.canSend(McaiSwitchPayload.ID)) {
+                ClientPlayNetworking.send(new McaiSwitchPayload(McaiSwitchPayload.KIND_MODEL, next));
+            }
             ClientChat.sendLiteral(Lang.tr("mcai.switch.model_switched", ModelCatalog.describe(next)));
         } else {
             String next = nextInCycle(config.availableModes, config.mode);
@@ -71,7 +76,9 @@ public final class ItemSwitchHandler {
                 return TypedActionResult.success(stack);
             }
             manager.update(c -> c.mode = next);
-            ClientPlayNetworking.send(new McaiSwitchPayload(McaiSwitchPayload.KIND_MODE, next));
+            if (ClientPlayNetworking.canSend(McaiSwitchPayload.ID)) {
+                ClientPlayNetworking.send(new McaiSwitchPayload(McaiSwitchPayload.KIND_MODE, next));
+            }
             ClientChat.sendLiteral(Lang.tr("mcai.switch.mode_switched", ModeCatalog.describe(next)));
         }
 

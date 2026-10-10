@@ -100,10 +100,6 @@ public final class VisionHandler {
         });
     }
 
-    private static void onKeyPressed(MinecraftClient client) {
-        trigger(null);
-    }
-
     /**
      * 可复用的截图识别入口（#2 红石读图 / #4 GUI 感知 / #16 无障碍描述 共用）。
      *
@@ -233,11 +229,6 @@ public final class VisionHandler {
         }
     }
 
-    private static void sendRequest(ConfigManager.ConfigData config, String base64,
-                                    ThinkingIndicator.Request thinking) {
-        sendRequest(config, base64, Lang.tr("mcai.vision.prompt"), thinking, null);
-    }
-
     /**
      * 可复用的视觉请求（#2 红石读图 / #4 GUI 感知 / #5 翻译 / #16 无障碍 / #1 死亡复盘 共用）。
      *
@@ -249,8 +240,9 @@ public final class VisionHandler {
                                    String historyNote) {
         String endpoint = buildEndpoint(config.apiUrl);
         String body = buildRequestBody(config.model, base64, promptOverride);
-        String bearer = LocalProvider.isLocal(config.apiUrl)
-                ? LocalProvider.effectiveApiKey(config.apiUrl, config.apiKey)
+        // 本地服务不需要 key；云端走多 key 轮换，并把句柄一路带着，好精确归因失败的那一把
+        ApiKeyManager.PickedKey picked = LocalProvider.isLocal(config.apiUrl)
+                ? new ApiKeyManager.PickedKey(LocalProvider.effectiveApiKey(config.apiUrl, config.apiKey), null)
                 : ApiKeyManager.pick(config.apiKey, config.backupApiKeys);
 
         HttpRequest request;
@@ -260,7 +252,7 @@ public final class VisionHandler {
                     .timeout(REQUEST_TIMEOUT)
                     .header("Content-Type", "application/json; charset=UTF-8")
                     .header("Accept", "application/json")
-                    .header("Authorization", "Bearer " + bearer)
+                    .header("Authorization", "Bearer " + picked.key())
                     .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                     .build();
         } catch (IllegalArgumentException e) {
@@ -273,7 +265,7 @@ public final class VisionHandler {
                     HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
             int statusCode = response.statusCode();
-            ApiKeyManager.recordResult(statusCode);
+            ApiKeyManager.recordResult(picked, statusCode);
             if (statusCode == 200) {
                 String reply = handleSuccess(response.body(), thinking.finish());
                 if (historyNote != null) {
