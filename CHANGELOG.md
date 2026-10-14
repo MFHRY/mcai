@@ -7,6 +7,39 @@ mcAI 的所有版本改动，**最新版本在最上面**。
 
 ---
 
+## 1.23 — 2026-10-12
+
+Two new languages. Nothing else changed — no behaviour changes, no config changes.
+
+### New
+
+- **繁體中文 (zh_tw)** — a full Traditional Chinese translation, 258 strings. Written for
+  Taiwanese conventions rather than a character-by-character conversion: 螢幕 / 設定 /
+  儲存 / 伺服器 / 網路 / 生態域 / 座標. The AI system prompts are localized too, so the
+  model answers in Traditional Chinese.
+- **日本語 (ja_jp)** — a full Japanese translation, 258 strings. The AI system prompts,
+  persona suffixes and translation prompts are localized as well, so the model answers in
+  Japanese without you having to change any setting.
+
+The mod now ships **four** languages in one jar: English, 简体中文, 繁體中文, 日本語.
+It follows your Minecraft language setting automatically.
+
+### 中文版
+
+新增两个语言，其他一律没动——行为没有变化，配置文件也没有变化。
+
+### 新增
+
+- **繁體中文（zh_tw）**：完整的繁體中文翻译，258 条。是按台湾用语习惯写的，不是逐字转换：
+  螢幕 / 設定 / 儲存 / 伺服器 / 網路 / 生態域 / 座標。AI 系统提示词也一并本地化，
+  模型会直接用繁體中文回答。
+- **日本語（ja_jp）**：完整的日语翻译，258 条。AI 系统提示词、人格后缀和翻译提示词
+  也一并本地化，切到日语后模型直接用日语回答，不需要改任何设置。
+
+现在同一个 jar 里带 **四种语言**：English、简体中文、繁體中文、日本語，跟随游戏语言自动切换。
+
+---
+
 ## 1.22 — 2026-10-10
 
 A cleanup + quality-of-life release on top of 1.21: three new features, and the internal

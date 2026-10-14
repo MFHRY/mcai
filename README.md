@@ -58,7 +58,7 @@
 
 ### 亮点
 
-- **中英双语提示**：跟随游戏语言自动切换，不用装两个版本。中文环境显示中文（`401 密钥无效` / `402 余额不足` / `429 请求过于频繁`…），英文环境显示英文（`Invalid API key` / `Insufficient balance` / `Too many requests`…）
+- **四语提示**：跟随游戏语言自动切换，不用装两个版本。简体中文、繁體中文、English、日本語。中文环境显示中文（`401 密钥无效` / `402 余额不足` / `429 请求过于频繁`…），英文环境显示英文（`Invalid API key` / `Insufficient balance` / `Too many requests`…）
 - **连 AI 的回答语言也跟着切换**：系统提示词按语言生效，英文环境下 AI 直接用英文回答
 - **跨天自动清零** Token 计数与当日花费（依据 `token_date` 字段）
 - **所有网络请求和文件读写都是异步的**，不会卡住游戏主线程
@@ -70,7 +70,15 @@
 
 ## 多语言 / Localization
 
-同一个 jar 同时内置中文和英文，**跟随游戏的语言设置自动切换**，不需要下载单独的"英文版"。
+同一个 jar 同时内置**四种语言**（English / 简体中文 / 繁體中文 / 日本語），
+**跟随游戏的语言设置自动切换**，不需要下载单独的"英文版"。
+
+| 语言文件 | 语言 |
+| --- | --- |
+| `en_us.json` | English |
+| `zh_cn.json` | 简体中文 |
+| `zh_tw.json` | 繁體中文 |
+| `ja_jp.json` | 日本語 |
 
 已本地化的内容：
 
@@ -85,10 +93,11 @@
 | 游戏内设置窗口 | `mcai.screen.*` / `mcai.help.*` | API 是什么？ → What is an API? |
 | `/ai` 全部回显 | `mcai.cmd.*` | 今日消耗 → Today |
 | 进服功能清单 | `mcai.guide.*` | 功能与指令一览 → Features and commands |
-| 发给 AI 的系统提示词 | `mcai.prompt.system` | 决定 AI 用中文还是英文回答 |
+| 发给 AI 的系统提示词 | `mcai.prompt.system` | 决定 AI 用哪种语言回答（四种语言各自指定） |
 
-想加别的语言（比如 `ja_jp` / `ru_ru`），只要在 `src/main/resources/assets/mcai/lang/` 下
-新建 `xx_xx.json`，把那 247 个键翻译一遍即可，**不用改任何 Java 代码**。
+想加别的语言（比如 `ru_ru` / `ko_kr`），只要在 `src/main/resources/assets/mcai/lang/` 下
+新建 `xx_xx.json`，把那 **258 个键**翻译一遍即可，**不用改任何 Java 代码**。
+四个语言文件的键名必须完全一致——`%s` 占位符的个数也要一致。
 
 > 只有游戏内文案会翻译；`config/mcai.json` 里存的值和 `config/mcai-usage.csv` 里的记录
 > 始终保持 ASCII 且与语言无关，切换语言不会破坏已有配置和历史统计。
@@ -106,7 +115,7 @@
 ```
 .minecraft/mods/
 ├── fabric-api-0.116.17+1.21.1.jar
-└── mcai-1.22.jar
+└── mcai-1.23.jar
 ```
 
 ### 2. 填写 API Key
@@ -291,7 +300,7 @@ time,model,source,tokens,cost
 ./gradlew clean build
 ```
 
-产物在 `build/libs/mcai-1.22.jar`。
+产物在 `build/libs/mcai-1.23.jar`。
 
 ### ⚠️ 关于 JDK 版本
 
