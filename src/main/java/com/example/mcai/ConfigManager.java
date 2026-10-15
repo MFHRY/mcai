@@ -235,9 +235,50 @@ public class ConfigManager {
         @SerializedName("available_personas") public List<String> availablePersonas = List.of("default");
         @SerializedName("recipe_cache") public boolean recipeCache = true;
         @SerializedName("streaming") public boolean streaming = true;
-        // ---- 触发词前缀 & 翻译（本次新增） ----
+        // ---- 触发词前缀 & 翻译（1.22 新增） ----
         @SerializedName("chat_prefix") public String chatPrefix = "!ai";
         @SerializedName("translate_lang") public String translateLang = "中文";
+
+        // ---- 1.24 新增 ----
+
+        /** 相同问题命中本地缓存时直接回答，不再发请求（零 token）。仅存内存，重启即失效。 */
+        @SerializedName("response_cache") public boolean responseCache = true;
+        /** 缓存最多保留多少条问答。 */
+        @SerializedName("response_cache_size") public int responseCacheSize = 64;
+
+        /** 是否把「游戏版本 + 已加载模组列表」拼进系统提示词，让 AI 知道你装了什么。 */
+        @SerializedName("env_context") public boolean envContext = true;
+        /** 模组列表最多写入多少个名字，防止提示词过长。 */
+        @SerializedName("env_context_max_mods") public int envContextMaxMods = 60;
+
+        /** 今日花费达到预算的这个比例时提醒一次。<=0 或 >=1 表示关闭提醒。 */
+        @SerializedName("budget_warn_ratio") public double budgetWarnRatio = 0.8;
+
+        /** 长期记忆：每次提问都会带上，让 AI 记住你的基地坐标、正在建的东西等。 */
+        @SerializedName("memories") public List<String> memories = List.of();
+
+        /** 发送前先弹预览窗口确认（默认关闭，避免多一步操作）。 */
+        @SerializedName("vision_preview") public boolean visionPreview = false;
+
+        /** 发图前把指定区域涂黑，避免把聊天栏/玩家名送到第三方。 */
+        @SerializedName("privacy_mask") public boolean privacyMask = false;
+        /** 涂黑区域，格式 "x0,y0,x1,y1"，比例坐标（0~1，左上原点）。默认遮住原版聊天栏。 */
+        @SerializedName("privacy_mask_regions") public List<String> privacyMaskRegions =
+                List.of("0.0,0.70,0.52,1.0");
+
+        /** 危险预警：血量低于阈值且附近有敌对生物时，自动截图问 AI。 */
+        @SerializedName("danger_alert") public boolean dangerAlert = false;
+        /** 触发预警的血量（半颗心 = 1）。 */
+        @SerializedName("danger_health") public int dangerHealth = 6;
+        /** 敌对生物的检测半径（方块）。 */
+        @SerializedName("danger_radius") public double dangerRadius = 12.0;
+        /** 两次预警之间的最小间隔（秒）。 */
+        @SerializedName("danger_cooldown_seconds") public int dangerCooldownSeconds = 60;
+
+        /** 用系统语音朗读 AI 的回答（实验性，默认关闭）。 */
+        @SerializedName("tts") public boolean tts = false;
+        /** 朗读时最多读多少个字，防止念一整篇。 */
+        @SerializedName("tts_max_chars") public int ttsMaxChars = 220;
 
         public ConfigData() {}
 
@@ -256,6 +297,18 @@ public class ConfigManager {
             this.availablePersonas = src.availablePersonas != null ? List.copyOf(src.availablePersonas) : List.of("default");
             this.recipeCache = src.recipeCache; this.streaming = src.streaming;
             this.chatPrefix = src.chatPrefix; this.translateLang = src.translateLang;
+            // ---- 1.24 ----
+            this.responseCache = src.responseCache; this.responseCacheSize = src.responseCacheSize;
+            this.envContext = src.envContext; this.envContextMaxMods = src.envContextMaxMods;
+            this.budgetWarnRatio = src.budgetWarnRatio;
+            this.memories = src.memories != null ? List.copyOf(src.memories) : List.of();
+            this.visionPreview = src.visionPreview;
+            this.privacyMask = src.privacyMask;
+            this.privacyMaskRegions = src.privacyMaskRegions != null
+                    ? List.copyOf(src.privacyMaskRegions) : List.of();
+            this.dangerAlert = src.dangerAlert; this.dangerHealth = src.dangerHealth;
+            this.dangerRadius = src.dangerRadius; this.dangerCooldownSeconds = src.dangerCooldownSeconds;
+            this.tts = src.tts; this.ttsMaxChars = src.ttsMaxChars;
         }
 
         public boolean fillDefaults() {
@@ -277,6 +330,18 @@ public class ConfigManager {
             if (discordWebhook == null) { discordWebhook = ""; changed = true; }
             if (chatPrefix == null || chatPrefix.isBlank()) { chatPrefix = "!ai"; changed = true; }
             if (translateLang == null || translateLang.isBlank()) { translateLang = "中文"; changed = true; }
+            // ---- 1.24 ----
+            if (responseCacheSize < 0) { responseCacheSize = 64; changed = true; }
+            if (envContextMaxMods < 0) { envContextMaxMods = 60; changed = true; }
+            if (budgetWarnRatio < 0.0) { budgetWarnRatio = 0.8; changed = true; }
+            if (memories == null) { memories = List.of(); changed = true; }
+            if (privacyMaskRegions == null) {
+                privacyMaskRegions = List.of("0.0,0.70,0.52,1.0"); changed = true;
+            }
+            if (dangerHealth < 1) { dangerHealth = 6; changed = true; }
+            if (dangerRadius <= 0.0) { dangerRadius = 12.0; changed = true; }
+            if (dangerCooldownSeconds < 0) { dangerCooldownSeconds = 60; changed = true; }
+            if (ttsMaxChars < 0) { ttsMaxChars = 220; changed = true; }
             return changed;
         }
     }

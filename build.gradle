@@ -19,6 +19,11 @@ repositories {
         name = 'Fabric'
         url = 'https://maven.fabricmc.net/'
     }
+    // Mod Menu (optional dependency, used only to add the config button in Mod Menu).
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/releases/'
+    }
     mavenCentral()
 }
 
@@ -27,6 +32,12 @@ dependencies {
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // Mod Menu 11.x targets Minecraft 1.21 / 1.21.1.
+    // modCompileOnly (not modImplementation): it is an OPTIONAL dependency. Players who do
+    // not install Mod Menu must still be able to run mcAI, and the class that references
+    // ModMenuApi is only ever loaded from the "modmenu" entrypoint, which Mod Menu alone reads.
+    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 processResources {

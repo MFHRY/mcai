@@ -7,6 +7,108 @@ mcAI 的所有版本改动，**最新版本在最上面**。
 
 ---
 
+## 1.24 — 2026-10-12
+
+The biggest update since 1.20: **13 new features**, most of them about spending less money
+and sending less of your screen to a third party.
+
+### New
+
+**Cost control**
+
+- **Selectable region screenshots (`R`)** — drag a box and only that part is sent. Image
+  tokens scale with pixel count, so framing 40% of the screen costs 40% of the image.
+- **Pre-send preview** — see the exact processed image (cropped, masked, resized) before it
+  leaves your machine. Off by default: `/ai preview on`.
+- **Privacy mask** — the chat area is blacked out before upload, so chat logs and player
+  names never reach the provider. Off by default: `/ai mask on`.
+- **Spend estimate before every request** — one dim line telling you roughly what this
+  question will cost.
+- **Budget warning at 80%** — previously the only feedback was being blocked *after* the
+  budget was gone.
+- **Local answer cache** — asking the same question twice costs nothing the second time.
+
+**Better answers**
+
+- **Modlist + version awareness** — the system prompt now carries the game version and the
+  loaded mod list, so the model stops answering "that does not exist in vanilla" when you
+  are clearly running a modpack. `/ai env off` disables it.
+- **Long-term memory** — `/ai remember <text>` keeps facts (base coordinates, current
+  project) in every request. `/ai memories`, `/ai forget <n>`, `/ai forget all`.
+
+**Control and safety**
+
+- **Cancel a request** — `ESC` (or `/ai cancel`). Previously a request could only be waited
+  out or timed out at 60–90 seconds, and the model kept generating — and billing — the
+  whole time. Cancelling now really aborts the HTTP exchange.
+- **Danger alert** — optionally screenshot and ask for advice when health is low with
+  hostile mobs nearby. `/ai danger on`. Fires only on the moment health crosses the
+  threshold, then enforces a cooldown, so it cannot spam.
+- **Clickable coordinates in answers** — coordinates are copied to the clipboard on click;
+  「item names」 are offered as a chat suggestion. Clicking only copies or fills the box,
+  never executes anything.
+- **Multi-turn context is now per world/server** — this fixes a real bug: history used to be
+  a single global queue, so after leaving a singleplayer world and joining a server the AI
+  still remembered the previous world's coordinates.
+- **Mod Menu integration** — the settings screen is now reachable from Mod Menu, not just
+  from `/ai config`.
+- **Text-to-speech** — read answers out loud via the OS speech synthesizer
+  (`/ai tts on`, `/ai speak <text>`). For accessibility and for `/ai describe`.
+
+### Fixed in this release
+
+- `fabric.mod.json` still advertised "(English / Chinese)" after 1.23 added 繁體中文 and
+  日本語. It now lists all four languages.
+- The vision path used a bare system prompt with no persona; chat and screenshots now build
+  the system prompt through the same code (`SystemPrompt`), so they cannot drift apart.
+
+### 中文版
+
+自 1.20 以来最大的一次更新：**13 个新功能**，其中大部分是围绕"少花钱"和"少把画面交给第三方"。
+
+### 新增
+
+**费用控制**
+
+- **框选截图（`R`）**：拖框，只把框住的部分发出去。图片 token 与像素数成正比，
+  框住 40% 的面积就只花 40% 的图片费用。
+- **发送前预览**：在图片离开你的电脑之前，先看到**处理之后**的样子（已裁剪、已遮罩、已缩放）。
+  默认关闭，`/ai preview on` 打开。
+- **隐私遮罩**：上传前把聊天栏那块涂黑，聊天记录和玩家名不会送到服务商。默认关闭，`/ai mask on`。
+- **每次请求前给花费预估**：一行暗色提示，告诉你这一问大概要花多少钱。
+- **预算 80% 提醒**：以前唯一的提示是"钱花完了被拦下"，中途完全没有预警。
+- **本地回答缓存**：同一个问题问第二遍不再花钱。
+
+**回答质量**
+
+- **模组与版本感知**：系统提示词现在会带上游戏版本和已加载的模组列表，
+  你明显在玩整合包时它不会再回答"原版没有这个东西"。`/ai env off` 可关。
+- **长期记忆**：`/ai remember <内容>` 记下基地坐标、正在建的东西等，之后每次提问都会带上。
+  用 `/ai memories` 查看，`/ai forget <序号>` / `/ai forget all` 删除。
+
+**控制与安全**
+
+- **中止请求**：按 `ESC`（或 `/ai cancel`）。以前发出去只能干等 60–90 秒超时，
+  而且模型那边**一直在生成、一直在计费**；现在取消会真正中断 HTTP 连接。
+- **危险预警**：血量低且附近有敌对生物时，可选自动截图求助。`/ai danger on` 打开。
+  只在血量跨过阈值的那一刻触发一次并强制冷却，不会刷屏。
+- **回答里的坐标可点击**：点坐标复制到剪贴板，点「物品名」把它填进聊天栏。
+  点击只做复制或填入，不会直接执行任何操作。
+- **多轮上下文按世界/服务器隔离**：修掉一个真实缺陷——上下文原来是一个全局队列，
+  离开单人存档进服务器之后，AI 还记得上一个世界的坐标。
+- **Mod Menu 集成**：设置界面现在也能从 Mod Menu 进入，不再只能 `/ai config`。
+- **语音朗读**：用系统语音合成把回答念出来（`/ai tts on`、`/ai speak <文本>`），
+  服务于无障碍需求和 `/ai describe`。
+
+### 本次顺带修掉的问题
+
+- `fabric.mod.json` 在 1.23 加入繁體中文和日本語之后仍写着 "(English / Chinese)"，
+  现在四种语言都列上了。
+- 截图链路以前用的是不带人格的裸系统提示词，聊天和截图现在统一走 `SystemPrompt` 拼装，
+  两条链路不会再各自漂移。
+
+---
+
 ## 1.23 — 2026-10-12
 
 Two new languages. Nothing else changed — no behaviour changes, no config changes.

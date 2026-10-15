@@ -2,10 +2,13 @@ package com.example.mcai;
 
 import com.example.mcai.client.AiCommand;
 import com.example.mcai.client.ChatHandler;
+import com.example.mcai.client.DangerWatch;
 import com.example.mcai.client.DeathRecap;
 import com.example.mcai.client.ItemSwitchHandler;
+import com.example.mcai.client.RequestCancelKey;
 import com.example.mcai.client.StartupGuide;
 import com.example.mcai.client.ThinkingIndicator;
+import com.example.mcai.client.WorldScope;
 import com.example.mcai.vision.VisionHandler;
 import net.fabricmc.api.ClientModInitializer;
 
@@ -31,5 +34,13 @@ public class McaiModClient implements ClientModInitializer {
 
         // ---- 进世界后打印功能清单 ----
         StartupGuide.register();
+
+        // ---- 1.24 新增模块 ----
+        // 多轮上下文按世界/服务器隔离（修掉换存档后 AI 还记得上一个世界的问题）
+        WorldScope.register();
+        // 危险预警：血量低 + 附近有怪时自动求助（默认关闭）
+        DangerWatch.register();
+        // 按 ESC 中止正在进行的请求
+        RequestCancelKey.register();
     }
 }

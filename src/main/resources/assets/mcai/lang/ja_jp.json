@@ -280,5 +280,48 @@
   "mcai.help.notes": "注意事項",
   "mcai.help.note1": "· キーはパスワードと同じです。他人に渡したり、配信やスクリーンショットに映したりしないでください",
   "mcai.help.note2a": "· アカウントに残高が必要です。ない場合は ",
-  "mcai.help.note2b": "402 残高不足"
+  "mcai.help.note2b": "402 残高不足",
+
+  "key.mcai.pick": "範囲を指定してスクリーンショット（ビジョン）",
+
+  "mcai.pick.title": "送信する範囲を選択",
+  "mcai.pick.hint": "ドラッグで枠を描き、Enter で確定（ESC でキャンセル）。枠の内側だけが送信されるので、画像コストを大幅に節約できます。",
+  "mcai.pick.size": "§7選択範囲：%s × %s px（画面の約 %s%%）",
+  "mcai.pick.close_screen": "§e[AI] 先に現在の画面を閉じてから、R を押して範囲を指定してください。",
+
+  "mcai.preview.title": "送信するスクリーンショットの確認",
+  "mcai.preview.send": "送信",
+  "mcai.preview.discard": "キャンセル",
+  "mcai.preview.info": "§7実際に送信するサイズ %s × %s、%s",
+  "mcai.preview.cost": "§7およそ %s 画像トークン / ¥%s",
+  "mcai.preview.cost_unknown": "§7およそ %s 画像トークン（このモデルの単価表がありません）",
+  "mcai.preview.no_texture": "プレビュー画像を生成できませんでした。送信されるのは処理後のスクリーンショットです。",
+
+  "mcai.chat.estimate": "§8[概算] このリクエストは約 ¥%s",
+  "mcai.chat.click_copy_coords": "§7クリックで座標をコピー：§f%s",
+  "mcai.chat.click_ask_item": "§7クリックでチャット欄に入力：§f%s",
+  "mcai.cache.hit": "§8[キャッシュ] 以前と同じ質問だったため、前回の回答を再利用しました（トークン消費なし）。",
+
+  "mcai.prompt.memories": "プレイヤーについての次の事実を常に覚えておいてください：",
+
+  "mcai.danger.prompt": "体力がかなり低く、近くに敵対 Mob がいます。このスクリーンショットを見て、1〜2 文で教えてください：逃げるべきか戦うべきか、どちらへ退避すべきか、今すぐできる生存行動はあるか。",
+
+  "mcai.cmd.budget_warn": "§e[AI] 本日 ¥%s / 予算 ¥%s を使用（%s%%）。上限が近いです。安いモデルへの切り替えもご検討ください。",
+  "mcai.cmd.cancel_done": "§b[AI] リクエストを中止しました。",
+  "mcai.cmd.cancel_none": "§8[AI] 進行中のリクエストはありません。",
+  "mcai.cmd.cache_cleared": "§b[AI] ローカル回答キャッシュを消去しました（%s 件）。",
+  "mcai.cmd.speak_empty": "§c[AI] 読み上げる内容がありません。",
+  "mcai.cmd.speak_started": "§b[AI] システムの音声合成に渡しました。",
+  "mcai.cmd.remember_empty": "§c[AI] 覚えさせる内容がありません。",
+  "mcai.cmd.remember_added": "§b[AI] 覚えました：§f%s",
+  "mcai.cmd.memories_title": "§b[mcAI] §f覚えていること：",
+  "mcai.cmd.memories_empty": "§8 まだ何も覚えていません。§7/ai remember <内容>§8 で追加できます。",
+  "mcai.cmd.forget_done": "§b[AI] 忘れました。",
+
+  "mcai.cmd.flag_preview": "送信前プレビュー",
+  "mcai.cmd.flag_mask": "プライバシーマスク",
+  "mcai.cmd.flag_tts": "読み上げ",
+  "mcai.cmd.flag_danger": "危険アラート",
+  "mcai.cmd.flag_cache": "回答キャッシュ",
+  "mcai.cmd.flag_env": "Mod 構成の認識"
 }

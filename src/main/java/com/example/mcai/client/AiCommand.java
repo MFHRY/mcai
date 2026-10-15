@@ -159,6 +159,64 @@ public final class AiCommand {
                     .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "recipe", true)))
                     .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "recipe", false))));
 
+            // ---- 1.24 新增开关 ----
+            // 发送前预览（默认关闭：多一步确认会打断连续操作）
+            root.then(ClientCommandManager.literal("preview")
+                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "preview", true)))
+                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "preview", false))));
+
+            // 隐私遮罩（发图前把聊天栏那块涂黑）
+            root.then(ClientCommandManager.literal("mask")
+                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "mask", true)))
+                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "mask", false))));
+
+            // 系统语音朗读
+            root.then(ClientCommandManager.literal("tts")
+                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "tts", true)))
+                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "tts", false))));
+
+            // 危险预警（低血量 + 附近有怪时自动求助）
+            root.then(ClientCommandManager.literal("danger")
+                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "danger", true)))
+                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "danger", false))));
+
+            // 环境感知（把游戏版本和模组列表告诉 AI）
+            root.then(ClientCommandManager.literal("env")
+                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "env", true)))
+                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "env", false))));
+
+            // 相同问题本地缓存
+            root.then(ClientCommandManager.literal("cache")
+                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "cache", true)))
+                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "cache", false)))
+                    .then(ClientCommandManager.literal("clear")
+                            .executes(c -> clearCache(c.getSource()))));
+
+            // 中止正在进行的请求（键盘上的 ESC 是同一个功能）
+            root.then(ClientCommandManager.literal("cancel")
+                    .executes(c -> cancelRequest(c.getSource())));
+
+            // 让系统语音念一段文字
+            root.then(ClientCommandManager.literal("speak")
+                    .then(ClientCommandManager.argument("text", StringArgumentType.greedyString())
+                            .executes(c -> speak(c.getSource(),
+                                    StringArgumentType.getString(c, "text")))));
+
+            // 长期记忆：让 AI 一直记住某些事实
+            root.then(ClientCommandManager.literal("remember")
+                    .then(ClientCommandManager.argument("text", StringArgumentType.greedyString())
+                            .executes(c -> remember(c.getSource(),
+                                    StringArgumentType.getString(c, "text")))));
+            root.then(ClientCommandManager.literal("memories")
+                    .executes(c -> listMemories(c.getSource())));
+            root.then(ClientCommandManager.literal("forget")
+                    .then(ClientCommandManager.literal("all")
+                            .executes(c -> forget(c.getSource(), null)))
+                    .then(ClientCommandManager.argument("index",
+                                    com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 999))
+                            .executes(c -> forget(c.getSource(),
+                                    com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "index")))));
+
             root.then(ClientCommandManager.literal("budget")
                     .then(ClientCommandManager.argument("yuan",
                                     com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(0.0))
@@ -562,12 +620,109 @@ public final class AiCommand {
                 case "death" -> config.deathRecap = value;
                 case "streaming" -> config.streaming = value;
                 case "recipe" -> config.recipeCache = value;
+                // ---- 1.24 ----
+                case "preview" -> config.visionPreview = value;
+                case "mask" -> config.privacyMask = value;
+                case "tts" -> config.tts = value;
+                case "danger" -> config.dangerAlert = value;
+                case "cache" -> config.responseCache = value;
+                case "env" -> config.envContext = value;
                 default -> { }
             }
         });
         label = Lang.tr("mcai.cmd.flag_" + id);
         source.sendFeedback(Text.literal(Lang.tr(value
                 ? "mcai.cmd.flag_on" : "mcai.cmd.flag_off", label)));
+        return 1;
+    }
+
+    // ---------------------------------------------------------- 1.24 新增指令实现
+
+    /** 中止正在进行的请求（键盘上的 ESC 是同一个功能）。 */
+    private static int cancelRequest(FabricClientCommandSource source) {
+        boolean cancelled = com.example.mcai.util.RequestController.cancel();
+        source.sendFeedback(Text.literal(Lang.tr(cancelled
+                ? "mcai.cmd.cancel_done" : "mcai.cmd.cancel_none")));
+        return 1;
+    }
+
+    /** 清空相同问题缓存。 */
+    private static int clearCache(FabricClientCommandSource source) {
+        int before = com.example.mcai.util.ResponseCache.size();
+        com.example.mcai.util.ResponseCache.clear();
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cache_cleared", before)));
+        return 1;
+    }
+
+    /** 用系统语音念一段文字（无障碍）。 */
+    private static int speak(FabricClientCommandSource source, String text) {
+        if (text == null || text.isBlank()) {
+            source.sendError(Text.literal(Lang.tr("mcai.cmd.speak_empty")));
+            return 0;
+        }
+        com.example.mcai.util.Speech.speakAsync(text);
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.speak_started")));
+        return 1;
+    }
+
+    /** 记一条长期记忆，之后每次提问都会带上。 */
+    private static int remember(FabricClientCommandSource source, String text) {
+        String value = text == null ? "" : text.trim();
+        if (value.isEmpty()) {
+            source.sendError(Text.literal(Lang.tr("mcai.cmd.remember_empty")));
+            return 0;
+        }
+        // 单条限长、总量限 20 条：记忆是进系统提示词的，必须有上限，否则提示词会无限膨胀
+        final String stored = value.length() > 200 ? value.substring(0, 200) : value;
+        ConfigManager.getInstance().update(config -> {
+            java.util.List<String> next = new java.util.ArrayList<>(
+                    config.memories == null ? java.util.List.<String>of() : config.memories);
+            if (next.size() >= 20) {
+                next.remove(0);
+            }
+            next.add(stored);
+            config.memories = next;
+        });
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.remember_added", stored)));
+        return 1;
+    }
+
+    /** 列出所有长期记忆。 */
+    private static int listMemories(FabricClientCommandSource source) {
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        java.util.List<String> memories = (config == null || config.memories == null)
+                ? java.util.List.of() : config.memories;
+        if (memories.isEmpty()) {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.memories_empty")));
+            return 1;
+        }
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.memories_title")));
+        for (int i = 0; i < memories.size(); i++) {
+            source.sendFeedback(Text.literal("§8 " + (i + 1) + ". §f" + memories.get(i)));
+        }
+        return 1;
+    }
+
+    /**
+     * 忘掉一条长期记忆；{@code index} 为 null 表示全部忘掉。
+     */
+    private static int forget(FabricClientCommandSource source, Integer index) {
+        ConfigManager.getInstance().update(config -> {
+            if (config.memories == null || config.memories.isEmpty()) {
+                return;
+            }
+            java.util.List<String> next = new java.util.ArrayList<>(config.memories);
+            if (index == null) {
+                next.clear();
+            } else {
+                int position = index - 1;
+                if (position >= 0 && position < next.size()) {
+                    next.remove(position);
+                }
+            }
+            config.memories = next;
+        });
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.forget_done")));
         return 1;
     }
 

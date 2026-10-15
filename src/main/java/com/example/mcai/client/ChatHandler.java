@@ -140,15 +140,38 @@ public final class ChatHandler {
         }
 
         String model = (config.model == null || config.model.isBlank()) ? "gpt-4o-mini" : config.model;
+
+        // ---- 1.24 相同问题本地缓存：命中就直接回答 ----
+        // 刻意放在"消耗冷却"和"预算检查"之前：命中缓存不花一分钱、不占用冷却，
+        // 如果先扣冷却再查缓存，玩家会觉得"我问了个一样的问题还被罚站 8 秒"。
+        String cached = com.example.mcai.util.ResponseCache.lookup(question, model, config.persona);
+        if (cached != null) {
+            sendLocalMessage(mc, Lang.tr("mcai.cache.hit"));
+            replyToPlayer(mc, cached, 0L);
+            if (onReply != null) {
+                try {
+                    onReply.accept(cached);
+                } catch (Throwable ignored) {
+                    // 回调失败不影响显示
+                }
+            }
+            return;
+        }
+
         if (blockedByBudget(mc)) {
             return;
         }
+        // 1.24 预算预警 + 请求前花费预估
+        warnIfNearBudget(mc, config);
+        sendEstimate(mc, config, question);
 
         // ---- 校验全部通过，正式开跑，此时才消耗冷却 ----
         INSTANCE.nextAllowedTime.set(now + COOLDOWN_MILLIS);
 
         // 多轮上下文(本地内存存储),<=0 表示关闭
         HistoryStore.setMaxTurns(config.historyTurns);
+        // 1.24：上下文按世界/服务器分桶，避免换存档后 AI 还记得上一个世界的事
+        HistoryStore.setScope(WorldScope.current());
         // 本地服务不需要 key；云端走多 key 轮换，并记住这一轮用的是哪一把，
         // 好让响应回来时能精确拉黑失败的那一把（见 ApiKeyManager.PickedKey）。
         ApiKeyManager.PickedKey picked = LocalProvider.isLocal(config.apiUrl)
@@ -171,6 +194,101 @@ public final class ChatHandler {
         }
         sendLocalMessage(mc, Lang.tr("mcai.cmd.budget_blocked"));
         return true;
+    }
+
+    // ---------------------------------------------- 1.24 预算预警与花费预估
+
+    /** 今天是否已经就"快超预算"提醒过一次。同一天只提醒一次，避免每问一句都唠叨。 */
+    private static volatile java.time.LocalDate budgetWarnedDate = null;
+
+    /**
+     * 今日花费达到预算的 {@code budget_warn_ratio}（默认 80%）时提醒一次。
+     *
+     * <p>原来只有"花完了直接拦下"这一道，中途完全没有预警——对按量计费的服务来说，
+     * 等你发现的时候钱已经花完了。现在提前提醒，还来得及换个便宜模型或收手。
+     */
+    private static void warnIfNearBudget(MinecraftClient mc, ConfigManager.ConfigData config) {
+        if (config == null || config.dailyBudgetYuan <= 0.0) {
+            return;
+        }
+        double ratio = config.budgetWarnRatio;
+        // <=0 或 >=1 视为关闭：>=1 的时候拦截逻辑本身就会生效，不需要重复提醒
+        if (ratio <= 0.0 || ratio >= 1.0) {
+            return;
+        }
+        double spent = TokenStats.todayCost();
+        if (spent < config.dailyBudgetYuan * ratio) {
+            return;
+        }
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (today.equals(budgetWarnedDate)) {
+            return;
+        }
+        budgetWarnedDate = today;
+        sendLocalMessage(mc, Lang.tr("mcai.cmd.budget_warn",
+                formatYuan(spent), formatYuan(config.dailyBudgetYuan),
+                String.valueOf(Math.round(ratio * 100))));
+    }
+
+    /** 发请求前把这句问题的大致花费写一行暗色提示，让玩家在烧钱之前心里有数。 */
+    private static void sendEstimate(MinecraftClient mc, ConfigManager.ConfigData config, String question) {
+        double yuan = estimateCostYuan(config, question);
+        if (yuan < 0.0) {
+            // 这个模型没有单价表，明确说"无法估算"而不是瞎猜一个数字
+            return;
+        }
+        sendLocalMessage(mc, Lang.tr("mcai.chat.estimate", formatYuan(yuan)));
+    }
+
+    /**
+     * 粗略估算这次请求的花费。
+     *
+     * <p>只是量级参考：输入按"问题长度/3 + 系统提示词和上下文的固定开销"估，
+     * 输出按中等长度回答（400 token）估。真实数字以服务商账单为准 ——
+     * 这里刻意不做任何"看起来精确"的伪装。
+     *
+     * @return 元；模型没有单价表时返回 -1
+     */
+    private static double estimateCostYuan(ConfigManager.ConfigData config, String question) {
+        if (config == null) {
+            return -1.0;
+        }
+        com.example.mcai.util.PricingCatalog.Quote quote =
+                com.example.mcai.util.PricingCatalog.find(config.model);
+        if (quote == null) {
+            return -1.0;
+        }
+        int questionTokens = question == null ? 0 : question.length() / 3;
+        int contextTokens = Math.max(0, config.historyTurns) * 60 + 220;
+        int inputTokens = Math.max(1, questionTokens + contextTokens);
+        int outputTokens = 400;
+        return quote.estimate(inputTokens, outputTokens);
+    }
+
+    private static String formatYuan(double value) {
+        return String.format(java.util.Locale.ROOT, "%.4f", Math.max(0.0, value));
+    }
+
+    // ---------------------------------------------- 1.24 回答展示（可点击 + 朗读）
+
+    /**
+     * 统一的回答展示入口：把坐标和「物品名」变成可点击文本，并按配置朗读。
+     *
+     * <p>聊天和截图两条链路都走这里，保证观感一致。
+     *
+     * @param elapsedMillis 耗时；<=0 表示不显示耗时（缓存命中时用）
+     */
+    private static void replyToPlayer(MinecraftClient mc, String reply, long elapsedMillis) {
+        String flat = reply == null ? "" : reply.replace("\n", " ").trim();
+        String suffix = elapsedMillis > 0 ? " " + ThinkingIndicator.formatElapsed(elapsedMillis) : "";
+        Text text = com.example.mcai.util.ClickableText.build("§f[AI] " + flat + suffix);
+        mc.execute(() -> {
+            if (mc.inGameHud != null) {
+                mc.inGameHud.getChatHud().addMessage(text);
+            }
+        });
+        // TTS 默认关闭；开了就顺带念一遍（无障碍用途）
+        com.example.mcai.util.Speech.speakIfEnabled(flat);
     }
 
     // ------------------------------------------------------- #8 流式输出
@@ -217,6 +335,11 @@ public final class ChatHandler {
 
         ThinkingIndicator.Request thinking = ThinkingIndicator.begin();
 
+        // 1.24 可取消：流式请求没有单一的 future 可以 cancel，
+        // 靠下面循环里的 isCurrent 检查跳出读取（取消时 HTTP 连接会随流关闭而断开）
+        final long requestId = com.example.mcai.util.RequestController.begin();
+        com.example.mcai.util.RequestController.setCancelHook(thinking::finish);
+
         STREAM_EXECUTOR.execute(() -> {
             StringBuilder content = new StringBuilder();
             StringBuilder reasoning = new StringBuilder();
@@ -240,6 +363,10 @@ public final class ChatHandler {
 
                 try (var lines = response.body()) {
                     for (String line : (Iterable<String>) lines::iterator) {
+                        // 玩家取消了 → 立刻停止读取，不再把后续分片渲染到 Action Bar
+                        if (!com.example.mcai.util.RequestController.isCurrent(requestId)) {
+                            break;
+                        }
                         if (line == null) {
                             continue;
                         }
@@ -277,13 +404,23 @@ public final class ChatHandler {
 
                 long elapsedMillis = thinking.finish();
                 StreamingHud.clear();
+
+                // 被取消被顶掉 → 丢掉已经收到的那半截回答
+                if (!com.example.mcai.util.RequestController.isCurrent(requestId)) {
+                    return;
+                }
+
                 finishStreaming(mc, question, content.toString(), reasoning.toString(),
                         usageChunk, elapsedMillis, onReply);
             } catch (Throwable t) {
                 thinking.finish();
                 StreamingHud.clear();
-                sendLocalMessage(mc, "§c" + question
-                        + " (" + Lang.tr("mcai.error.network", rootMessage(t)) + ")");
+                if (com.example.mcai.util.RequestController.isCurrent(requestId)) {
+                    sendLocalMessage(mc, "§c" + question
+                            + " (" + Lang.tr("mcai.error.network", rootMessage(t)) + ")");
+                }
+            } finally {
+                com.example.mcai.util.RequestController.finish(requestId);
             }
         });
     }
@@ -308,6 +445,7 @@ public final class ChatHandler {
         ClientChat.sendReasoningText(reasoning);
 
         HistoryStore.remember(question, reply);
+        storeInCache(question, reply);
         if (onReply != null) {
             try {
                 onReply.accept(reply);
@@ -316,8 +454,16 @@ public final class ChatHandler {
             }
         }
 
-        sendLocalMessage(mc, "§f[AI] " + reply.replace("\n", " ").trim()
-                + " " + ThinkingIndicator.formatElapsed(elapsedMillis));
+        replyToPlayer(mc, reply, elapsedMillis);
+    }
+
+    /** 1.24：把成功的问答写进本地缓存，下次问同样的问题就不再花钱。 */
+    private static void storeInCache(String question, String reply) {
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        if (config == null) {
+            return;
+        }
+        com.example.mcai.util.ResponseCache.store(question, config.model, config.persona, reply);
     }
 
     private void sendRequest(MinecraftClient mc, ApiKeyManager.PickedKey picked, String apiUrl, String model,
@@ -343,13 +489,22 @@ public final class ChatHandler {
         // 请求已合法构建，从这里开始计时并启动"思考中"提示
         ThinkingIndicator.Request thinking = ThinkingIndicator.begin();
 
+        // 1.24 可取消请求：领一个 id，登记"取消时立刻停掉思考动画"，并把 future 登记进去
+        final long requestId = com.example.mcai.util.RequestController.begin();
+        com.example.mcai.util.RequestController.setCancelHook(thinking::finish);
+
         CompletableFuture<HttpResponse<String>> future =
                 HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        com.example.mcai.util.RequestController.track(future);
 
         future.whenCompleteAsync((response, throwable) -> {
             // 无论成功、HTTP 错误还是抛异常，都必须先停掉动画
             long elapsedMillis = thinking.finish();
             try {
+                // 玩家按 ESC 取消了（或被新请求顶掉）→ 静默收场，绝不弹出"幽灵回答"
+                if (!com.example.mcai.util.RequestController.isCurrent(requestId)) {
+                    return;
+                }
                 if (throwable != null) {
                     sendLocalMessage(mc, "§c" + question
                             + " (" + Lang.tr("mcai.error.network", rootMessage(throwable)) + ")");
@@ -368,6 +523,7 @@ public final class ChatHandler {
             } finally {
                 // 幂等兜底：即使上面某条路径漏了，也保证动画一定会停
                 thinking.finish();
+                com.example.mcai.util.RequestController.finish(requestId);
             }
         }, HTTP_EXECUTOR);
     }
@@ -388,15 +544,9 @@ public final class ChatHandler {
     }
 
     private static String buildRequestBody(String model, String question, boolean stream) {
-        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
-        String system = Lang.tr("mcai.prompt.system");
-
-        // #9 人格:如果当前 persona 有额外的系统提示词后缀,追加到 system 里
-        String personaSuffix = config == null ? null
-                : com.example.mcai.util.PersonaCatalog.systemSuffix(config.persona);
-        if (personaSuffix != null && !personaSuffix.isBlank()) {
-            system = system + " " + personaSuffix;
-        }
+        // 1.24：系统提示词统一由 SystemPrompt 拼装 —— 基础提示词 + 人格 + 长期记忆 + 环境上下文。
+        // 以前这里只拼了人格，而截图链路连人格都没有，两条链路行为不一致。
+        String system = com.example.mcai.util.SystemPrompt.build();
 
         JsonArray messages = new JsonArray();
 
@@ -458,6 +608,8 @@ public final class ChatHandler {
 
         // 多轮上下文：这次问答写进内存历史（本地存储，不上传）
         HistoryStore.remember(question, reply);
+        // 1.24：顺便进本地缓存
+        storeInCache(question, reply);
 
         // 调用方的回调（#19 用它把回答存成任务）
         if (onReply != null) {
@@ -468,8 +620,7 @@ public final class ChatHandler {
             }
         }
 
-        sendLocalMessage(mc, "§f[AI] " + reply.replace("\n", " ").trim()
-                + " " + ThinkingIndicator.formatElapsed(elapsedMillis));
+        replyToPlayer(mc, reply, elapsedMillis);
     }
 
     private void handleHttpError(MinecraftClient mc, String question, int statusCode) {

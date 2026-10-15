@@ -280,5 +280,48 @@
   "mcai.help.notes": "注意事项",
   "mcai.help.note1": "· 密钥等同密码，不要发给别人，也别在直播/截图里露出",
   "mcai.help.note2a": "· 账户需要有余额，否则会返回 ",
-  "mcai.help.note2b": "402 余额不足"
+  "mcai.help.note2b": "402 余额不足",
+
+  "key.mcai.pick": "框选截图（视觉）",
+
+  "mcai.pick.title": "框选要发送的区域",
+  "mcai.pick.hint": "拖拽鼠标画框 → 回车确认，ESC 取消。只有框住的部分会发给 AI，能省下大部分图片费用。",
+  "mcai.pick.size": "§7当前选区：%s × %s 像素，约占整屏 %s%%",
+  "mcai.pick.close_screen": "§e[AI] 请先关掉当前界面，再按 R 框选截图。",
+
+  "mcai.preview.title": "确认要发送的截图",
+  "mcai.preview.send": "发送",
+  "mcai.preview.discard": "取消",
+  "mcai.preview.info": "§7实际发送 %s × %s，%s",
+  "mcai.preview.cost": "§7预计约 %s 图片 token / ¥%s",
+  "mcai.preview.cost_unknown": "§7预计约 %s 图片 token（该模型没有单价表）",
+  "mcai.preview.no_texture": "预览图没能生成，实际发送的仍是处理后的截图。",
+
+  "mcai.chat.estimate": "§8[预估] 本次请求约 ¥%s",
+  "mcai.chat.click_copy_coords": "§7点击复制坐标：§f%s",
+  "mcai.chat.click_ask_item": "§7点击填入提问：§f%s",
+  "mcai.cache.hit": "§8[缓存] 这个问题之前问过，直接用了上次的回答（未消耗 token）。",
+
+  "mcai.prompt.memories": "请务必记住以下关于玩家的事实：",
+
+  "mcai.danger.prompt": "我血量很低，附近有敌对生物。请看这张截图，用一两句话告诉我：现在该跑还是该打、往哪个方向撤、有没有立刻能保命的动作。",
+
+  "mcai.cmd.budget_warn": "§e[AI] 今日已花 ¥%s / 预算 ¥%s（已达 %s%%）。快超了，可以考虑换个便宜模型或者收手。",
+  "mcai.cmd.cancel_done": "§b[AI] 已中止本次请求。",
+  "mcai.cmd.cancel_none": "§8[AI] 当前没有正在进行的请求。",
+  "mcai.cmd.cache_cleared": "§b[AI] 已清空本地回答缓存（原有 %s 条）。",
+  "mcai.cmd.speak_empty": "§c[AI] 要朗读的内容不能为空。",
+  "mcai.cmd.speak_started": "§b[AI] 已交给系统语音朗读。",
+  "mcai.cmd.remember_empty": "§c[AI] 要记住的内容不能为空。",
+  "mcai.cmd.remember_added": "§b[AI] 已记住：§f%s",
+  "mcai.cmd.memories_title": "§b[mcAI] §f已记住的事情：",
+  "mcai.cmd.memories_empty": "§8 还没有记住任何事情。用 §7/ai remember <内容>§8 添加。",
+  "mcai.cmd.forget_done": "§b[AI] 已忘记。",
+
+  "mcai.cmd.flag_preview": "发送前预览",
+  "mcai.cmd.flag_mask": "隐私遮罩",
+  "mcai.cmd.flag_tts": "语音朗读",
+  "mcai.cmd.flag_danger": "危险预警",
+  "mcai.cmd.flag_cache": "回答缓存",
+  "mcai.cmd.flag_env": "环境感知"
 }

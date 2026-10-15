@@ -3,7 +3,7 @@
 	"id": "mcai",
 	"version": "${version}",
 	"name": "mcAI",
-	"description": "Chat with an AI from the Minecraft chat bar via the '!ai' prefix, press H to send a screenshot to a multimodal model, and press G to analyse a build or redstone circuit. Local models (Ollama / LM Studio) need no API key. Includes multi-turn context kept in memory, cost estimation with an optional daily budget cap, multiple API keys with automatic failover, persona presets, sign/book translation, a world-context advisor, a local recipe helper that costs no tokens, death recap and Discord webhooks, streaming output, and fully localized UI text and API error messages (English / Chinese).",
+	"description": "Chat with an AI from the Minecraft chat bar via the '!ai' prefix, press H to send a screenshot to a multimodal model, press R to send only the region you select, and press G to analyse a build or redstone circuit. Local models (Ollama / LM Studio) need no API key. Includes multi-turn context kept per world, a local answer cache, cost estimation with a daily budget cap and a warning before you hit it, multiple API keys with automatic failover, persona presets and long-term memories, sign/book translation, a world-context advisor, a local recipe helper that costs no tokens, death recap and Discord webhooks, a danger alert, streaming output, cancellable requests, clickable coordinates in answers, an optional screenshot preview and privacy mask, optional text-to-speech, and a fully localized UI in English / 简体中文 / 繁體中文 / 日本語.",
 	"authors": [
 		"mfhry"
 	],
@@ -21,6 +21,9 @@
 		],
 		"client": [
 			"com.example.mcai.McaiModClient"
+		],
+		"modmenu": [
+			"com.example.mcai.client.ModMenuIntegration"
 		]
 	},
 	"depends": {
@@ -28,5 +31,8 @@
 		"minecraft": "~1.21.1",
 		"java": ">=21",
 		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
 	}
 }

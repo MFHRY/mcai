@@ -5,12 +5,15 @@ import com.example.mcai.McaiMod;
 import com.example.mcai.client.ThinkingIndicator;
 import com.example.mcai.util.AiResponseParser;
 import com.example.mcai.util.ClientChat;
+import com.example.mcai.util.EnvironmentContext;
 import com.example.mcai.util.HttpErrorCatalog;
 import com.example.mcai.util.Lang;
 import com.example.mcai.util.LocalProvider;
 import com.example.mcai.util.ApiKeyManager;
 import com.example.mcai.util.HistoryStore;
 import com.example.mcai.util.ModelCatalog;
+import com.example.mcai.util.RequestController;
+import com.example.mcai.util.ScreenCrop;
 import com.example.mcai.util.TokenStats;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -53,6 +56,7 @@ public final class VisionHandler {
 
     private static final String KEY_TRANSLATION = "key.mcai.vision";
     private static final String KEY_BUILD_TRANSLATION = "key.mcai.build";
+    private static final String KEY_PICK_TRANSLATION = "key.mcai.pick";
     private static final String KEY_CATEGORY = "category.mcai";
 
     private static final long COOLDOWN_MILLIS = 3000L;
@@ -63,6 +67,7 @@ public final class VisionHandler {
 
     private static KeyBinding visionKey;
     private static KeyBinding buildKey;
+    private static KeyBinding pickKey;
 
     private static final AtomicLong nextAllowedTime = new AtomicLong(0L);
     private static volatile long lastTriggerAt = 0L;
@@ -90,6 +95,10 @@ public final class VisionHandler {
         buildKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 KEY_BUILD_TRANSLATION, InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, KEY_CATEGORY));
 
+        // 1.24 框选截图：只把框住的那一块发出去，直接省下视觉 token
+        pickKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                KEY_PICK_TRANSLATION, InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, KEY_CATEGORY));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (visionKey.wasPressed()) {
                 trigger(null);
@@ -97,7 +106,213 @@ public final class VisionHandler {
             while (buildKey.wasPressed()) {
                 trigger(Lang.tr("mcai.vision.prompt.build"));
             }
+            while (pickKey.wasPressed()) {
+                beginRegionPick(null);
+            }
         });
+    }
+
+    // ------------------------------------------------------------ 1.24 框选截图
+
+    /**
+     * R 键：先抓下当前这一帧，再弹出框选界面。
+     *
+     * <p><b>顺序很重要。</b>必须先截图、后开界面：如果先开界面再截图，
+     * 帧缓冲里会残留框选界面自己画的暗色遮罩，等于把遮罩一起发给模型。
+     * 先抓帧还有一个好处——玩家框选时参考的就是<b>即将发送的那一帧</b>。
+     */
+    public static void beginRegionPick(String promptOverride) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.world == null) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (now - lastTriggerAt < MIN_INTERVAL_MS) {
+            return;
+        }
+        ConfigManager.ConfigData config = preflight(client);
+        if (config == null) {
+            return;
+        }
+        if (client.currentScreen != null) {
+            // 已经开着别的界面（背包/聊天）时不要叠加，否则框选会被上层界面挡住
+            ClientChat.sendLiteral(Lang.tr("mcai.pick.close_screen"));
+            return;
+        }
+
+        NativeImage image;
+        try {
+            image = ScreenshotCapture.grab();
+        } catch (Throwable t) {
+            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
+            return;
+        }
+        if (image == null) {
+            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_null"));
+            return;
+        }
+
+        lastTriggerAt = now;
+        nextAllowedTime.set(now + COOLDOWN_MILLIS);
+
+        try {
+            client.setScreen(new com.example.mcai.client.VisionCaptureScreen(image, promptOverride));
+        } catch (Throwable t) {
+            // 界面没打开就必须自己把这张堆外内存放掉
+            try {
+                image.close();
+            } catch (Throwable ignored) {
+                // 忽略
+            }
+            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
+        }
+    }
+
+    /** 框选界面点了确认：按配置决定是先预览，还是直接发。 */
+    public static void onRegionPicked(NativeImage image, ScreenCrop.Region region, String promptOverride) {
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        if (image == null) {
+            return;
+        }
+        if (config == null || !config.visionPreview) {
+            sendPicked(image, region, promptOverride);
+            return;
+        }
+
+        // 预览要显示"处理之后的样子"，所以先把裁剪 + 遮罩 + 缩放做一遍。
+        // previewOf 不接管源图所有权，源图还要留着做真正的编码。
+        NativeImage preview = ScreenshotCapture.previewOf(image, region, masksFromConfig(config), 640, 360);
+        if (preview == null) {
+            // 生成预览失败就直接发，不要因为一个附加功能把主流程卡死
+            sendPicked(image, region, promptOverride);
+            return;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        String info = Lang.tr("mcai.preview.info", preview.getWidth(), preview.getHeight(),
+                estimateLine(config, region));
+        client.setScreen(new com.example.mcai.client.VisionPreviewScreen(
+                image, preview, region, promptOverride, info));
+    }
+
+    /** 真正把框选好的截图编码并发出去。 */
+    public static void sendPicked(NativeImage image, ScreenCrop.Region region, String promptOverride) {
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        if (config == null) {
+            try {
+                image.close();
+            } catch (Throwable ignored) {
+                // 忽略
+            }
+            ClientChat.sendLiteral(Lang.tr("mcai.error.config_load"));
+            return;
+        }
+        ThinkingIndicator.Request thinking = ThinkingIndicator.begin();
+        processAsync(config, image, thinking, promptOverride, region, masksFromConfig(config));
+    }
+
+    /** 把配置里的隐私遮罩字符串解析成比例区域；关闭时返回 null。 */
+    private static java.util.List<ScreenCrop.Region> masksFromConfig(ConfigManager.ConfigData config) {
+        if (config == null || !config.privacyMask || config.privacyMaskRegions == null
+                || config.privacyMaskRegions.isEmpty()) {
+            return null;
+        }
+        java.util.List<ScreenCrop.Region> out = new java.util.ArrayList<>();
+        for (String raw : config.privacyMaskRegions) {
+            ScreenCrop.Region region = parseRegion(raw);
+            if (region != null) {
+                out.add(region);
+            }
+        }
+        return out.isEmpty() ? null : out;
+    }
+
+    /** 解析 {@code "x0,y0,x1,y1"}；格式不对就跳过这一条，不让它影响整张图。 */
+    static ScreenCrop.Region parseRegion(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String[] parts = raw.split("[,，]");
+        if (parts.length != 4) {
+            return null;
+        }
+        try {
+            double x0 = Double.parseDouble(parts[0].trim());
+            double y0 = Double.parseDouble(parts[1].trim());
+            double x1 = Double.parseDouble(parts[2].trim());
+            double y1 = Double.parseDouble(parts[3].trim());
+            double left = Math.max(0.0, Math.min(x0, x1));
+            double right = Math.min(1.0, Math.max(x0, x1));
+            double top = Math.max(0.0, Math.min(y0, y1));
+            double bottom = Math.min(1.0, Math.max(y0, y1));
+            if (right - left <= 0.0 || bottom - top <= 0.0) {
+                return null;
+            }
+            return new ScreenCrop.Region(left, top, right, bottom);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** 这次请求的大致花费，用在预览界面上让玩家心里有数。 */
+    private static String estimateLine(ConfigManager.ConfigData config, ScreenCrop.Region region) {
+        double ratio = region == null ? 1.0 : Math.max(0.01, region.width() * region.height());
+        int height = com.example.mcai.util.VisionResolution.targetHeight(config.visionResolution);
+        if (height <= 0) {
+            height = 1080;
+        }
+        // 视觉 token 的粗略经验值：每 750 像素约 1 个 token
+        int pixels = (int) Math.round(height * height * (16.0 / 9.0) * ratio);
+        int imageTokens = Math.max(1, pixels / 750);
+        com.example.mcai.util.PricingCatalog.Quote quote =
+                com.example.mcai.util.PricingCatalog.find(config.model);
+        if (quote == null) {
+            return Lang.tr("mcai.preview.cost_unknown", imageTokens);
+        }
+        double yuan = quote.estimate(imageTokens + 120, 220);
+        return Lang.tr("mcai.preview.cost", imageTokens, String.format(java.util.Locale.ROOT, "%.4f", yuan));
+    }
+
+    /**
+     * 所有视觉请求共用的前置校验。任一项不过都会自己发提示并返回 null。
+     *
+     * <p>抽出来是为了让「按 H」「按 G」「按 R 框选」「危险预警」四条入口
+     * 走<b>完全同一套</b>校验，不会出现某个入口漏掉预算拦截这种情况。
+     */
+    private static ConfigManager.ConfigData preflight(MinecraftClient client) {
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        if (config == null) {
+            ClientChat.sendLiteral(Lang.tr("mcai.error.config_load"));
+            return null;
+        }
+        // 本地推理服务（Ollama / LM Studio）不需要 API Key，不要因为没有 key 把它拦掉
+        if (LocalProvider.requiresApiKey(config.apiUrl, config.apiKey)) {
+            ClientChat.sendLiteral(Lang.tr(LocalProvider.isLocal(config.apiUrl)
+                    ? "mcai.vision.local_hint"
+                    : "mcai.error.no_apikey"));
+            return null;
+        }
+        if (config.apiUrl == null || config.apiUrl.isBlank()) {
+            ClientChat.sendLiteral(Lang.tr("mcai.error.no_apiurl"));
+            return null;
+        }
+        if (config.model == null || config.model.isBlank()) {
+            ClientChat.sendLiteral(Lang.tr("mcai.error.no_model"));
+            return null;
+        }
+        // 实测 deepseek-v4-pro 不支持图片输入，且它不会报错、只会敷衍一句，
+        // 所以这里直接拦下来并告诉玩家怎么办，省得白烧 token。
+        if (!ModelCatalog.lookup(config.model).supportsVision()) {
+            ClientChat.sendLiteral(Lang.tr("mcai.vision.no_vision", config.model));
+            return null;
+        }
+        // 今日预算超支时拦下,别继续烧钱
+        if (TokenStats.isOverDailyBudget()) {
+            ClientChat.sendLiteral(Lang.tr("mcai.cmd.budget_blocked"));
+            return null;
+        }
+        return config;
     }
 
     /**
@@ -124,37 +339,8 @@ public final class VisionHandler {
             return;
         }
 
-        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        ConfigManager.ConfigData config = preflight(client);
         if (config == null) {
-            ClientChat.sendLiteral(Lang.tr("mcai.error.config_load"));
-            return;
-        }
-        // 本地推理服务（Ollama / LM Studio）不需要 API Key，不要因为没有 key 把它拦掉
-        if (LocalProvider.requiresApiKey(config.apiUrl, config.apiKey)) {
-            ClientChat.sendLiteral(Lang.tr(LocalProvider.isLocal(config.apiUrl)
-                    ? "mcai.vision.local_hint"
-                    : "mcai.error.no_apikey"));
-            return;
-        }
-        if (config.apiUrl == null || config.apiUrl.isBlank()) {
-            ClientChat.sendLiteral(Lang.tr("mcai.error.no_apiurl"));
-            return;
-        }
-        if (config.model == null || config.model.isBlank()) {
-            ClientChat.sendLiteral(Lang.tr("mcai.error.no_model"));
-            return;
-        }
-
-        // 实测 deepseek-v4-pro 不支持图片输入，且它不会报错、只会敷衍一句，
-        // 所以这里直接拦下来并告诉玩家怎么办，省得白烧 token。
-        if (!ModelCatalog.lookup(config.model).supportsVision()) {
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.no_vision", config.model));
-            return;
-        }
-
-        // 今日预算超支时拦下,别继续烧钱
-        if (TokenStats.isOverDailyBudget()) {
-            ClientChat.sendLiteral(Lang.tr("mcai.cmd.budget_blocked"));
             return;
         }
 
@@ -186,18 +372,19 @@ public final class VisionHandler {
             return;
         }
 
-        processAsync(config, image, thinking, promptOverride, crop);
+        processAsync(config, image, thinking, promptOverride, crop, masksFromConfig(config));
     }
 
     /** 像素转换 / 裁剪 / 缩放 / JPEG / HTTP 全部在后台线程完成，绝不占用渲染线程。 */
     private static void processAsync(ConfigManager.ConfigData config, NativeImage image,
                                      ThinkingIndicator.Request thinking, String promptOverride,
-                                     com.example.mcai.util.ScreenCrop.Region crop) {
+                                     com.example.mcai.util.ScreenCrop.Region crop,
+                                     java.util.List<com.example.mcai.util.ScreenCrop.Region> masks) {
         // encode() 接管 image 所有权，无论成功失败都会 close，不会泄漏堆外内存
         VISION_EXECUTOR.execute(() -> {
             try {
                 ScreenshotCapture.EncodedImage encoded =
-                        ScreenshotCapture.encode(image, config.visionResolution, crop);
+                        ScreenshotCapture.encode(image, config.visionResolution, crop, masks);
 
                 McaiMod.LOGGER.info("mcAI screenshot encoded: {}x{}, JPEG {} KB, vision_resolution={}, cropped={}",
                         encoded.width(), encoded.height(),
@@ -260,9 +447,21 @@ public final class VisionHandler {
             return;
         }
 
+        // 1.24 可取消请求：先领一个 id，并登记"取消时停掉思考动画"
+        final long requestId = RequestController.begin();
+        RequestController.setCancelHook(thinking::finish);
+
         try {
-            HttpResponse<String> response =
-                    HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            java.util.concurrent.CompletableFuture<HttpResponse<String>> future =
+                    HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            RequestController.track(future);
+
+            HttpResponse<String> response = future.get();
+
+            // 玩家按 ESC 取消过（或被新请求顶掉）→ 静默丢弃，绝不弹出"幽灵回答"
+            if (!RequestController.isCurrent(requestId)) {
+                return;
+            }
 
             int statusCode = response.statusCode();
             ApiKeyManager.recordResult(picked, statusCode);
@@ -276,8 +475,16 @@ public final class VisionHandler {
                 ClientChat.sendLiteral(Lang.tr("mcai.vision.failed",
                         statusCode + ": " + HttpErrorCatalog.describe(statusCode)));
             }
+        } catch (java.util.concurrent.CancellationException e) {
+            // 取消不是错误，安静收场（提示语由快捷键那一侧负责发）
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         } catch (Throwable t) {
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.failed_network", rootMessage(t)));
+            if (RequestController.isCurrent(requestId)) {
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.failed_network", rootMessage(t)));
+            }
+        } finally {
+            RequestController.finish(requestId);
         }
     }
 
@@ -320,8 +527,8 @@ public final class VisionHandler {
     private static String buildRequestBody(String model, String base64, String promptOverride) {
         JsonObject systemMessage = new JsonObject();
         systemMessage.addProperty("role", "system");
-        // 每次请求时才取：语言文件里的提示词就是"让 AI 用哪种语言回答"的开关
-        systemMessage.addProperty("content", Lang.tr("mcai.prompt.system"));
+        // 每次请求时才取：语言文件决定回答语言，人格/长期记忆/模组列表都在这里一起拼上
+        systemMessage.addProperty("content", com.example.mcai.util.SystemPrompt.build());
 
         JsonArray content = new JsonArray();
 

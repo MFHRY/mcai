@@ -89,6 +89,25 @@ public final class ScreenshotCapture {
      */
     public static EncodedImage encode(NativeImage image, String resolution,
                                       com.example.mcai.util.ScreenCrop.Region crop) throws IOException {
+        return encode(image, resolution, crop, null);
+    }
+
+    /**
+     * 步骤 2：像素转换 + 可选裁剪 + 可选隐私遮罩 + 按配置缩放 + JPEG(0.8) + Base64。
+     * <b>耗时操作，必须放在后台线程。</b>
+     *
+     * <p>本方法<b>接管 image 的所有权</b>：无论成功失败都会 close 掉它，
+     * 并 flush 掉中间产生的每一个 BufferedImage。
+     *
+     * @param crop  可为 null。非 null 时先按比例裁出这块区域再缩放（#4 GUI 感知：
+     *              只发界面那一块，图片 token 大约降到四分之一）
+     * @param masks 可为 null。非 null 时在缩放之前把这些比例区域涂黑（1.24 隐私遮罩：
+     *              避免把聊天栏、玩家名这类内容送到第三方服务）
+     */
+    public static EncodedImage encode(NativeImage image, String resolution,
+                                      com.example.mcai.util.ScreenCrop.Region crop,
+                                      java.util.List<com.example.mcai.util.ScreenCrop.Region> masks)
+            throws IOException {
         BufferedImage source = null;
         BufferedImage cropped = null;
         BufferedImage working = null;
@@ -100,6 +119,25 @@ public final class ScreenshotCapture {
                 cropped = cropRegion(source, crop);
                 if (cropped != null) {
                     base = cropped;
+                }
+            }
+
+            // 遮罩在裁剪之后、缩放之前做：先裁掉的不需要再涂，遮罩区域按裁剪后的图重新换算
+            if (masks != null && !masks.isEmpty()) {
+                BufferedImage masked = toRgb(base);
+                applyMasks(masked, masks, crop);
+                // 注意遮罩这一层现在成了新的 base，不能再被当成"中间的临时图"提前 flush
+                if (cropped != null) {
+                    cropped.flush();
+                }
+                if (source != null && source != cropped) {
+                    source.flush();
+                }
+                source = null;
+                cropped = null;
+                base = masked;
+                if (working != null) {
+                    working.flush();
                 }
             }
 
@@ -126,6 +164,130 @@ public final class ScreenshotCapture {
             if (source != null) {
                 source.flush();
             }
+        }
+    }
+
+    /**
+     * 生成一张"即将发送的样子"的预览图（1.24 发送前预览用）：裁剪 → 遮罩 → 缩放到适合显示。
+     *
+     * <p><b>不接管 {@code source} 的所有权</b>，调用方仍要用它去做真正的编码。
+     * 返回的 NativeImage 由调用方负责 close（预览界面会交给纹理去关）。
+     *
+     * @param maxWidth  预览图最大宽度（像素）
+     * @param maxHeight 预览图最大高度（像素）
+     */
+    public static NativeImage previewOf(NativeImage source,
+                                        com.example.mcai.util.ScreenCrop.Region crop,
+                                        java.util.List<com.example.mcai.util.ScreenCrop.Region> masks,
+                                        int maxWidth, int maxHeight) {
+        BufferedImage sourceImage = null;
+        BufferedImage cropped = null;
+        BufferedImage working = null;
+        try {
+            sourceImage = toBufferedImage(source);
+
+            BufferedImage base = sourceImage;
+            if (crop != null) {
+                cropped = cropRegion(sourceImage, crop);
+                if (cropped != null) {
+                    base = cropped;
+                }
+            }
+
+            working = toRgb(base);
+            if (masks != null && !masks.isEmpty()) {
+                applyMasks(working, masks, crop);
+            }
+
+            double scale = Math.min(
+                    maxWidth / (double) Math.max(1, working.getWidth()),
+                    maxHeight / (double) Math.max(1, working.getHeight()));
+            scale = Math.min(1.0, scale);
+
+            int targetWidth = Math.max(1, (int) Math.round(working.getWidth() * scale));
+            int targetHeight = Math.max(1, (int) Math.round(working.getHeight() * scale));
+
+            BufferedImage scaled = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D graphics = scaled.createGraphics();
+            try {
+                graphics.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                        java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                graphics.drawImage(working, 0, 0, targetWidth, targetHeight, null);
+            } finally {
+                graphics.dispose();
+            }
+
+            NativeImage out = new NativeImage(targetWidth, targetHeight, false);
+            for (int y = 0; y < targetHeight; y++) {
+                for (int x = 0; x < targetWidth; x++) {
+                    // getRGB 返回 ARGB，NativeImage.setColor 也接受 ARGB，可以直接搬
+                    out.setColor(x, y, scaled.getRGB(x, y));
+                }
+            }
+            scaled.flush();
+            return out;
+        } catch (Throwable t) {
+            return null;
+        } finally {
+            if (working != null) {
+                working.flush();
+            }
+            if (cropped != null) {
+                cropped.flush();
+            }
+            if (sourceImage != null) {
+                sourceImage.flush();
+            }
+        }
+    }
+
+    /**
+     * 把遮罩区域涂黑。
+     *
+     * @param crop 已经裁剪过时传入裁剪区域，用来把「原图比例坐标」换算回「当前图比例坐标」
+     */
+    private static void applyMasks(BufferedImage image,
+                                   java.util.List<com.example.mcai.util.ScreenCrop.Region> masks,
+                                   com.example.mcai.util.ScreenCrop.Region crop) {
+        int imageWidth = image.getWidth();
+        int imageHeight = image.getHeight();
+
+        for (com.example.mcai.util.ScreenCrop.Region mask : masks) {
+            if (mask == null) {
+                continue;
+            }
+            // 遮罩本身也是"整屏比例"定义的，裁剪之后要按裁剪框做一次归一化
+            double nx0 = mask.x0(), ny0 = mask.y0(), nx1 = mask.x1(), ny1 = mask.y1();
+            if (crop != null) {
+                double cw = crop.width();
+                double ch = crop.height();
+                if (cw <= 0.0 || ch <= 0.0) {
+                    continue;
+                }
+                nx0 = (mask.x0() - crop.x0()) / cw;
+                nx1 = (mask.x1() - crop.x0()) / cw;
+                ny0 = (mask.y0() - crop.y0()) / ch;
+                ny1 = (mask.y1() - crop.y0()) / ch;
+            }
+
+            int x = (int) Math.floor(Math.max(0.0, nx0) * imageWidth);
+            int y = (int) Math.floor(Math.max(0.0, ny0) * imageHeight);
+            int right = (int) Math.ceil(Math.min(1.0, nx1) * imageWidth);
+            int bottom = (int) Math.ceil(Math.min(1.0, ny1) * imageHeight);
+
+            x = Math.max(0, Math.min(x, imageWidth));
+            y = Math.max(0, Math.min(y, imageHeight));
+            right = Math.max(x, Math.min(right, imageWidth));
+            bottom = Math.max(y, Math.min(bottom, imageHeight));
+
+            int w = right - x;
+            int h = bottom - y;
+            if (w <= 0 || h <= 0) {
+                continue;
+            }
+            int[] black = new int[w * h];
+            java.util.Arrays.fill(black, 0xFF000000);
+            image.setRGB(x, y, w, h, black, 0, w);
         }
     }
 

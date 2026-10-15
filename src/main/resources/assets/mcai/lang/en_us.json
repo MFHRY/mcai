@@ -280,5 +280,48 @@
   "mcai.help.notes": "Things to know",
   "mcai.help.note1": "- Treat the key like a password: never share it or show it in streams/screenshots",
   "mcai.help.note2a": "- Your account needs a positive balance, otherwise you get ",
-  "mcai.help.note2b": "402 insufficient balance"
+  "mcai.help.note2b": "402 insufficient balance",
+
+  "key.mcai.pick": "Region Screenshot (Vision)",
+
+  "mcai.pick.title": "Select the region to send",
+  "mcai.pick.hint": "Drag to draw a box, then press Enter to confirm (ESC cancels). Only the boxed area is sent, which saves most of the image cost.",
+  "mcai.pick.size": "§7Selection: %s x %s px, about %s%% of the screen",
+  "mcai.pick.close_screen": "§e[AI] Close the current screen first, then press R to pick a region.",
+
+  "mcai.preview.title": "Confirm the screenshot to send",
+  "mcai.preview.send": "Send",
+  "mcai.preview.discard": "Cancel",
+  "mcai.preview.info": "§7Sending %s x %s, %s",
+  "mcai.preview.cost": "§7about %s image tokens / ¥%s",
+  "mcai.preview.cost_unknown": "§7about %s image tokens (no price table for this model)",
+  "mcai.preview.no_texture": "The preview image could not be built; the processed screenshot is still what gets sent.",
+
+  "mcai.chat.estimate": "§8[estimate] this request costs about ¥%s",
+  "mcai.chat.click_copy_coords": "§7Click to copy the coordinates: §f%s",
+  "mcai.chat.click_ask_item": "§7Click to put this in the chat box: §f%s",
+  "mcai.cache.hit": "§8[cache] You asked this before — reused the previous answer (no tokens spent).",
+
+  "mcai.prompt.memories": "Always keep the following facts about the player in mind:",
+
+  "mcai.danger.prompt": "My health is very low and there are hostile mobs nearby. Look at this screenshot and tell me in one or two sentences: should I run or fight, which way should I retreat, and is there anything I can do right now to survive?",
+
+  "mcai.cmd.budget_warn": "§e[AI] ¥%s of the ¥%s budget spent today (%s%%). Getting close — consider a cheaper model, or stop here.",
+  "mcai.cmd.cancel_done": "§b[AI] Request cancelled.",
+  "mcai.cmd.cancel_none": "§8[AI] There is no request in progress.",
+  "mcai.cmd.cache_cleared": "§b[AI] Local answer cache cleared (%s entries).",
+  "mcai.cmd.speak_empty": "§c[AI] Nothing to read out loud.",
+  "mcai.cmd.speak_started": "§b[AI] Handed to the system speech synthesizer.",
+  "mcai.cmd.remember_empty": "§c[AI] Nothing to remember.",
+  "mcai.cmd.remember_added": "§b[AI] Remembered: §f%s",
+  "mcai.cmd.memories_title": "§b[mcAI] §fThings I remember:",
+  "mcai.cmd.memories_empty": "§8 Nothing remembered yet. Add one with §7/ai remember <text>§8.",
+  "mcai.cmd.forget_done": "§b[AI] Forgotten.",
+
+  "mcai.cmd.flag_preview": "Send preview",
+  "mcai.cmd.flag_mask": "Privacy mask",
+  "mcai.cmd.flag_tts": "Text to speech",
+  "mcai.cmd.flag_danger": "Danger alert",
+  "mcai.cmd.flag_cache": "Answer cache",
+  "mcai.cmd.flag_env": "Modlist awareness"
 }
