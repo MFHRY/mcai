@@ -1,6 +1,7 @@
 package com.example.mcai;
 
 import com.example.mcai.client.AiCommand;
+import com.example.mcai.client.AvatarWidget;
 import com.example.mcai.client.ChatHandler;
 import com.example.mcai.client.DangerWatch;
 import com.example.mcai.client.DeathRecap;
@@ -42,5 +43,10 @@ public class McaiModClient implements ClientModInitializer {
         DangerWatch.register();
         // 按 ESC 中止正在进行的请求
         RequestCancelKey.register();
+
+        // ---- 1.25 新增模块 ----
+        // HUD 鲸鱼娘挂件：可拖动、点击弹气泡、按压 Q 弹。
+        // 默认显示，可以用 /ai avatar off 或设置界面里的开关关掉。
+        AvatarWidget.register();
     }
 }

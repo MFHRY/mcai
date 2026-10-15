@@ -26,9 +26,14 @@ public final class TokenStats {
     /**
      * 从一次成功的接口响应里取 token 并累计，同时写一条使用明细。
      *
+     * <p>1.25 起<b>返回这一次算出的花费</b>（元），好让调用方把它显示在回答末尾。
+     * 这是"按真实 usage 结算"的数字，跟发请求前的粗估是两回事。
+     * 已有的调用方把返回值忽略掉也完全合法，所以签名从 void 改成 double 不影响旧代码。
+     *
      * @param source 调用来源，{@code "chat"} 或 {@code "vision"}，仅用于明细展示
+     * @return 这一次调用估算出的人民币花费；拿不到 token 或没有单价表时返回 0
      */
-    public static void recordFrom(JsonObject responseRoot, String source) {
+    public static double recordFrom(JsonObject responseRoot, String source) {
         int total = AiResponseParser.extractTotalTokens(responseRoot);
         int prompt = AiResponseParser.extractPromptTokens(responseRoot);
         int completion = AiResponseParser.extractCompletionTokens(responseRoot);
@@ -49,6 +54,7 @@ public final class TokenStats {
 
         // 明细里连花费一起记下来，供 /ai token、/ai cost 展示
         UsageLog.appendAsync(model, source, total, cost);
+        return cost;
     }
 
     /** 一次调用同时累加 token 与花费（必要时先跨天清零）。二者都不大于 0 直接跳过。 */

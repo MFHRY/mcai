@@ -280,6 +280,50 @@ public class ConfigManager {
         /** 朗读时最多读多少个字，防止念一整篇。 */
         @SerializedName("tts_max_chars") public int ttsMaxChars = 220;
 
+        // ---- 1.25 新增 ----
+
+        /**
+         * 用哪套 API 协议。{@code auto} 按 {@code api_url} 猜：
+         * 含 {@code generativelanguage.googleapis.com} → gemini，
+         * 含 {@code anthropic.com} → claude，其余按 OpenAI 兼容处理。
+         */
+        @SerializedName("api_provider") public String apiProvider = "auto";
+
+        /** 请求失败自动重试几次。只对网络异常和 429/5xx 重试，0 = 不重试。 */
+        @SerializedName("retry_max") public int retryMax = 2;
+
+        /** 回答末尾附上这一次调用按真实 usage 算出的花费。 */
+        @SerializedName("show_request_cost") public boolean showRequestCost = true;
+
+        /** 鲸鱼娘挂件是否显示。 */
+        @SerializedName("avatar_visible") public boolean avatarVisible = true;
+
+        /** 挂件吸附的角落：bottom_left / bottom_right / top_left / top_right。 */
+        @SerializedName("avatar_corner") public String avatarCorner = "bottom_left";
+
+        /** 相对角落的像素偏移。 */
+        @SerializedName("avatar_offset_x") public int avatarOffsetX = 8;
+        @SerializedName("avatar_offset_y") public int avatarOffsetY = 8;
+
+        /** 挂件缩放倍率。 */
+        @SerializedName("avatar_scale") public double avatarScale = 1.0;
+
+        /**
+         * 自定义头像 PNG 的绝对路径，留空则用内置的原创鲸鱼娘。
+         *
+         * <p>做成路径而不是内置图片，是因为第三方挂件的美术素材<b>不在其开源许可范围内</b>
+         * （见 dsh-whale-widget 的 PROVENANCE.md），不能随本模组一起分发。
+         * 玩家想用哪张图就自己指过去，本模组不打包任何来路不明的素材。
+         */
+        @SerializedName("avatar_image") public String avatarImage = "";
+
+        /** 按压 / 松开挂件时播放音效。 */
+        @SerializedName("avatar_sound") public boolean avatarSound = true;
+
+        /** 气泡里显示哪些条目，可选 cost / budget / peak / model / cache / balance。 */
+        @SerializedName("avatar_bubble_items") public List<String> avatarBubbleItems =
+                List.of("cost", "budget", "peak", "model", "cache", "balance");
+
         public ConfigData() {}
 
         public ConfigData(ConfigData src) {
@@ -309,6 +353,15 @@ public class ConfigManager {
             this.dangerAlert = src.dangerAlert; this.dangerHealth = src.dangerHealth;
             this.dangerRadius = src.dangerRadius; this.dangerCooldownSeconds = src.dangerCooldownSeconds;
             this.tts = src.tts; this.ttsMaxChars = src.ttsMaxChars;
+            // ---- 1.25 ----
+            this.apiProvider = src.apiProvider; this.retryMax = src.retryMax;
+            this.showRequestCost = src.showRequestCost;
+            this.avatarVisible = src.avatarVisible; this.avatarCorner = src.avatarCorner;
+            this.avatarOffsetX = src.avatarOffsetX; this.avatarOffsetY = src.avatarOffsetY;
+            this.avatarScale = src.avatarScale; this.avatarImage = src.avatarImage;
+            this.avatarSound = src.avatarSound;
+            this.avatarBubbleItems = src.avatarBubbleItems != null
+                    ? List.copyOf(src.avatarBubbleItems) : List.of();
         }
 
         public boolean fillDefaults() {
@@ -342,6 +395,16 @@ public class ConfigManager {
             if (dangerRadius <= 0.0) { dangerRadius = 12.0; changed = true; }
             if (dangerCooldownSeconds < 0) { dangerCooldownSeconds = 60; changed = true; }
             if (ttsMaxChars < 0) { ttsMaxChars = 220; changed = true; }
+            // ---- 1.25 ----
+            if (apiProvider == null || apiProvider.isBlank()) { apiProvider = "auto"; changed = true; }
+            if (retryMax < 0) { retryMax = 2; changed = true; }
+            if (avatarCorner == null || avatarCorner.isBlank()) { avatarCorner = "bottom_left"; changed = true; }
+            if (avatarScale <= 0.0) { avatarScale = 1.0; changed = true; }
+            if (avatarImage == null) { avatarImage = ""; changed = true; }
+            if (avatarBubbleItems == null || avatarBubbleItems.isEmpty()) {
+                avatarBubbleItems = List.of("cost", "budget", "peak", "model", "cache", "balance");
+                changed = true;
+            }
             return changed;
         }
     }

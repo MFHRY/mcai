@@ -4,6 +4,9 @@ import com.example.mcai.ConfigManager;
 import com.example.mcai.McaiMod;
 import com.example.mcai.client.ThinkingIndicator;
 import com.example.mcai.util.AiResponseParser;
+import com.example.mcai.util.ApiClient;
+import com.example.mcai.util.ApiProvider;
+import com.example.mcai.util.ApiRequest;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.EnvironmentContext;
 import com.example.mcai.util.HttpErrorCatalog;
@@ -14,6 +17,7 @@ import com.example.mcai.util.HistoryStore;
 import com.example.mcai.util.ModelCatalog;
 import com.example.mcai.util.RequestController;
 import com.example.mcai.util.ScreenCrop;
+import com.example.mcai.util.SystemPrompt;
 import com.example.mcai.util.TokenStats;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -57,17 +61,18 @@ public final class VisionHandler {
     private static final String KEY_TRANSLATION = "key.mcai.vision";
     private static final String KEY_BUILD_TRANSLATION = "key.mcai.build";
     private static final String KEY_PICK_TRANSLATION = "key.mcai.pick";
+    private static final String KEY_WHAT_TRANSLATION = "key.mcai.what";
     private static final String KEY_CATEGORY = "category.mcai";
 
     private static final long COOLDOWN_MILLIS = 3000L;
     private static final long MIN_INTERVAL_MS = 300L;
 
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(90);
 
     private static KeyBinding visionKey;
     private static KeyBinding buildKey;
     private static KeyBinding pickKey;
+    private static KeyBinding whatKey;
 
     private static final AtomicLong nextAllowedTime = new AtomicLong(0L);
     private static volatile long lastTriggerAt = 0L;
@@ -77,11 +82,6 @@ public final class VisionHandler {
         thread.setDaemon(true);
         return thread;
     });
-
-    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-            .connectTimeout(CONNECT_TIMEOUT)
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build();
 
     private VisionHandler() {}
 
@@ -99,6 +99,10 @@ public final class VisionHandler {
         pickKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 KEY_PICK_TRANSLATION, InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, KEY_CATEGORY));
 
+        // 1.25 准星查询：看准一个方块/生物按一下，把它的名字和 ID 交给 AI 解释
+        whatKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                KEY_WHAT_TRANSLATION, InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V, KEY_CATEGORY));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (visionKey.wasPressed()) {
                 trigger(null);
@@ -109,8 +113,29 @@ public final class VisionHandler {
             while (pickKey.wasPressed()) {
                 beginRegionPick(null);
             }
+            while (whatKey.wasPressed()) {
+                com.example.mcai.client.CrosshairQuery.trigger();
+            }
         });
     }
+
+    // ------------------------------------------------------------ 1.25 改键入口
+
+    /**
+     * 把四个快捷键对象暴露给设置界面，让玩家能在 {@code /ai config} 里直接改键。
+     *
+     * <p><b>为什么不在 mcai.json 里另存一份按键：</b>Fabric 注册的快捷键本来就会出现在
+     * 原版「选项 → 控制」里，并能改键。<b>唯一的真相是原版的 {@code options.txt}</b>。
+     * 如果我们再存一份，玩家在原版界面里改了之后两边就打架了，而"哪个才算数"取决于
+     * 启动顺序——这种 bug 极难排查。所以这里只暴露对象给界面去改，不引入第二份状态。
+     */
+    public static KeyBinding visionKeyBinding() { return visionKey; }
+
+    public static KeyBinding buildKeyBinding() { return buildKey; }
+
+    public static KeyBinding pickKeyBinding() { return pickKey; }
+
+    public static KeyBinding whatKeyBinding() { return whatKey; }
 
     // ------------------------------------------------------------ 1.24 框选截图
 
@@ -425,61 +450,56 @@ public final class VisionHandler {
     public static void sendRequest(ConfigManager.ConfigData config, String base64,
                                    String promptOverride, ThinkingIndicator.Request thinking,
                                    String historyNote) {
-        String endpoint = buildEndpoint(config.apiUrl);
-        String body = buildRequestBody(config.model, base64, promptOverride);
         // 本地服务不需要 key；云端走多 key 轮换，并把句柄一路带着，好精确归因失败的那一把
         ApiKeyManager.PickedKey picked = LocalProvider.isLocal(config.apiUrl)
                 ? new ApiKeyManager.PickedKey(LocalProvider.effectiveApiKey(config.apiUrl, config.apiKey), null)
                 : ApiKeyManager.pick(config.apiKey, config.backupApiKeys);
 
-        HttpRequest request;
-        try {
-            request = HttpRequest.newBuilder()
-                    .uri(URI.create(endpoint))
-                    .timeout(REQUEST_TIMEOUT)
-                    .header("Content-Type", "application/json; charset=UTF-8")
-                    .header("Accept", "application/json")
-                    .header("Authorization", "Bearer " + picked.key())
-                    .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                    .build();
-        } catch (IllegalArgumentException e) {
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.failed", Lang.tr("mcai.error.code0")));
-            return;
-        }
+        String prompt = promptOverride == null ? Lang.tr("mcai.vision.prompt") : promptOverride;
+        // 截图链路走 JPEG（体积比 PNG 小很多），所以 MIME 必须跟着一起传：
+        // 声明成 PNG 而 actual 是 JPEG 时，有的服务端直接拒收，有的会解出一张花屏
+        ApiRequest request = ApiRequest.image(config.model, SystemPrompt.build(), prompt,
+                base64, "image/jpeg");
 
         // 1.24 可取消请求：先领一个 id，并登记"取消时停掉思考动画"
         final long requestId = RequestController.begin();
         RequestController.setCancelHook(thinking::finish);
 
         try {
-            java.util.concurrent.CompletableFuture<HttpResponse<String>> future =
-                    HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            RequestController.track(future);
-
-            HttpResponse<String> response = future.get();
+            ApiProvider provider = ApiProvider.detect(config.apiProvider, config.apiUrl);
+            ApiClient.Options options = ApiClient.Options.of(
+                    config.apiUrl, picked.key(), config.retryMax, REQUEST_TIMEOUT);
+            JsonObject root = ApiClient.send(provider, options, request,
+                    () -> RequestController.isCurrent(requestId));
 
             // 玩家按 ESC 取消过（或被新请求顶掉）→ 静默丢弃，绝不弹出"幽灵回答"
             if (!RequestController.isCurrent(requestId)) {
                 return;
             }
 
-            int statusCode = response.statusCode();
-            ApiKeyManager.recordResult(picked, statusCode);
-            if (statusCode == 200) {
-                String reply = handleSuccess(response.body(), thinking.finish());
-                if (historyNote != null) {
-                    HistoryStore.remember(historyNote, reply);
-                }
-            } else {
+            ApiKeyManager.recordResult(picked, 200);
+            String reply = handleSuccess(root, thinking.finish());
+            if (historyNote != null) {
+                HistoryStore.remember(historyNote, reply);
+            }
+        } catch (ApiClient.ApiException e) {
+            thinking.finish();
+            // 取消不是错误，安静收场（提示语由快捷键那一侧负责发）
+            if (e.cancelled || !RequestController.isCurrent(requestId)) {
+                return;
+            }
+            if (e.status > 0) {
+                ApiKeyManager.recordResult(picked, e.status);
                 // 401 / 402 / 429 等按统一字典给出解释（跟随游戏语言）
                 ClientChat.sendLiteral(Lang.tr("mcai.vision.failed",
-                        statusCode + ": " + HttpErrorCatalog.describe(statusCode)));
+                        e.status + ": " + HttpErrorCatalog.describe(e.status)));
+            } else if (e.status == 0) {
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.failed", Lang.tr("mcai.error.code0")));
+            } else {
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.failed_network", e.getMessage()));
             }
-        } catch (java.util.concurrent.CancellationException e) {
-            // 取消不是错误，安静收场（提示语由快捷键那一侧负责发）
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
         } catch (Throwable t) {
+            thinking.finish();
             if (RequestController.isCurrent(requestId)) {
                 ClientChat.sendLiteral(Lang.tr("mcai.vision.failed_network", rootMessage(t)));
             }
@@ -488,9 +508,13 @@ public final class VisionHandler {
         }
     }
 
-    /** @return 这次识别得到的回答文本（供调用方记进多轮上下文）。 */
-    private static String handleSuccess(String responseBody, long elapsedMillis) {
-        JsonObject root = AiResponseParser.parseObject(responseBody);
+    /**
+     * 展示识别结果。
+     *
+     * @param root 已经由 {@link ApiProvider} 归一化成 OpenAI 形状的响应
+     * @return 这次识别得到的回答文本（供调用方记进多轮上下文）。
+     */
+    private static String handleSuccess(JsonObject root, long elapsedMillis) {
         if (root == null) {
             ClientChat.sendLiteral(Lang.tr("mcai.error.unparsable"));
             return null;
@@ -501,64 +525,26 @@ public final class VisionHandler {
             reply = Lang.tr("mcai.reply.empty");
         }
 
-        // Token 统计与聊天共用同一套跨天清零逻辑，并写一条使用明细
-        TokenStats.recordFrom(root, "vision");
+        // Token 统计与聊天共用同一套跨天清零逻辑，并写一条使用明细。
+        // 1.25：返回值是这次按真实 usage 算出的花费，附在回答末尾（和聊天链路一致）。
+        double cost = TokenStats.recordFrom(root, "vision");
 
         // 先输出思维链、再输出答案（与聊天链路行为一致）
         ClientChat.sendReasoning(root);
 
-        ClientChat.sendLiteral("§f[AI] " + reply.replace("\n", " ").trim()
-                + " " + ThinkingIndicator.formatElapsed(elapsedMillis));
+        StringBuilder suffix = new StringBuilder(" ")
+                .append(ThinkingIndicator.formatElapsed(elapsedMillis));
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        if (config != null && config.showRequestCost && cost > 0.0) {
+            suffix.append(' ').append(Lang.tr("mcai.chat.cost", formatYuan(cost)));
+        }
+
+        ClientChat.sendLiteral("§f[AI] " + reply.replace("\n", " ").trim() + suffix);
         return reply;
     }
 
-    private static String buildEndpoint(String apiUrl) {
-        String base = apiUrl.trim();
-        while (base.endsWith("/")) {
-            base = base.substring(0, base.length() - 1);
-        }
-        if (base.endsWith("/chat/completions")) {
-            return base;
-        }
-        return base + "/chat/completions";
-    }
-
-    /** 组装 OpenAI 兼容的多模态请求体：content 是 [{type:text}, {type:image_url}] 数组。 */
-    private static String buildRequestBody(String model, String base64, String promptOverride) {
-        JsonObject systemMessage = new JsonObject();
-        systemMessage.addProperty("role", "system");
-        // 每次请求时才取：语言文件决定回答语言，人格/长期记忆/模组列表都在这里一起拼上
-        systemMessage.addProperty("content", com.example.mcai.util.SystemPrompt.build());
-
-        JsonArray content = new JsonArray();
-
-        JsonObject textPart = new JsonObject();
-        textPart.addProperty("type", "text");
-        textPart.addProperty("text", promptOverride == null ? Lang.tr("mcai.vision.prompt") : promptOverride);
-        content.add(textPart);
-
-        JsonObject imageUrl = new JsonObject();
-        imageUrl.addProperty("url", "data:image/jpeg;base64," + base64);
-
-        JsonObject imagePart = new JsonObject();
-        imagePart.addProperty("type", "image_url");
-        imagePart.add("image_url", imageUrl);
-        content.add(imagePart);
-
-        JsonObject userMessage = new JsonObject();
-        userMessage.addProperty("role", "user");
-        userMessage.add("content", content);
-
-        JsonArray messages = new JsonArray();
-        messages.add(systemMessage);
-        messages.add(userMessage);
-
-        JsonObject root = new JsonObject();
-        root.addProperty("model", model);
-        root.add("messages", messages);
-        root.addProperty("stream", false);
-
-        return root.toString();
+    private static String formatYuan(double value) {
+        return String.format(java.util.Locale.ROOT, "%.4f", Math.max(0.0, value));
     }
 
     private static String rootMessage(Throwable throwable) {

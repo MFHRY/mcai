@@ -217,6 +217,44 @@ public final class AiCommand {
                             .executes(c -> forget(c.getSource(),
                                     com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "index")))));
 
+            // ---- 1.25 新增 ----
+            // 物品栏分析：把背包清单整理成文字交给 AI。
+            // 故意不发截图：同样信息的文字清单约 60~120 token，截图要几千个视觉 token。
+            root.then(ClientCommandManager.literal("inv")
+                    .executes(c -> inventory(c.getSource(), null))
+                    .then(ClientCommandManager.argument("question", StringArgumentType.greedyString())
+                            .executes(c -> inventory(c.getSource(),
+                                    StringArgumentType.getString(c, "question")))));
+
+            // 准星查询：看准一个方块/生物，问"这是什么"（等同于按键 V）
+            root.then(ClientCommandManager.literal("what")
+                    .executes(c -> crosshair(c.getSource())));
+
+            // 鲸鱼娘挂件开关 + 位置编辑 + 指定头像图（缩放等在 /ai config 里改）
+            root.then(ClientCommandManager.literal("avatar")
+                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "avatar", true)))
+                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "avatar", false)))
+                    .then(ClientCommandManager.literal("edit").executes(c -> editAvatar(c.getSource())))
+                    .then(ClientCommandManager.literal("image")
+                            .executes(c -> setAvatarImage(c.getSource(), ""))
+                            .then(ClientCommandManager.argument("path", StringArgumentType.greedyString())
+                                    .executes(c -> setAvatarImage(c.getSource(),
+                                            StringArgumentType.getString(c, "path"))))));
+
+            // API 协议：默认 auto（按 api_url 猜），也可以强制指定
+            root.then(ClientCommandManager.literal("provider")
+                    .then(ClientCommandManager.argument("name", StringArgumentType.word())
+                            .suggests(PROVIDER_SUGGESTIONS)
+                            .executes(c -> setProvider(c.getSource(),
+                                    StringArgumentType.getString(c, "name")))));
+
+            // 失败自动重试次数（只对网络异常和 429/5xx 生效）
+            root.then(ClientCommandManager.literal("retry")
+                    .then(ClientCommandManager.argument("count",
+                                    com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 5))
+                            .executes(c -> setRetry(c.getSource(),
+                                    com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "count")))));
+
             root.then(ClientCommandManager.literal("budget")
                     .then(ClientCommandManager.argument("yuan",
                                     com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(0.0))
@@ -627,12 +665,106 @@ public final class AiCommand {
                 case "danger" -> config.dangerAlert = value;
                 case "cache" -> config.responseCache = value;
                 case "env" -> config.envContext = value;
+                // ---- 1.25 ----
+                case "avatar" -> config.avatarVisible = value;
                 default -> { }
             }
         });
         label = Lang.tr("mcai.cmd.flag_" + id);
         source.sendFeedback(Text.literal(Lang.tr(value
                 ? "mcai.cmd.flag_on" : "mcai.cmd.flag_off", label)));
+        return 1;
+    }
+
+    // ---------------------------------------------------------- 1.25 新增指令实现
+
+    /** {@code /ai provider} 的 Tab 补全候选。 */
+    private static final com.mojang.brigadier.suggestion.SuggestionProvider<FabricClientCommandSource>
+            PROVIDER_SUGGESTIONS = (context, builder) -> {
+        for (String name : new String[]{"auto", "openai", "gemini", "claude"}) {
+            builder.suggest(name);
+        }
+        return builder.buildFuture();
+    };
+
+    /** 物品栏分析：不带参数用默认问题，带了就按玩家的问题问。 */
+    private static int inventory(FabricClientCommandSource source, String question) {
+        InventoryQuery.trigger(question);
+        return 1;
+    }
+
+    /** 准星查询：看准的方块 / 生物是什么。 */
+    private static int crosshair(FabricClientCommandSource source) {
+        CrosshairQuery.trigger();
+        return 1;
+    }
+
+    /**
+     * 打开「调整挂件位置」界面。
+     *
+     * <p>和 {@code /ai config} 走同一个 {@link #pendingScreen} 延迟机制：
+     * 客户端指令是在聊天界面里执行的，聊天界面执行完才会自己 {@code setScreen(null)}，
+     * 直接在这里开界面会被那一句覆盖掉，看起来就是"敲了没反应"。
+     */
+    private static int editAvatar(FabricClientCommandSource source) {
+        pendingScreen = () -> MinecraftClient.getInstance().setScreen(
+                new AvatarEditScreen(MinecraftClient.getInstance().currentScreen));
+        return 1;
+    }
+
+    /**
+     * 指定头像图片。不带参数表示清空（挂件就不显示了）。
+     *
+     * <p><b>先验证再保存</b>：把一个打不开的路径写进配置，玩家的现象是"挂件不见了"，
+     * 根本想不到是路径问题。所以这里先查「文件在不在 + 是不是 PNG」，通过了才落盘。
+     */
+    private static int setAvatarImage(FabricClientCommandSource source, String raw) {
+        String path = AvatarWidget.normalizeImagePath(raw);
+        String problem = AvatarWidget.validateImagePath(path);
+        if (problem != null) {
+            source.sendError(Text.literal(problem));
+            return 0;
+        }
+        ConfigManager.getInstance().update(config -> config.avatarImage = path);
+        if (path.isEmpty()) {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.avatar_image_cleared")));
+        } else {
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.avatar_image_set", path)));
+            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.avatar_image_hint")));
+        }
+        return 1;
+    }
+
+    /**
+     * 设置 API 协议。{@code auto} 表示由 {@code api_url} 推断。
+     *
+     * <p>回显里额外报一次"实际选中的协议"，因为 {@code auto} 猜错了的话，
+     * 玩家看到的症状会是一句莫名其妙的 404 或 401，很难联想到是协议没匹配上。
+     */
+    private static int setProvider(FabricClientCommandSource source, String name) {
+        String value = (name == null || name.isBlank())
+                ? "auto" : name.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!value.equals("auto") && !value.equals("openai")
+                && !value.equals("gemini") && !value.equals("claude")) {
+            source.sendError(Text.literal(Lang.tr("mcai.cmd.provider_invalid", name)));
+            return 0;
+        }
+        ConfigManager.getInstance().update(config -> config.apiProvider = value);
+        ConfigManager.ConfigData config = ConfigManager.getInstance().get();
+        com.example.mcai.util.ApiProvider resolved = com.example.mcai.util.ApiProvider.detect(
+                value, config == null ? null : config.apiUrl);
+        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.provider_set", value,
+                resolved.name().toLowerCase(java.util.Locale.ROOT))));
+        return 1;
+    }
+
+    /** 设置失败自动重试次数。 */
+    private static int setRetry(FabricClientCommandSource source, int count) {
+        int safe = Math.max(0, Math.min(5, count));
+        ConfigManager.getInstance().update(config -> config.retryMax = safe);
+        source.sendFeedback(Text.literal(safe == 0
+                ? Lang.tr("mcai.cmd.retry_off")
+                : Lang.tr("mcai.cmd.retry_set", safe)));
         return 1;
     }
 

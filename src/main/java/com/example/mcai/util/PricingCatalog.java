@@ -76,6 +76,39 @@ public final class PricingCatalog {
     }
 
     /**
+     * 距离下一次「峰 / 谷」切换还有多久（1.25 新增，给挂件的气泡用）。
+     *
+     * <p>切换点只有四个：工作日 9:00（谷→峰）、12:00（峰→谷）、14:00（谷→峰）、18:00（峰→谷）。
+     * 周末整体是谷价，所以周五 18:00 之后的下一个切换点是<b>下周一 9:00</b>——
+     * 这也是为什么这里必须整天跳过周六周日，而不是简单地"往后找下一个整点"。
+     *
+     * <p>返回值永远是正的；时区解析失败这种几乎不可能的情况按 1 小时估。
+     */
+    public static java.time.Duration untilTransition() {
+        try {
+            java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Shanghai"));
+            for (int dayOffset = 0; dayOffset <= 8; dayOffset++) {
+                java.time.ZonedDateTime day = now.plusDays(dayOffset);
+                int dow = day.get(ChronoField.DAY_OF_WEEK); // 1=Mon ... 7=Sun
+                if (dow == 6 || dow == 7) {
+                    continue; // 周末没有切换点
+                }
+                for (int hour : new int[]{9, 12, 14, 18}) {
+                    java.time.ZonedDateTime candidate = day
+                            .withHour(hour).withMinute(0).withSecond(0).withNano(0);
+                    if (candidate.isAfter(now)) {
+                        java.time.Duration duration = java.time.Duration.between(now, candidate);
+                        return duration.isNegative() ? java.time.Duration.ZERO : duration;
+                    }
+                }
+            }
+        } catch (DateTimeException e) {
+            // 落到下面的兜底
+        }
+        return java.time.Duration.ofHours(1);
+    }
+
+    /**
      * 当前北京时间是否高峰时段。实时取系统时钟并换算 UTC+8，避免依赖用户机器时区配置
      * 与地区设置不一致。
      */

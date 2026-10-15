@@ -7,6 +7,126 @@ mcAI 的所有版本改动，**最新版本在最上面**。
 
 ---
 
+## 1.25 — 2026-10-15
+
+Ten changes, most of them about **spending less** and **asking more naturally**.
+
+### New
+
+**Ask in more ways**
+
+- **Crosshair inspect (`V`)** — look at a block or mob and press `V`. The mod sends its name
+  *and* its registry id (`modid:block`), so the model can tell two different mods' "copper
+  block" apart, and knows it is looking at modded content at all. Mobs also carry their health,
+  which is the number that actually decides whether to fight.
+- **One-command inventory analysis (`/ai inv`)** — your inventory as a compact text list, plus
+  your own question. The same information as a screenshot costs roughly a tenth as much this way.
+- **Gemini and Claude support** — the request/response layer is now split per vendor and
+  normalises everything back into one shape, so token stats, costing and history keep working
+  unchanged. `api_provider` is `auto` by default and infers the protocol from your `api_url`;
+  `/ai provider gemini` forces it if the guess is wrong.
+
+**Spend less**
+
+- **What each call actually cost** — appended to every answer, computed from the `usage` the
+  provider really returned rather than from the pre-flight estimate. Previously you only saw a
+  rough number *before* sending, and never the real one after.
+- **Automatic retry** — network failures and 408/425/429/5xx are retried with exponential
+  backoff (default 2 retries, `/ai retry 0..5`). Other 4xx responses are deliberately **not**
+  retried: the request itself is wrong, and retrying only makes you wait longer for the same error.
+
+**Use it more comfortably**
+
+- **Click any answer to copy it.** Coordinates and 「item names」 keep their own click actions;
+  clicking anywhere else copies the whole reply. This works because the copy action sits on the
+  root text node and Minecraft lets a child's own style win over its parent's.
+- **Rebindable hotkeys** — `H` / `G` / `R` / `V` can all be changed from the in-game config
+  screen. The binding is still stored by vanilla in `options.txt`; we deliberately keep **no**
+  second copy in `mcai.json`, because two sources of truth for one keybind is a bug factory.
+- **Searchable, grouped config screen** — `/ai config` is now split into collapsible sections
+  with a search box at the top, instead of one long list.
+- **A whale companion on your HUD** — squashes when you hold `Q`, and pops a bubble with
+  today's spend, budget remaining, the peak/off-peak countdown, current model and persona,
+  cache hits and your account balance. `/ai avatar off` hides it.
+  The bubble is toggled with **`B`**, the widget is positioned with **`/ai avatar edit`**, and
+  its picture is set with **`/ai avatar image <path to a PNG>`** — deliberately *not* with the
+  mouse. A HUD element cannot receive clicks in vanilla: while you play the cursor is locked to
+  the window centre, and the only way to consume mouse events is a mixin, which this mod does
+  not ship. Rather than leave a click that can never fire, each action was given a route that
+  actually works.
+  **No artwork is bundled.** You point the widget at your own PNG with
+  `/ai avatar image <path>`; the path is validated before it is saved, so a typo tells you so
+  instead of silently making the widget vanish. Keeping the artwork out also keeps this
+  project's CC0 licence covering nothing but code.
+
+**Also**
+
+- The on-join guide and `/ai help` now list **every** command. In 1.23 and 1.24 the built-in
+  guide had fallen behind the command list, so translation, the chat trigger prefix, and all of
+  1.24's commands were undiscoverable in game.
+
+### Notes
+
+- No config key was removed or renamed; an existing `config/mcai.json` keeps working untouched.
+- The companion's default artwork is original to this project (`tools/make_avatar.py` draws it).
+  Third-party widget art is **not** bundled — `avatar_image` exists so you can bring your own image.
+
+---
+
+### 中文版
+
+### 新增
+
+**更多提问方式**
+
+- **准星查询（V 键）**——看着一个方块或生物按 V。发送的是它的名字**加上注册 ID**
+  （`modid:block`），这样模型能分清两个模组各自的"铜块"，也知道自己面对的是模组内容。
+  生物会额外带上血量——判断"要不要打"真正要看的就是这个数。
+- **物品栏一键分析（`/ai inv`）**——把背包整理成一段紧凑的文字清单，再带上你的问题。
+  同样的信息如果发截图，费用大约是这种方式的十倍。
+- **支持 Gemini 和 Claude**——请求/响应层按厂商拆开，再统一归一化回同一种形状，
+  所以 token 统计、费用计算和多轮上下文都不用改。`api_provider` 默认 `auto`，
+  按 `api_url` 自动判断；猜错了可以用 `/ai provider gemini` 强制指定。
+
+**更省钱**
+
+- **每一次调用的真实花费**——附在每条回答末尾，按服务商实际返回的 `usage` 结算，
+  而不是发请求前的粗估。以前只有发送前的预估，事后花了多少反而看不到。
+- **失败自动重试**——网络异常和 408/425/429/5xx 会按指数退避重试（默认重试 2 次，
+  用 `/ai retry 0..5` 调整）。其余 4xx **刻意不重试**：请求本身就是错的，
+  重试只会让你多等一会儿，然后看到同样的错误。
+
+**用起来更顺手**
+
+- **点一下复制整段回答**。坐标和「物品名」保留自己的点击行为，点其它地方则复制整条回答。
+  能这么做是因为复制动作挂在根文本节点上，而 Minecraft 允许子节点用自己的样式覆盖父节点。
+- **快捷键可自定义**——`H` / `G` / `R` / `V` 都能在游戏内设置界面里改。
+  绑定仍然由原版存在 `options.txt` 里；我们**刻意不在 `mcai.json` 里再存一份**，
+  因为同一个按键有两个真相来源，就是在制造 bug。
+- **可搜索、已分组的设置界面**——`/ai config` 从一长条列表改成分组折叠 + 顶部搜索框。
+- **HUD 上的鲸鱼娘挂件**——按住 `Q` 会 Q 弹；气泡显示今日花费、预算剩余、峰谷倒计时、
+  当前模型与人格、缓存命中数和账户余额。`/ai avatar off` 可以关掉。
+  气泡用 **`B`** 开关，位置用 **`/ai avatar edit`** 调，图片用
+  **`/ai avatar image <PNG 路径>`** 指定——**刻意不做成鼠标点击**。
+  原版里 HUD 元素收不到点击：游戏进行中光标被锁在窗口中心，而消费鼠标事件只能靠 mixin，
+  本模组不打算引入。与其留一个永远不会触发的点击，不如把每件事都放到真正走得通的路上。
+  **不打包任何美术素材**：用 `/ai avatar image <路径>` 指定你自己的 PNG。
+  路径会**先校验再保存**，所以填错了会当场告诉你，而不是让挂件悄悄消失。
+  不内置图片也让本项目的 CC0 只覆盖代码，不牵扯任何需要解释来源的素材。
+
+**顺带**
+
+- 进服提示和 `/ai help` 现在列出**全部**指令。1.23 和 1.24 里这份内置清单一度落后于
+  实际指令，导致翻译、聊天触发词前缀以及 1.24 的全部新指令在游戏内都无法被发现。
+
+### 说明
+
+- 没有删除或改名任何配置项，旧的 `config/mcai.json` 可以直接用。
+- 挂件的默认图片是本项目原创的（见 `tools/make_avatar.py`）。
+  **没有**打包任何第三方挂件的美术素材——`avatar_image` 就是留给你换成自己的图的。
+
+---
+
 ## 1.24 — 2026-10-12
 
 The biggest update since 1.20: **13 new features**, most of them about spending less money

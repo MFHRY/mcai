@@ -47,10 +47,31 @@ public final class ClickableText {
      * 构造可点击文本。没有命中任何模式时返回等价的纯文本。
      */
     public static Text build(String raw) {
+        return build(raw, null);
+    }
+
+    /**
+     * 构造可点击文本，并给<b>整段</b>挂一个"点击复制"动作（1.25 新增）。
+     *
+     * <p>实现方式是把复制动作挂在根节点上，而不是给每个普通片段各挂一份。理由在
+     * 1.21.1 的 {@code MutableText#append}：它会把父节点的样式当作"底"传给子节点
+     * （{@code child.getStyle().withParent(parentStyle)}），子节点自己非空的字段覆盖父节点。
+     * 于是"坐标段自己的 COPY_TO_CLIPBOARD""物品段自己的 SUGGEST_COMMAND"照旧生效，
+     * 只有点在既不是坐标也不是物品的文字上时，才轮到根节点那份"复制整段回答"。
+     *
+     * @param clipboard 点普通文字时要复制的全文；null 或空表示不加这个动作
+     */
+    public static Text build(String raw, String clipboard) {
         if (raw == null || raw.isEmpty()) {
             return Text.literal("");
         }
         MutableText out = Text.literal("");
+        if (clipboard != null && !clipboard.isEmpty()) {
+            out.styled(style -> style
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, clipboard))
+                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            Lang.text("mcai.chat.click_copy_reply"))));
+        }
         Matcher matcher = PATTERN.matcher(raw);
         int last = 0;
         while (matcher.find()) {
