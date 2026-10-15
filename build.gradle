@@ -1,66 +1,95 @@
+// ---------------------------------------------------------------------------
+//  mcAI - Forge 1.20.1
+//
+//  This is the FORGE port of mcAI. The Fabric version lives on the `main`
+//  branch; this branch is deliberately standalone rather than a multiloader
+//  setup, so that a mistake here can never break the published Fabric jar.
+//
+//  Two things differ from the Fabric build and are worth knowing:
+//
+//  1. MAPPINGS. Fabric uses Yarn (Text, Identifier, DrawContext, MinecraftClient);
+//     Forge uses Mojang official mappings (Component, ResourceLocation,
+//     GuiGraphics, Minecraft). Every Minecraft API call in this tree is spelled
+//     the Mojang way. Do not "revert" a name back to the Yarn spelling.
+//
+//  2. JAVA LEVEL. Minecraft 1.20.1 runs on Java 17, not 21.
+// ---------------------------------------------------------------------------
+
 plugins {
-    // Pinned to a real release instead of '1.7-SNAPSHOT' so that a clone of this
-    // repository always builds with exactly the same Loom version.
-    id 'fabric-loom' version '1.7.4'
+    id 'eclipse'
+    id 'idea'
     id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
 
 version = project.mod_version
 group = project.maven_group
-
 base {
     archivesName = project.archives_base_name
 }
 
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+minecraft {
+    // Official (Mojang) mappings - see the header note.
+    mappings channel: 'official', version: '1.20.1'
+
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'info'
+            mods {
+                mcai {
+                    source sourceSets.main
+                }
+            }
+        }
+        server {
+            workingDirectory project.file('run-server')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'info'
+            mods {
+                mcai {
+                    source sourceSets.main
+                }
+            }
+        }
+    }
+}
+
 repositories {
-    // Fabric Loader / Yarn / Fabric API live here. Loom injects this repository
-    // automatically, but declaring it explicitly keeps the build self-explanatory.
-    maven {
-        name = 'Fabric'
-        url = 'https://maven.fabricmc.net/'
-    }
-    // Mod Menu (optional dependency, used only to add the config button in Mod Menu).
-    maven {
-        name = 'TerraformersMC'
-        url = 'https://maven.terraformersmc.com/releases/'
-    }
+    // No extra mavens needed: the Forge port has no Mod Menu equivalent, and its
+    // config screen is reached from Forge's own mod list.
     mavenCentral()
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    minecraft "net.minecraftforge:forge:${project.forge_version}"
+}
 
-    // Mod Menu 11.x targets Minecraft 1.21 / 1.21.1.
-    // modCompileOnly (not modImplementation): it is an OPTIONAL dependency. Players who do
-    // not install Mod Menu must still be able to run mcAI, and the class that references
-    // ModMenuApi is only ever loaded from the "modmenu" entrypoint, which Mod Menu alone reads.
-    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
 }
 
 processResources {
     inputs.property "version", project.version
-    filesMatching("fabric.mod.json") {
+    filesMatching("META-INF/mods.toml") {
         expand "version": project.version
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    // Minecraft 1.21.1 runs on Java 21; target 21 bytecode regardless of the
-    // JDK that happens to be running Gradle.
-    it.options.release = 21
-    it.options.encoding = 'UTF-8'
-}
-
-java {
-    withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-}
-
 jar {
+    manifest {
+        attributes([
+                "Specification-Title"   : project.mod_id,
+                "Specification-Vendor"  : "mfhry",
+                "Specification-Version" : "1",
+                "Implementation-Title"  : project.mod_name,
+                "Implementation-Version": project.version,
+                "Implementation-Vendor" : "mfhry",
+        ])
+    }
     from("LICENSE") {
         rename { "${it}_${project.base.archivesName.get()}" }
     }

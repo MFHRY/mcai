@@ -1,0 +1,28 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="CC0-1.0"
+issueTrackerURL="https://github.com/MFHRY/mcai/issues"
+
+[[mods]]
+modId="mcai"
+version="${version}"
+displayName="mcAI"
+authors="mfhry"
+description='''
+Chat with an AI from the Minecraft chat bar via the '!ai' prefix, press H to send a screenshot to a multimodal model, press R to send only the region you select, press G to analyse a build or redstone circuit, and press V to ask what the block or mob under your crosshair is. Works with OpenAI-compatible endpoints, Google Gemini and Anthropic Claude, and with local models (Ollama / LM Studio) that need no API key. Includes multi-turn context, an answer cache, cost tracking with a daily budget cap, long-term memory, inventory analysis, translation, and 8 languages.
+'''
+logoFile="mcai_icon.png"
+
+[[dependencies.mcai]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.mcai]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"
