@@ -4,7 +4,6 @@ import com.example.mcai.ConfigManager;
 import com.example.mcai.McaiMod;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,9 +21,10 @@ import java.util.concurrent.TimeUnit;
  * 取不到对应命令时只记一条日志，不影响模组其它功能——TTS 是纯粹的附加能力。
  *
  * <p><b>注入安全：</b>朗读内容来自模型输出，会包含引号、换行、各种符号。
- * Windows 分支把文本做 Base64 再塞进脚本，脚本里只出现 {@code A-Za-z0-9+/=}，
- * 因此不存在把模型输出当成 PowerShell 代码执行的可能。macOS / Linux 分支用
- * {@link ProcessBuilder} 的<b>参数列表</b>形式（不经过 shell），同样安全。
+ * Windows 分支把文本通过 <b>stdin</b> 交给 PowerShell，命令行里只有一段常量脚本，
+ * 因此不存在把模型输出当成 PowerShell 代码执行的可能，也避开了
+ * "PowerShell + Base64" 这类会被杀软和平台扫描器盯上的混淆特征。
+ * macOS / Linux 分支用 {@link ProcessBuilder} 的<b>参数列表</b>形式（不经过 shell），同样安全。
  */
 public final class Speech {
 
@@ -84,18 +84,33 @@ public final class Speech {
         return s.replaceAll("\\s+", " ").trim();
     }
 
+    /**
+     * Windows 上的朗读脚本。
+     *
+     * <p><b>整条命令是常量字面量，不含任何运行时数据</b>——待朗读的文本从 stdin 读入。
+     * 这样既没有注入面，也不会落进"PowerShell + Base64"那类混淆特征里。
+     */
+    private static final String WINDOWS_SPEAK_SCRIPT =
+            "Add-Type -AssemblyName System.Speech;"
+                    + "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer;"
+                    + "$t=[Console]::In.ReadToEnd();"
+                    + "if($t.Trim().Length -gt 0){$s.Speak($t)}";
+
     private static void speakBlocking(String text) throws Exception {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
         ProcessBuilder builder;
 
         if (os.contains("win")) {
-            // Base64 之后脚本里不含任何来自模型的字符，注入无从谈起
-            String encoded = Base64.getEncoder().encodeToString(text.getBytes(StandardCharsets.UTF_8));
-            String script = "Add-Type -AssemblyName System.Speech;"
-                    + "$t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + encoded + "'));"
-                    + "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer;"
-                    + "$s.Speak($t)";
-            builder = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script);
+            // 待朗读的文本走 **stdin**，命令里一个来自模型的字符都没有。
+            //
+            // 这里以前是把文本 Base64 之后拼进 -Command 字符串。那样确实也防注入
+            // （脚本里只会出现 A-Za-z0-9+/=），但**"PowerShell + Base64"本身就是
+            // 恶意软件的典型特征**，杀软和平台扫描器都会盯上它——对一个开源模组来说，
+            // 这个观感代价远大于收益。改成 stdin 之后：
+            //   · 防注入更强：文本根本不进命令行，连转义都不需要；
+            //   · 命令是常量字面量，人类和扫描器都能一眼看明白它在干什么。
+            builder = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive",
+                    "-Command", WINDOWS_SPEAK_SCRIPT);
         } else if (os.contains("mac")) {
             builder = new ProcessBuilder("say", text);
         } else {
@@ -106,6 +121,16 @@ public final class Speech {
         builder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
 
         Process process = builder.start();
+
+        if (os.contains("win")) {
+            try (java.io.OutputStream stdin = process.getOutputStream()) {
+                stdin.write(text.getBytes(StandardCharsets.UTF_8));
+            } catch (Throwable ignored) {
+                // 系统缺少语音组件时进程会提前退出，写管道随之失败。
+                // 这是"念不出来"，不是错误，不该影响游戏里的任何东西。
+            }
+        }
+
         if (!process.waitFor(MAX_WAIT_SECONDS, TimeUnit.SECONDS)) {
             process.destroyForcibly();
         }

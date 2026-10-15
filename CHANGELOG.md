@@ -7,6 +7,44 @@ mcAI 的所有版本改动，**最新版本在最上面**。
 
 ---
 
+## 1.25.1 — 2026-10-15
+
+A security-hygiene fix for text-to-speech. Nothing else changed.
+
+### Fixed
+
+- **TTS no longer launches PowerShell with a Base64-encoded command.** The text to speak used to
+  be Base64-encoded and interpolated into `powershell.exe -Command "..."`. That *was* safe against
+  command injection — the Base64 alphabet contains nothing PowerShell would treat as code — but
+  "a Java mod that reads arbitrary files, calls the network, and then runs PowerShell on a Base64
+  blob" is indistinguishable from malware to an automated scanner, and Modrinth runs one during
+  review. The text now goes to the child process over **stdin** and the command line is a fixed
+  literal string. That is strictly safer (the text never reaches the command line at all, so there
+  is nothing to escape) and it no longer resembles the obfuscation patterns antivirus engines flag.
+
+No behaviour change: TTS still speaks the same text, still stays silent if the OS has no speech
+component, and still needs `/ai tts on` first. The crosshair-inspect, inventory, provider, retry,
+cost, copy, hotkey, config-screen and HUD features are exactly as in 1.25.
+
+---
+
+### 中文版
+
+### 修复
+
+- **TTS 不再用 Base64 编码后启动 PowerShell。** 以前待朗读的文本会被 Base64 编码再拼进
+  `powershell.exe -Command "..."`。那样**确实**防住了命令注入（Base64 字符集里没有
+  PowerShell 会当成代码的东西），但「一个会读任意文件、会联网、还会对 Base64 数据跑
+  PowerShell 的 Java 模组」在自动化扫描器眼里和恶意软件没有区别——而 Modrinth 审核时
+  就会跑扫描器。现在文本改走 **stdin**，命令行是一段固定常量。
+  这更安全（文本根本不进命令行，也就无所谓转义），也不再命中杀软盯的那类混淆特征。
+
+行为没有变化：朗读的还是同样的文本，系统没有语音组件时照样静默失败，
+仍然要先 `/ai tts on`。准星查询、物品栏、提供商、重试、花费、复制、快捷键、
+设置界面和挂件都和 1.25 完全一致。
+
+---
+
 ## 1.25 — 2026-10-15
 
 Ten changes, most of them about **spending less** and **asking more naturally**.

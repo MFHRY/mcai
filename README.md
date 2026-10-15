@@ -155,7 +155,7 @@ python tools/check_lang_usage.py   # Java 里引用的键是否都真的定义�
 ```
 .minecraft/mods/
 ├── fabric-api-0.116.17+1.21.1.jar
-└── mcai-1.25.jar
+└── mcai-1.25.1.jar
 ```
 
 ### 2. 填写 API Key
@@ -340,7 +340,7 @@ time,model,source,tokens,cost
 ./gradlew clean build
 ```
 
-产物在 `build/libs/mcai-1.25.jar`。
+产物在 `build/libs/mcai-1.25.1.jar`。
 
 ### ⚠️ 关于 JDK 版本
 
