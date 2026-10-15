@@ -1,13 +1,13 @@
 package com.example.mcai.util;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.level.ClientWorld;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.recipe.CraftingRecipe;
-import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.Recipe;
-import net.minecraft.recipe.RecipeEntry;
+import net.minecraft.world.item.crafting.CraftingRecipe;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -41,8 +41,8 @@ public final class RecipeHelper {
      */
     public static List<Craftable> craftableNow() {
         Minecraft client = Minecraft.getInstance();
-        ClientPlayerEntity player = client.player;
-        ClientWorld world = client.level;
+        LocalPlayer player = client.player;
+        ClientLevel world = client.level;
         List<Craftable> out = new ArrayList<>();
         if (player == null || world == null) {
             return out;
@@ -53,7 +53,7 @@ public final class RecipeHelper {
             Map<String, Craftable> unique = new LinkedHashMap<>();
             int scanned = 0;
             int crafting = 0;
-            for (RecipeEntry<?> entry : world.getRecipeManager().values()) {
+            for (RecipeHolder<?> entry : world.getRecipeManager().values()) {
                 scanned++;
                 Recipe<?> recipe = entry.value();
                 if (!(recipe instanceof CraftingRecipe)) {
@@ -97,7 +97,7 @@ public final class RecipeHelper {
      * 可合成。这也修正了早期贪心匹配的<b>漏报</b>——贪心会先把某一种替代材料用掉，把另一
      * 种更稀缺的材料提前耗尽，从而把「其实能合成」判成不能。
      */
-    private static boolean canCraftFromInventory(Recipe<?> recipe, ClientPlayerEntity player) {
+    private static boolean canCraftFromInventory(Recipe<?> recipe, LocalPlayer player) {
         List<Ingredient> required = new ArrayList<>();
         for (Ingredient ingredient : recipe.getIngredients()) {
             if (ingredient != null && !ingredient.isEmpty()) {
@@ -250,10 +250,10 @@ public final class RecipeHelper {
      * 按名字找配方（给 {@code !ai 怎么做钻石镐} 这类提问用）。
      * 匹配产物显示名包含查询词的配方；找不到返回空列表。
      */
-    public static List<RecipeEntry<?>> findByName(String query) {
-        List<RecipeEntry<?>> out = new ArrayList<>();
+    public static List<RecipeHolder<?>> findByName(String query) {
+        List<RecipeHolder<?>> out = new ArrayList<>();
         Minecraft client = Minecraft.getInstance();
-        ClientWorld world = client.level;
+        ClientLevel world = client.level;
         if (world == null || query == null || query.isBlank()) {
             return out;
         }
@@ -262,7 +262,7 @@ public final class RecipeHelper {
             return out;
         }
         try {
-            for (RecipeEntry<?> entry : world.getRecipeManager().values()) {
+            for (RecipeHolder<?> entry : world.getRecipeManager().values()) {
                 Recipe<?> recipe = entry.value();
                 if (!(recipe instanceof CraftingRecipe)) {
                     continue;
@@ -286,7 +286,7 @@ public final class RecipeHelper {
     }
 
     /** 把一条配方渲染成人话（产物 + 材料）。 */
-    public static String describe(RecipeEntry<?> entry) {
+    public static String describe(RecipeHolder<?> entry) {
         Recipe<?> recipe = entry.value();
         ItemStack icon = iconOf(recipe);
         String output = icon == null ? Lang.tr("mcai.value.unknown") : icon.getHoverName().getString();
@@ -331,15 +331,15 @@ public final class RecipeHelper {
             return null;
         }
 
-        ClientWorld world = Minecraft.getInstance().level;
+        ClientLevel world = Minecraft.getInstance().level;
         if (world == null) {
             return null;
         }
 
-        RecipeEntry<?> best = null;
+        RecipeHolder<?> best = null;
         int bestLength = 1; // 至少 2 个字才算匹配，避免单字误命中
         try {
-            for (RecipeEntry<?> entry : world.getRecipeManager().values()) {
+            for (RecipeHolder<?> entry : world.getRecipeManager().values()) {
                 Recipe<?> recipe = entry.value();
                 if (!(recipe instanceof CraftingRecipe)) {
                     continue;

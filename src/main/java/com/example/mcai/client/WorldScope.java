@@ -3,7 +3,7 @@ package com.example.mcai.client;
 import com.example.mcai.util.HistoryStore;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.multiplayer.ServerData;
 
 import java.util.Locale;
 
@@ -44,7 +44,7 @@ public final class WorldScope {
             return "unknown";
         }
         try {
-            ServerInfo server = client.getCurrentServerEntry();
+            ServerData server = client.getCurrentServerEntry();
             if (server != null && server.address != null && !server.address.isBlank()) {
                 return "server:" + server.address.toLowerCase(Locale.ROOT);
             }

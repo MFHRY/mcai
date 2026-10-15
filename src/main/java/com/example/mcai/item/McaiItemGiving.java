@@ -4,7 +4,7 @@ import com.example.mcai.McaiMod;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * 玩家进服时发放两个切换器。
@@ -21,7 +21,7 @@ public final class McaiItemGiving {
 
     public static void register() {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            ServerPlayerEntity player = handler.player;
+            ServerPlayer player = handler.player;
             if (player == null) {
                 return;
             }
@@ -30,7 +30,7 @@ public final class McaiItemGiving {
         });
     }
 
-    private static void giveIfMissing(ServerPlayerEntity player, Item item) {
+    private static void giveIfMissing(ServerPlayer player, Item item) {
         if (player.getInventory().contains(stack -> stack.is(item))) {
             return;
         }

@@ -9,14 +9,14 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.hud.DebugHud;
+import net.minecraft.client.gui.components.DebugScreenOverlay;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import com.mojang.blaze3d.platform.InputConstants;
-import net.minecraft.client.util.math.MatrixStack;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -195,7 +195,7 @@ public final class AvatarWidget {
             return;
         }
         // F3 打开时让位给调试信息
-        DebugHud debugHud = client.getDebugHud();
+        DebugScreenOverlay debugHud = client.getDebugHud();
         if (debugHud != null && debugHud.shouldShowDebugHud()) {
             return;
         }
@@ -259,7 +259,7 @@ public final class AvatarWidget {
         float sy = squash;
         float sx = 2.0F - squash;
 
-        MatrixStack matrices = context.getMatrices();
+        PoseStack matrices = context.getMatrices();
         matrices.push();
         try {
             matrices.translate(x + w / 2.0F, y + h / 2.0F, 0.0F);
@@ -664,8 +664,8 @@ public final class AvatarWidget {
 
     private static void playClick(Minecraft client) {
         try {
-            // SoundEvents.UI_BUTTON_CLICK 是 RegistryEntry.Reference<SoundEvent>，
-            // 走的是 master(RegistryEntry<SoundEvent>, float) 这个重载。
+            // SoundEvents.UI_BUTTON_CLICK 是 Holder.Reference<SoundEvent>，
+            // 走的是 master(Holder<SoundEvent>, float) 这个重载。
             client.getSoundManager().play(
                     SimpleSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
         } catch (Throwable t) {

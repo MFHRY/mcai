@@ -1,16 +1,16 @@
 package com.example.mcai.util;
 
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.block.entity.SignText;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,8 +51,8 @@ public final class TextReader {
 
     private static Found readSign() {
         Minecraft client = Minecraft.getInstance();
-        ClientPlayerEntity player = client.player;
-        World world = client.level;
+        LocalPlayer player = client.player;
+        Level world = client.level;
         if (player == null || world == null) {
             return null;
         }
@@ -112,7 +112,7 @@ public final class TextReader {
      */
     private static Found readHeldBook() {
         Minecraft client = Minecraft.getInstance();
-        ClientPlayerEntity player = client.player;
+        LocalPlayer player = client.player;
         if (player == null) {
             return null;
         }

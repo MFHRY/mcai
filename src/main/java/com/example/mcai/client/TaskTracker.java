@@ -81,7 +81,7 @@ public final class TaskTracker {
     /** 把背包内容列成 "物品 x数量" 的清单。 */
     private static String inventorySummary() {
         net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
-        net.minecraft.client.network.ClientPlayerEntity player = client.player;
+        net.minecraft.client.player.LocalPlayer player = client.player;
         if (player == null) {
             return "";
         }

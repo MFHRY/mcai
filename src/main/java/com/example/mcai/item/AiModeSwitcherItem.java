@@ -4,7 +4,7 @@ import com.example.mcai.ConfigManager;
 import com.example.mcai.util.ModeCatalog;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
 
@@ -20,7 +20,7 @@ public class AiModeSwitcherItem extends Item {
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipType type) {
+    public void appendTooltip(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag type) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         String mode = (config == null) ? null : config.mode;
 

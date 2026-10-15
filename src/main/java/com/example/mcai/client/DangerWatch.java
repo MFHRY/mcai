@@ -3,11 +3,10 @@ package com.example.mcai.client;
 import com.example.mcai.ConfigManager;
 import com.example.mcai.util.Lang;
 import com.example.mcai.vision.VisionHandler;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.util.math.Box;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.phys.AABB;
 
 /**
  * 危险预警（1.24 新增）：血量偏低且附近有敌对生物时，自动截图交给 AI 判断该跑还是该打。
@@ -34,16 +33,13 @@ public final class DangerWatch {
     private static long nextAllowedAt = 0L;
     private static boolean armed = true;
 
-    public static void register() {
-        ClientTickEvents.END_CLIENT_TICK.register(DangerWatch::tick);
-    }
-
-    private static void tick(Minecraft client) {
+    /** 由 {@code McaiModClient} 的统一 tick 分发器调用（Forge 侧只有一个 tick 监听器）。 */
+    public static void tick(Minecraft client) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null || !config.dangerAlert) {
             return;
         }
-        ClientPlayerEntity player = client.player;
+        LocalPlayer player = client.player;
         if (player == null || client.level == null) {
             return;
         }
@@ -74,10 +70,10 @@ public final class DangerWatch {
         VisionHandler.trigger(Lang.tr("mcai.danger.prompt"));
     }
 
-    private static boolean hasNearbyHostile(Minecraft client, ClientPlayerEntity player, double radius) {
+    private static boolean hasNearbyHostile(Minecraft client, LocalPlayer player, double radius) {
         try {
-            Box box = player.getBoundingBox().expand(Math.max(1.0, radius));
-            return !client.level.getEntitiesByClass(HostileEntity.class, box, entity -> entity.isAlive()).isEmpty();
+            AABB box = player.getBoundingBox().inflate(Math.max(1.0, radius));
+            return !client.level.getEntitiesByClass(Enemy.class, box, entity -> entity.isAlive()).isEmpty();
         } catch (Throwable t) {
             // 任何异常都当作"没有危险"，宁可漏报也不要因为报错把游戏搞崩
             return false;

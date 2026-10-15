@@ -2,9 +2,9 @@ package com.example.mcai.vision;
 
 import com.example.mcai.util.VisionResolution;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gl.Framebuffer;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.NativeImage;
-import net.minecraft.client.util.ScreenshotRecorder;
+import net.minecraft.client.Screenshot;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -24,7 +24,7 @@ import java.util.Iterator;
  *
  * <p><b>1.21.1 的关键事实（全部用真实字节码/真实类实测核实过）：</b>
  * <ul>
- *   <li>{@code ScreenshotRecorder.takeScreenshot(Framebuffer)} 是<b>同步返回 NativeImage</b>，
+ *   <li>{@code Screenshot.takeScreenshot(RenderTarget)} 是<b>同步返回 NativeImage</b>，
  *       不是新版那种回调 API，且必须在渲染线程调用。</li>
  *   <li>它<b>内部已经调用过 mirrorVertically()</b>（字节码 offset 35），
  *       所以<b>绝不能再翻一次</b>，否则截图上下颠倒。</li>
@@ -61,11 +61,11 @@ public final class ScreenshotCapture {
      */
     public static NativeImage grab() {
         Minecraft client = Minecraft.getInstance();
-        Framebuffer framebuffer = client.getFramebuffer();
+        RenderTarget framebuffer = client.getFramebuffer();
         if (framebuffer == null) {
             return null;
         }
-        return ScreenshotRecorder.takeScreenshot(framebuffer);
+        return Screenshot.takeScreenshot(framebuffer);
     }
 
     /**

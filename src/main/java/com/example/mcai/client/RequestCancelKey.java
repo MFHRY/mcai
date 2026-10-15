@@ -3,9 +3,8 @@ package com.example.mcai.client;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.Lang;
 import com.example.mcai.util.RequestController;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screen.GameMenuScreen;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import com.mojang.blaze3d.platform.InputConstants;
 import org.lwjgl.glfw.GLFW;
@@ -33,11 +32,8 @@ public final class RequestCancelKey {
 
     private static boolean escapeWasDown = false;
 
-    public static void register() {
-        ClientTickEvents.END_CLIENT_TICK.register(RequestCancelKey::tick);
-    }
-
-    private static void tick(Minecraft client) {
+    /** 由 {@code McaiModClient} 的统一 tick 分发器调用。 */
+    public static void tick(Minecraft client) {
         if (!RequestController.isBusy()) {
             // 没有请求在跑时完全不干预，ESC 保持原版行为
             escapeWasDown = false;
@@ -45,7 +41,7 @@ public final class RequestCancelKey {
         }
 
         Screen screen = client.screen;
-        boolean inGameLike = screen == null || screen instanceof GameMenuScreen;
+        boolean inGameLike = screen == null || screen instanceof PauseScreen;
         if (!inGameLike) {
             // 开着背包之类界面：ESC 是用来关界面的，不要抢
             escapeWasDown = false;

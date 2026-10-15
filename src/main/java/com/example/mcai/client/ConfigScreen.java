@@ -10,7 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.KeyMapping;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -50,7 +50,7 @@ import java.util.function.Supplier;
  *   <li>{@code EditBox} 是 6 参构造：{@code (Font, x, y, w, h, Component)}。</li>
  *   <li>按钮不是 {@code new Button(...)}，而是
  *       {@code Button.builder(Component, pressAction).dimensions(x,y,w,h).build()}。</li>
- *   <li>{@code ClickableWidget} 没有 {@code setPosition}，只有 {@code setX/setY}。</li>
+ *   <li>{@code AbstractWidget} 没有 {@code setPosition}，只有 {@code setX/setY}。</li>
  *   <li>滚轮是 4 参 {@code mouseScrolled(double,double,double,double)}。</li>
  *   <li>绘制多行 tooltip 要用带 {@code Optional<TooltipData>} 的那个重载。</li>
  *   <li>{@code ChatFormatting} 在 {@code net.minecraft.util}，不在 {@code net.minecraft.text}。</li>
@@ -149,7 +149,7 @@ public class ConfigScreen extends Screen {
         for (Group group : groups) {
             for (Row row : group.rows) {
                 row.ensureWidgets();
-                for (ClickableWidget widget : row.controlWidgets()) {
+                for (AbstractWidget widget : row.controlWidgets()) {
                     addSelectableChild(widget);
                 }
             }
@@ -663,10 +663,10 @@ public class ConfigScreen extends Screen {
     // ------------------------------------------------------------ 行模型
 
     private static final class Control {
-        final ClickableWidget widget;
+        final AbstractWidget widget;
         final int width;
 
-        Control(ClickableWidget widget, int width) {
+        Control(AbstractWidget widget, int width) {
             this.widget = widget;
             this.width = width;
         }
@@ -734,12 +734,12 @@ public class ConfigScreen extends Screen {
             return Lang.text(labelKey);
         }
 
-        final void addControl(ClickableWidget widget, int width) {
+        final void addControl(AbstractWidget widget, int width) {
             controls.add(new Control(widget, width));
         }
 
-        final List<ClickableWidget> controlWidgets() {
-            List<ClickableWidget> widgets = new ArrayList<>(controls.size());
+        final List<AbstractWidget> controlWidgets() {
+            List<AbstractWidget> widgets = new ArrayList<>(controls.size());
             for (Control control : controls) {
                 widgets.add(control.widget);
             }

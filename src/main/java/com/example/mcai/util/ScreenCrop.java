@@ -2,7 +2,7 @@ package com.example.mcai.util;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 
 /**
  * 界面裁剪区域计算（#4 GUI 感知提问）。
@@ -11,7 +11,7 @@ import net.minecraft.client.gui.screen.ingame.HandledScreen;
  * 真正有用的只有中间那块界面。图片 token 大致与像素数成正比，所以只发界面那一块
  * 能把识别成本降到原来的四分之一左右，同时模型也更容易看清格子里的东西。
  *
- * <p><b>为什么不写 mixin：</b>{@code HandledScreen} 的 {@code x / y / backgroundWidth /
+ * <p><b>为什么不写 mixin：</b>{@code AbstractContainerScreen} 的 {@code x / y / backgroundWidth /
  * backgroundHeight} 是 {@code protected}，正常要加 accessor mixin。但本模组只需要"读四个
  * int"，用反射读更轻量，也不必改 mixin 配置（改错了会直接导致游戏启动失败）。
  * 反射失败、或当前不是容器界面时，返回 null 表示"不裁剪"，功能照常。
@@ -37,7 +37,7 @@ public final class ScreenCrop {
     public static Region forCurrentScreen() {
         Minecraft client = Minecraft.getInstance();
         Screen screen = client.screen;
-        if (!(screen instanceof HandledScreen<?> handled)) {
+        if (!(screen instanceof AbstractContainerScreen<?> handled)) {
             return null;
         }
 
@@ -73,7 +73,7 @@ public final class ScreenCrop {
      * 用反射读 {@code x, y, backgroundWidth, backgroundHeight}。
      * 任何一个读不到就返回 null（调用方按"不裁剪"处理）。
      */
-    private static int[] readBox(HandledScreen<?> screen) {
+    private static int[] readBox(AbstractContainerScreen<?> screen) {
         try {
             int x = readInt(screen, "x");
             int y = readInt(screen, "y");
