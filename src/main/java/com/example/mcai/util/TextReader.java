@@ -116,7 +116,7 @@ public final class TextReader {
         if (player == null) {
             return null;
         }
-        Found main = bookOf(player.getMainHandStack());
+        Found main = bookOf(player.getMainHandItem());
         return main != null ? main : bookOf(player.getOffHandStack());
     }
 

@@ -77,7 +77,7 @@ public class ConfigScreen extends Screen {
 
     /** 搜索框里是否有内容时，ESC 优先清空搜索而不是关窗口。 */
     private static final Component HELP_LINK =
-            Component.translatable("mcai.screen.help_link").formatted(ChatFormatting.AQUA, ChatFormatting.UNDERLINE);
+            Component.translatable("mcai.screen.help_link").withStyle(ChatFormatting.AQUA, ChatFormatting.UNDERLINE);
 
     private final Screen parent;
 
@@ -126,7 +126,7 @@ public class ConfigScreen extends Screen {
         searchField = new EditBox(textRenderer, 0, 0, 200, WIDGET_HEIGHT, Lang.text("mcai.config.search"));
         searchField.setMaxLength(64);
         searchField.setText(query);
-        searchField.setPlaceholder(Lang.text("mcai.config.search_hint").formatted(ChatFormatting.DARK_GRAY));
+        searchField.setPlaceholder(Lang.text("mcai.config.search_hint").withStyle(ChatFormatting.DARK_GRAY));
         searchField.setChangedListener(text -> {
             String next = text == null ? "" : text.trim().toLowerCase(Locale.ROOT);
             if (!next.equals(query)) {
@@ -343,7 +343,7 @@ public class ConfigScreen extends Screen {
             }
             if (contentHeight == 0) {
                 context.drawCenteredTextWithShadow(textRenderer,
-                        Lang.text("mcai.config.no_result").formatted(ChatFormatting.GRAY),
+                        Lang.text("mcai.config.no_result").withStyle(ChatFormatting.GRAY),
                         (contentLeft + contentRight) / 2, (contentTop + contentBottom) / 2 - 4, 0xFFFFFF);
             }
             context.disableScissor();
@@ -353,7 +353,7 @@ public class ConfigScreen extends Screen {
 
         // ---- 底部：提示 + 帮助链接 + 保存/取消 ----
         context.drawCenteredTextWithShadow(textRenderer,
-                Lang.text("mcai.screen.hint").formatted(ChatFormatting.DARK_GRAY),
+                Lang.text("mcai.screen.hint").withStyle(ChatFormatting.DARK_GRAY),
                 this.width / 2, footerTop + 2, 0xFFFFFF);
         this.helpWidth = textRenderer.getWidth(HELP_LINK);
         this.helpX = contentLeft;
@@ -383,10 +383,10 @@ public class ConfigScreen extends Screen {
             context.fill(contentLeft, y, contentRight, y + GROUP_HEADER_HEIGHT - 2,
                     hovered ? 0x44FFFFFF : 0x33000000);
             String arrow = group.isExpanded(query) ? "\u25bc " : "\u25b6 ";
-            context.drawString(textRenderer, Component.literal(arrow).formatted(ChatFormatting.AQUA),
+            context.drawString(textRenderer, Component.literal(arrow).withStyle(ChatFormatting.AQUA),
                     contentLeft + 6, y + 6, 0xFFFFFF);
             context.drawString(textRenderer,
-                    Lang.text(group.titleKey).formatted(ChatFormatting.BOLD),
+                    Lang.text(group.titleKey).withStyle(ChatFormatting.BOLD),
                     contentLeft + 6 + textRenderer.getWidth(arrow), y + 6, 0xFFFFFF);
         }
     }
@@ -409,23 +409,23 @@ public class ConfigScreen extends Screen {
     /** 悬停提示的正文。网址与 {@code sk-} 前缀保持原样，其余跟随游戏语言。 */
     private static List<Component> helpTooltip() {
         List<Component> lines = new ArrayList<>();
-        lines.add(Lang.text("mcai.help.title").formatted(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        lines.add(Lang.text("mcai.help.body1").formatted(ChatFormatting.GRAY));
-        lines.add(Lang.text("mcai.help.body2").formatted(ChatFormatting.GRAY));
+        lines.add(Lang.text("mcai.help.title").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        lines.add(Lang.text("mcai.help.body1").withStyle(ChatFormatting.GRAY));
+        lines.add(Lang.text("mcai.help.body2").withStyle(ChatFormatting.GRAY));
         lines.add(Component.empty());
-        lines.add(Lang.text("mcai.help.where").formatted(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        lines.add(Lang.text("mcai.help.step1").formatted(ChatFormatting.GRAY)
-                .append(Component.literal("platform.deepseek.com").formatted(ChatFormatting.WHITE)));
-        lines.add(Lang.text("mcai.help.step2").formatted(ChatFormatting.GRAY));
-        lines.add(Lang.text("mcai.help.step3a").formatted(ChatFormatting.GRAY)
-                .append(Component.literal("sk-").formatted(ChatFormatting.WHITE))
-                .append(Lang.text("mcai.help.step3b").formatted(ChatFormatting.GRAY)));
-        lines.add(Lang.text("mcai.help.step4").formatted(ChatFormatting.GRAY));
+        lines.add(Lang.text("mcai.help.where").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        lines.add(Lang.text("mcai.help.step1").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal("platform.deepseek.com").withStyle(ChatFormatting.WHITE)));
+        lines.add(Lang.text("mcai.help.step2").withStyle(ChatFormatting.GRAY));
+        lines.add(Lang.text("mcai.help.step3a").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal("sk-").withStyle(ChatFormatting.WHITE))
+                .append(Lang.text("mcai.help.step3b").withStyle(ChatFormatting.GRAY)));
+        lines.add(Lang.text("mcai.help.step4").withStyle(ChatFormatting.GRAY));
         lines.add(Component.empty());
-        lines.add(Lang.text("mcai.help.notes").formatted(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        lines.add(Lang.text("mcai.help.note1").formatted(ChatFormatting.GRAY));
-        lines.add(Lang.text("mcai.help.note2a").formatted(ChatFormatting.GRAY)
-                .append(Lang.text("mcai.help.note2b").formatted(ChatFormatting.RED)));
+        lines.add(Lang.text("mcai.help.notes").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        lines.add(Lang.text("mcai.help.note1").withStyle(ChatFormatting.GRAY));
+        lines.add(Lang.text("mcai.help.note2a").withStyle(ChatFormatting.GRAY)
+                .append(Lang.text("mcai.help.note2b").withStyle(ChatFormatting.RED)));
         return lines;
     }
 
@@ -853,7 +853,7 @@ public class ConfigScreen extends Screen {
                 field = new EditBox(textRenderer, 0, 0, CONTROL_WIDTH, WIDGET_HEIGHT, label());
                 field.setMaxLength(maxLength);
                 if (placeholder != null) {
-                    field.setPlaceholder(Component.literal(placeholder).formatted(ChatFormatting.DARK_GRAY));
+                    field.setPlaceholder(Component.literal(placeholder).withStyle(ChatFormatting.DARK_GRAY));
                 }
                 field.setText(draft);
                 field.setChangedListener(text -> draft = text);
@@ -935,7 +935,7 @@ public class ConfigScreen extends Screen {
 
         private Component stateLabel() {
             return Lang.text(value ? "mcai.screen.on" : "mcai.screen.off")
-                    .formatted(value ? ChatFormatting.GREEN : ChatFormatting.RED);
+                    .withStyle(value ? ChatFormatting.GREEN : ChatFormatting.RED);
         }
 
         @Override
@@ -1169,7 +1169,7 @@ public class ConfigScreen extends Screen {
             int x = controlLeft - 8 - width;
             if (x > labelX + 30) {
                 context.drawString(textRenderer,
-                        Component.literal(keyName).formatted(ChatFormatting.YELLOW), x, labelY, 0xFFFFFF);
+                        Component.literal(keyName).withStyle(ChatFormatting.YELLOW), x, labelY, 0xFFFFFF);
             }
         }
 

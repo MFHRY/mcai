@@ -19,10 +19,7 @@ import com.example.mcai.util.RequestController;
 import com.example.mcai.util.ScreenCrop;
 import com.example.mcai.util.SystemPrompt;
 import com.example.mcai.util.TokenStats;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -85,38 +82,61 @@ public final class VisionHandler {
 
     private VisionHandler() {}
 
-    /** 在 McaiModClient.onInitializeClient() 里调用。 */
-    public static void register() {
-        // 1.21.1：分类是普通 String，不是 KeyMapping.Category
-        visionKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-                KEY_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, KEY_CATEGORY));
+    /**
+     * 注册四个快捷键。
+     *
+     * <p><b>Forge 版与 Fabric 版的差异：</b>Fabric 的
+     * {@code KeyBindingHelper.registerKeyBinding(...)} 是"创建 + 登记"一步到位。
+     * Forge 要拆成两步：这里先 {@code new KeyMapping(...)} 并把对象存下来，
+     * 然后由 {@code RegisterKeyMappingsEvent}（mod 事件总线）逐个
+     * {@code event.register(...)} 登记。见 {@link #registerKeyMappings}。
+     */
+    public static void createKeyMappings() {
+        // 1.20.1：分类是普通 String，不是 KeyMapping.Category
+        visionKey = new KeyMapping(
+                KEY_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, KEY_CATEGORY);
 
         // #2 红石 / 建筑读图：另开一个键，走同一条截图链路但换提示词
-        buildKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-                KEY_BUILD_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, KEY_CATEGORY));
+        buildKey = new KeyMapping(
+                KEY_BUILD_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, KEY_CATEGORY);
 
         // 1.24 框选截图：只把框住的那一块发出去，直接省下视觉 token
-        pickKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-                KEY_PICK_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, KEY_CATEGORY));
+        pickKey = new KeyMapping(
+                KEY_PICK_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, KEY_CATEGORY);
 
         // 1.25 准星查询：看准一个方块/生物按一下，把它的名字和 ID 交给 AI 解释
-        whatKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-                KEY_WHAT_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, KEY_CATEGORY));
+        whatKey = new KeyMapping(
+                KEY_WHAT_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, KEY_CATEGORY);
+    }
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (visionKey.consumeClick()) {
-                trigger(null);
-            }
-            while (buildKey.consumeClick()) {
-                trigger(Lang.tr("mcai.vision.prompt.build"));
-            }
-            while (pickKey.consumeClick()) {
-                beginRegionPick(null);
-            }
-            while (whatKey.consumeClick()) {
-                com.example.mcai.client.CrosshairQuery.trigger();
-            }
-        });
+    /** 在 mod 事件总线上登记快捷键；不登记的话它们不会出现在「选项 → 控制」里。 */
+    public static void registerKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
+        if (visionKey == null) {
+            createKeyMappings();
+        }
+        event.register(visionKey);
+        event.register(buildKey);
+        event.register(pickKey);
+        event.register(whatKey);
+    }
+
+    /** 由 {@code McaiModClient} 的统一 tick 分发器调用：检查四个快捷键有没有被按下。 */
+    public static void onClientTick(Minecraft client) {
+        if (visionKey == null) {
+            return;
+        }
+        while (visionKey.consumeClick()) {
+            trigger(null);
+        }
+        while (buildKey.consumeClick()) {
+            trigger(Lang.tr("mcai.vision.prompt.build"));
+        }
+        while (pickKey.consumeClick()) {
+            beginRegionPick(null);
+        }
+        while (whatKey.consumeClick()) {
+            com.example.mcai.client.CrosshairQuery.trigger();
+        }
     }
 
     // ------------------------------------------------------------ 1.25 改键入口

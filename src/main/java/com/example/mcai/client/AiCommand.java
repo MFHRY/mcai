@@ -16,13 +16,12 @@ import com.example.mcai.util.UsageLog;
 import com.example.mcai.util.VisionResolution;
 import com.example.mcai.util.WorldContext;
 import com.example.mcai.vision.VisionHandler;
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
 import java.time.LocalDate;
@@ -57,258 +56,290 @@ public final class AiCommand {
 
     private AiCommand() {}
 
-    /** 在 McaiModClient.onInitializeClient() 里调用。 */
-    public static void register() {
-        // 每个 tick 检查一次"有没有界面要打开"
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            Runnable action = pendingScreen;
-            if (action != null) {
-                pendingScreen = null;
-                action.run();
-            }
-        });
-
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            LiteralArgumentBuilder<FabricClientCommandSource> root =
-                    ClientCommandManager.literal("ai");
-
-            root.then(ClientCommandManager.literal("status")
-                    .executes(context -> status(context.getSource())));
-
-            root.then(ClientCommandManager.literal("token")
-                    .executes(context -> token(context.getSource())));
-
-            // #11 花费明细:今日花了多少钱 + 是否超预算
-            root.then(ClientCommandManager.literal("cost")
-                    .executes(context -> cost(context.getSource())));
-
-            // #7 清空本地内存里的多轮上下文
-            root.then(ClientCommandManager.literal("clear")
-                    .executes(context -> {
-                        HistoryStore.clear();
-                        context.getSource().sendFeedback(
-                                Component.literal(Lang.tr("mcai.cmd.clear_done")));
-                        return 1;
-                    }));
-
-            // #9 人格预设
-            root.then(buildPersonaNode());
-
-            // #17 最近 7 天用量曲线
-            root.then(ClientCommandManager.literal("chart")
-                    .executes(context -> chart(context.getSource())));
-
-            // #3 地理顾问:把当前坐标/群系/光照/维度发给 AI
-            root.then(ClientCommandManager.literal("where")
-                    .executes(context -> where(context.getSource(), null))
-                    .then(ClientCommandManager.argument("question", StringArgumentType.greedyString())
-                            .executes(context -> where(context.getSource(),
-                                    StringArgumentType.getString(context, "question")))));
-
-            // #5 翻译眼前的告示牌 / 手中的成书(纯文本,不烧图片 token)
-            root.then(ClientCommandManager.literal("read")
-                    .executes(context -> read(context.getSource())));
-
-            // #16 无障碍:把屏幕上有什么念给玩家听
-            root.then(ClientCommandManager.literal("describe")
-                    .executes(context -> {
-                        VisionHandler.trigger(Lang.tr("mcai.vision.prompt.describe"));
-                        return 1;
-                    }));
-
-            // #10 配方：不带参数=列出你现在能做的；带名字=查那样东西怎么做
-            root.then(ClientCommandManager.literal("craft")
-                    .executes(context -> craft(context.getSource(), null))
-                    .then(ClientCommandManager.argument("item", StringArgumentType.greedyString())
-                            .executes(context -> craft(context.getSource(),
-                                    StringArgumentType.getString(context, "item")))));
-
-            // #19 AI 任务:按背包内容生成任务 / 查看 / 清除
-            root.then(ClientCommandManager.literal("task")
-                    .executes(context -> taskGenerate(context.getSource()))
-                    .then(ClientCommandManager.literal("show")
-                            .executes(context -> taskShow(context.getSource())))
-                    .then(ClientCommandManager.literal("clear")
-                            .executes(context -> taskClear(context.getSource()))));
-
-            root.then(ClientCommandManager.literal("help")
-                    .executes(context -> {
-                        StartupGuide.show();
-                        return 1;
-                    }));
-
-            // 打开游戏内设置窗口（填写 API Key 等）
-            root.then(ClientCommandManager.literal("config")
-                    .executes(context -> {
-                        // 不能在这里直接 setScreen：聊天界面稍后会把自己关掉并覆盖掉它。
-                        // 登记到下一个 tick 再打开，见 pendingScreen 的说明。
-                        pendingScreen = () -> Minecraft.getInstance().setScreen(new ConfigScreen(null));
-                        return 1;
-                    }));
-
-            // ---- 1.20 开关：让新功能不用手改 mcai.json 也能开 ----
-            root.then(ClientCommandManager.literal("death")
-                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "death", true)))
-                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "death", false))));
-
-            root.then(ClientCommandManager.literal("streaming")
-                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "streaming", true)))
-                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "streaming", false))));
-
-            root.then(ClientCommandManager.literal("recipe")
-                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "recipe", true)))
-                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "recipe", false))));
-
-            // ---- 1.24 新增开关 ----
-            // 发送前预览（默认关闭：多一步确认会打断连续操作）
-            root.then(ClientCommandManager.literal("preview")
-                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "preview", true)))
-                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "preview", false))));
-
-            // 隐私遮罩（发图前把聊天栏那块涂黑）
-            root.then(ClientCommandManager.literal("mask")
-                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "mask", true)))
-                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "mask", false))));
-
-            // 系统语音朗读
-            root.then(ClientCommandManager.literal("tts")
-                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "tts", true)))
-                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "tts", false))));
-
-            // 危险预警（低血量 + 附近有怪时自动求助）
-            root.then(ClientCommandManager.literal("danger")
-                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "danger", true)))
-                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "danger", false))));
-
-            // 环境感知（把游戏版本和模组列表告诉 AI）
-            root.then(ClientCommandManager.literal("env")
-                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "env", true)))
-                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "env", false))));
-
-            // 相同问题本地缓存
-            root.then(ClientCommandManager.literal("cache")
-                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "cache", true)))
-                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "cache", false)))
-                    .then(ClientCommandManager.literal("clear")
-                            .executes(c -> clearCache(c.getSource()))));
-
-            // 中止正在进行的请求（键盘上的 ESC 是同一个功能）
-            root.then(ClientCommandManager.literal("cancel")
-                    .executes(c -> cancelRequest(c.getSource())));
-
-            // 让系统语音念一段文字
-            root.then(ClientCommandManager.literal("speak")
-                    .then(ClientCommandManager.argument("text", StringArgumentType.greedyString())
-                            .executes(c -> speak(c.getSource(),
-                                    StringArgumentType.getString(c, "text")))));
-
-            // 长期记忆：让 AI 一直记住某些事实
-            root.then(ClientCommandManager.literal("remember")
-                    .then(ClientCommandManager.argument("text", StringArgumentType.greedyString())
-                            .executes(c -> remember(c.getSource(),
-                                    StringArgumentType.getString(c, "text")))));
-            root.then(ClientCommandManager.literal("memories")
-                    .executes(c -> listMemories(c.getSource())));
-            root.then(ClientCommandManager.literal("forget")
-                    .then(ClientCommandManager.literal("all")
-                            .executes(c -> forget(c.getSource(), null)))
-                    .then(ClientCommandManager.argument("index",
-                                    com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 999))
-                            .executes(c -> forget(c.getSource(),
-                                    com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "index")))));
-
-            // ---- 1.25 新增 ----
-            // 物品栏分析：把背包清单整理成文字交给 AI。
-            // 故意不发截图：同样信息的文字清单约 60~120 token，截图要几千个视觉 token。
-            root.then(ClientCommandManager.literal("inv")
-                    .executes(c -> inventory(c.getSource(), null))
-                    .then(ClientCommandManager.argument("question", StringArgumentType.greedyString())
-                            .executes(c -> inventory(c.getSource(),
-                                    StringArgumentType.getString(c, "question")))));
-
-            // 准星查询：看准一个方块/生物，问"这是什么"（等同于按键 V）
-            root.then(ClientCommandManager.literal("what")
-                    .executes(c -> crosshair(c.getSource())));
-
-            // 鲸鱼娘挂件开关 + 位置编辑 + 指定头像图（缩放等在 /ai config 里改）
-            root.then(ClientCommandManager.literal("avatar")
-                    .then(ClientCommandManager.literal("on").executes(c -> setFlag(c.getSource(), "avatar", true)))
-                    .then(ClientCommandManager.literal("off").executes(c -> setFlag(c.getSource(), "avatar", false)))
-                    .then(ClientCommandManager.literal("edit").executes(c -> editAvatar(c.getSource())))
-                    .then(ClientCommandManager.literal("image")
-                            .executes(c -> setAvatarImage(c.getSource(), ""))
-                            .then(ClientCommandManager.argument("path", StringArgumentType.greedyString())
-                                    .executes(c -> setAvatarImage(c.getSource(),
-                                            StringArgumentType.getString(c, "path"))))));
-
-            // API 协议：默认 auto（按 api_url 猜），也可以强制指定
-            root.then(ClientCommandManager.literal("provider")
-                    .then(ClientCommandManager.argument("name", StringArgumentType.word())
-                            .suggests(PROVIDER_SUGGESTIONS)
-                            .executes(c -> setProvider(c.getSource(),
-                                    StringArgumentType.getString(c, "name")))));
-
-            // 失败自动重试次数（只对网络异常和 429/5xx 生效）
-            root.then(ClientCommandManager.literal("retry")
-                    .then(ClientCommandManager.argument("count",
-                                    com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 5))
-                            .executes(c -> setRetry(c.getSource(),
-                                    com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "count")))));
-
-            root.then(ClientCommandManager.literal("budget")
-                    .then(ClientCommandManager.argument("yuan",
-                                    com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(0.0))
-                            .executes(c -> setBudget(c.getSource(),
-                                    com.mojang.brigadier.arguments.DoubleArgumentType.getDouble(c, "yuan")))));
-
-            root.then(ClientCommandManager.literal("history")
-                    .then(ClientCommandManager.argument("turns",
-                                    com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 20))
-                            .executes(c -> setHistory(c.getSource(),
-                                    com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "turns")))));
-
-            root.then(ClientCommandManager.literal("discord")
-                    .then(ClientCommandManager.literal("clear")
-                            .executes(c -> setDiscord(c.getSource(), "")))
-                    .then(ClientCommandManager.argument("url", StringArgumentType.greedyString())
-                            .executes(c -> setDiscord(c.getSource(),
-                                    StringArgumentType.getString(c, "url")))));
-
-            root.then(buildResolutionNode());
-
-            // 触发词前缀（把 !ai 改成别的，聊天栏用新前缀提问）
-            root.then(ClientCommandManager.literal("prefix")
-                    .then(ClientCommandManager.argument("value", StringArgumentType.greedyString())
-                            .executes(context -> setPrefix(context.getSource(),
-                                    StringArgumentType.getString(context, "value")))));
-
-            // 翻译：/ai tl <文本>（翻成默认目标语言）或 /ai tl <语言> <文本>
-            root.then(buildTranslateNode("tl"));
-            root.then(buildTranslateNode("translate"));
-
-            // 默认翻译目标语言
-            root.then(ClientCommandManager.literal("tlang")
-                    .then(ClientCommandManager.argument("lang", StringArgumentType.greedyString())
-                            .executes(context -> setTranslateLang(context.getSource(),
-                                    StringArgumentType.getString(context, "lang")))));
-
-            dispatcher.register(root);
-        });
+    /**
+     * 由 {@code McaiModClient} 的统一 tick 分发器调用：把"待打开的界面"落地。
+     *
+     * <p>为什么不能在指令里直接 {@code setScreen}：客户端指令<b>是在聊天界面里</b>
+     * 执行的，聊天界面执行完还会自己 {@code setScreen(null)}，会把我们刚开的界面覆盖掉。
+     * 所以这里只登记意图，等下一个 tick 再真正打开。
+     */
+    public static void onClientTick(Minecraft client) {
+        Runnable action = pendingScreen;
+        if (action != null) {
+            pendingScreen = null;
+            action.run();
+        }
     }
 
-    private static LiteralArgumentBuilder<FabricClientCommandSource> buildResolutionNode() {
-        LiteralArgumentBuilder<FabricClientCommandSource> node =
-                ClientCommandManager.literal("resolution");
+    /**
+     * 注册 {@code /ai} 全部子指令。
+     *
+     * <p><b>Forge 版与 Fabric 版的差异：</b>Fabric 通过
+     * {@code ClientCommandRegistrationCallback} 把 dispatcher 交给我们；Forge 的
+     * {@code RegisterClientCommandsEvent} 直接给 dispatcher，签名就是下面这样。
+     * 两边都是<b>原生客户端指令</b>，不需要 mixin，也不会要求服务端装模组。
+     */
+    public static void onRegisterCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
+        LiteralArgumentBuilder<CommandSourceStack> root =
+                Commands.literal("ai");
+
+        root.then(Commands.literal("status")
+                .executes(context -> status(context.getSource())));
+
+        root.then(Commands.literal("token")
+                .executes(context -> token(context.getSource())));
+
+        // #11 花费明细:今日花了多少钱 + 是否超预算
+        root.then(Commands.literal("cost")
+                .executes(context -> cost(context.getSource())));
+
+        // #7 清空本地内存里的多轮上下文
+        root.then(Commands.literal("clear")
+                .executes(context -> {
+                    HistoryStore.clear();
+                    feedback(context.getSource(), 
+                            Component.literal(Lang.tr("mcai.cmd.clear_done")));
+                    return 1;
+                }));
+
+        // #9 人格预设
+        root.then(buildPersonaNode());
+
+        // #17 最近 7 天用量曲线
+        root.then(Commands.literal("chart")
+                .executes(context -> chart(context.getSource())));
+
+        // #3 地理顾问:把当前坐标/群系/光照/维度发给 AI
+        root.then(Commands.literal("where")
+                .executes(context -> where(context.getSource(), null))
+                .then(Commands.argument("question", StringArgumentType.greedyString())
+                        .executes(context -> where(context.getSource(),
+                                StringArgumentType.getString(context, "question")))));
+
+        // #5 翻译眼前的告示牌 / 手中的成书(纯文本,不烧图片 token)
+        root.then(Commands.literal("read")
+                .executes(context -> read(context.getSource())));
+
+        // #16 无障碍:把屏幕上有什么念给玩家听
+        root.then(Commands.literal("describe")
+                .executes(context -> {
+                    VisionHandler.trigger(Lang.tr("mcai.vision.prompt.describe"));
+                    return 1;
+                }));
+
+        // #10 配方：不带参数=列出你现在能做的；带名字=查那样东西怎么做
+        root.then(Commands.literal("craft")
+                .executes(context -> craft(context.getSource(), null))
+                .then(Commands.argument("item", StringArgumentType.greedyString())
+                        .executes(context -> craft(context.getSource(),
+                                StringArgumentType.getString(context, "item")))));
+
+        // #19 AI 任务:按背包内容生成任务 / 查看 / 清除
+        root.then(Commands.literal("task")
+                .executes(context -> taskGenerate(context.getSource()))
+                .then(Commands.literal("show")
+                        .executes(context -> taskShow(context.getSource())))
+                .then(Commands.literal("clear")
+                        .executes(context -> taskClear(context.getSource()))));
+
+        root.then(Commands.literal("help")
+                .executes(context -> {
+                    StartupGuide.show();
+                    return 1;
+                }));
+
+        // 打开游戏内设置窗口（填写 API Key 等）
+        root.then(Commands.literal("config")
+                .executes(context -> {
+                    // 不能在这里直接 setScreen：聊天界面稍后会把自己关掉并覆盖掉它。
+                    // 登记到下一个 tick 再打开，见 pendingScreen 的说明。
+                    pendingScreen = () -> Minecraft.getInstance().setScreen(new ConfigScreen(null));
+                    return 1;
+                }));
+
+        // ---- 1.20 开关：让新功能不用手改 mcai.json 也能开 ----
+        root.then(Commands.literal("death")
+                .then(Commands.literal("on").executes(c -> setFlag(c.getSource(), "death", true)))
+                .then(Commands.literal("off").executes(c -> setFlag(c.getSource(), "death", false))));
+
+        root.then(Commands.literal("streaming")
+                .then(Commands.literal("on").executes(c -> setFlag(c.getSource(), "streaming", true)))
+                .then(Commands.literal("off").executes(c -> setFlag(c.getSource(), "streaming", false))));
+
+        root.then(Commands.literal("recipe")
+                .then(Commands.literal("on").executes(c -> setFlag(c.getSource(), "recipe", true)))
+                .then(Commands.literal("off").executes(c -> setFlag(c.getSource(), "recipe", false))));
+
+        // ---- 1.24 新增开关 ----
+        // 发送前预览（默认关闭：多一步确认会打断连续操作）
+        root.then(Commands.literal("preview")
+                .then(Commands.literal("on").executes(c -> setFlag(c.getSource(), "preview", true)))
+                .then(Commands.literal("off").executes(c -> setFlag(c.getSource(), "preview", false))));
+
+        // 隐私遮罩（发图前把聊天栏那块涂黑）
+        root.then(Commands.literal("mask")
+                .then(Commands.literal("on").executes(c -> setFlag(c.getSource(), "mask", true)))
+                .then(Commands.literal("off").executes(c -> setFlag(c.getSource(), "mask", false))));
+
+        // 系统语音朗读
+        root.then(Commands.literal("tts")
+                .then(Commands.literal("on").executes(c -> setFlag(c.getSource(), "tts", true)))
+                .then(Commands.literal("off").executes(c -> setFlag(c.getSource(), "tts", false))));
+
+        // 危险预警（低血量 + 附近有怪时自动求助）
+        root.then(Commands.literal("danger")
+                .then(Commands.literal("on").executes(c -> setFlag(c.getSource(), "danger", true)))
+                .then(Commands.literal("off").executes(c -> setFlag(c.getSource(), "danger", false))));
+
+        // 环境感知（把游戏版本和模组列表告诉 AI）
+        root.then(Commands.literal("env")
+                .then(Commands.literal("on").executes(c -> setFlag(c.getSource(), "env", true)))
+                .then(Commands.literal("off").executes(c -> setFlag(c.getSource(), "env", false))));
+
+        // 相同问题本地缓存
+        root.then(Commands.literal("cache")
+                .then(Commands.literal("on").executes(c -> setFlag(c.getSource(), "cache", true)))
+                .then(Commands.literal("off").executes(c -> setFlag(c.getSource(), "cache", false)))
+                .then(Commands.literal("clear")
+                        .executes(c -> clearCache(c.getSource()))));
+
+        // 中止正在进行的请求（键盘上的 ESC 是同一个功能）
+        root.then(Commands.literal("cancel")
+                .executes(c -> cancelRequest(c.getSource())));
+
+        // 让系统语音念一段文字
+        root.then(Commands.literal("speak")
+                .then(Commands.argument("text", StringArgumentType.greedyString())
+                        .executes(c -> speak(c.getSource(),
+                                StringArgumentType.getString(c, "text")))));
+
+        // 长期记忆：让 AI 一直记住某些事实
+        root.then(Commands.literal("remember")
+                .then(Commands.argument("text", StringArgumentType.greedyString())
+                        .executes(c -> remember(c.getSource(),
+                                StringArgumentType.getString(c, "text")))));
+        root.then(Commands.literal("memories")
+                .executes(c -> listMemories(c.getSource())));
+        root.then(Commands.literal("forget")
+                .then(Commands.literal("all")
+                        .executes(c -> forget(c.getSource(), null)))
+                .then(Commands.argument("index",
+                                com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 999))
+                        .executes(c -> forget(c.getSource(),
+                                com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "index")))));
+
+        // ---- 1.25 新增 ----
+        // 物品栏分析：把背包清单整理成文字交给 AI。
+        // 故意不发截图：同样信息的文字清单约 60~120 token，截图要几千个视觉 token。
+        root.then(Commands.literal("inv")
+                .executes(c -> inventory(c.getSource(), null))
+                .then(Commands.argument("question", StringArgumentType.greedyString())
+                        .executes(c -> inventory(c.getSource(),
+                                StringArgumentType.getString(c, "question")))));
+
+        // 准星查询：看准一个方块/生物，问"这是什么"（等同于按键 V）
+        root.then(Commands.literal("what")
+                .executes(c -> crosshair(c.getSource())));
+
+        // 鲸鱼娘挂件开关 + 位置编辑 + 指定头像图（缩放等在 /ai config 里改）
+        root.then(Commands.literal("avatar")
+                .then(Commands.literal("on").executes(c -> setFlag(c.getSource(), "avatar", true)))
+                .then(Commands.literal("off").executes(c -> setFlag(c.getSource(), "avatar", false)))
+                .then(Commands.literal("edit").executes(c -> editAvatar(c.getSource())))
+                .then(Commands.literal("image")
+                        .executes(c -> setAvatarImage(c.getSource(), ""))
+                        .then(Commands.argument("path", StringArgumentType.greedyString())
+                                .executes(c -> setAvatarImage(c.getSource(),
+                                        StringArgumentType.getString(c, "path"))))));
+
+        // API 协议：默认 auto（按 api_url 猜），也可以强制指定
+        root.then(Commands.literal("provider")
+                .then(Commands.argument("name", StringArgumentType.word())
+                        .suggests(PROVIDER_SUGGESTIONS)
+                        .executes(c -> setProvider(c.getSource(),
+                                StringArgumentType.getString(c, "name")))));
+
+        // 失败自动重试次数（只对网络异常和 429/5xx 生效）
+        root.then(Commands.literal("retry")
+                .then(Commands.argument("count",
+                                com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 5))
+                        .executes(c -> setRetry(c.getSource(),
+                                com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "count")))));
+
+        root.then(Commands.literal("budget")
+                .then(Commands.argument("yuan",
+                                com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(0.0))
+                        .executes(c -> setBudget(c.getSource(),
+                                com.mojang.brigadier.arguments.DoubleArgumentType.getDouble(c, "yuan")))));
+
+        root.then(Commands.literal("history")
+                .then(Commands.argument("turns",
+                                com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 20))
+                        .executes(c -> setHistory(c.getSource(),
+                                com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "turns")))));
+
+        root.then(Commands.literal("discord")
+                .then(Commands.literal("clear")
+                        .executes(c -> setDiscord(c.getSource(), "")))
+                .then(Commands.argument("url", StringArgumentType.greedyString())
+                        .executes(c -> setDiscord(c.getSource(),
+                                StringArgumentType.getString(c, "url")))));
+
+        root.then(buildResolutionNode());
+
+        // 触发词前缀（把 !ai 改成别的，聊天栏用新前缀提问）
+        root.then(Commands.literal("prefix")
+                .then(Commands.argument("value", StringArgumentType.greedyString())
+                        .executes(context -> setPrefix(context.getSource(),
+                                StringArgumentType.getString(context, "value")))));
+
+        // 翻译：/ai tl <文本>（翻成默认目标语言）或 /ai tl <语言> <文本>
+        root.then(buildTranslateNode("tl"));
+        root.then(buildTranslateNode("translate"));
+
+        // 默认翻译目标语言
+        root.then(Commands.literal("tlang")
+                .then(Commands.argument("lang", StringArgumentType.greedyString())
+                        .executes(context -> setTranslateLang(context.getSource(),
+                                StringArgumentType.getString(context, "lang")))));
+
+        dispatcher.register(root);
+    }
+    }
+
+
+    // -------------------------------------------------- 回显助手（Forge 专用）
+
+    /**
+     * 发一条普通回显。
+     *
+     * <p>Fabric 的 {@code CommandSource.sendFeedback(Text)} 在 Forge 里叫
+     * {@code sendSuccess(Supplier<Component>, boolean)} —— 多了一层 Supplier，
+     * 而且多一个"是否广播给其他管理员"的参数。包成这两个小助手之后，
+     * 下面 80 多处调用点只要换前缀，不用去动括号配对。
+     */
+    private static void feedback(CommandSourceStack source, Component text) {
+        source.sendSuccess(() -> text, false);
+    }
+
+    /** 发一条错误回显。{@code sendError} 在 Forge 里叫 {@code sendFailure}。 */
+    private static void error(CommandSourceStack source, Component text) {
+        source.sendFailure(text);
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildResolutionNode() {
+        LiteralArgumentBuilder<CommandSourceStack> node =
+                Commands.literal("resolution");
 
         // 四个标准值做成 literal，自带 Tab 补全
         for (String option : VisionResolution.OPTIONS) {
-            node.then(ClientCommandManager.literal(option)
+            node.then(Commands.literal(option)
                     .executes(context -> setResolution(context.getSource(), option)));
         }
 
         // 旧版中文写法（"原始" / "原图"）继续接受，落到同一个处理逻辑
         for (String legacy : VisionResolution.LEGACY_ORIGINAL) {
-            node.then(ClientCommandManager.literal(legacy)
+            node.then(Commands.literal(legacy)
                     .executes(context -> setResolution(context.getSource(), legacy)));
         }
 
@@ -318,7 +349,7 @@ public final class AiCommand {
         // 就固定下来了，而 Lang.tr 取的是**执行时**的语言；两者一旦不一致（玩家中途
         // 切换语言，或者客户端初始化时语言资源还没加载）就会让 getString 找不到参数
         // 而抛 IllegalArgumentException。参数名只出现在 brigadier 的报错里，不值得冒这个险。
-        node.then(ClientCommandManager.argument(HEIGHT_ARG, StringArgumentType.word())
+        node.then(Commands.argument(HEIGHT_ARG, StringArgumentType.word())
                 .executes(context -> setResolution(context.getSource(),
                         StringArgumentType.getString(context, HEIGHT_ARG))));
 
@@ -327,44 +358,44 @@ public final class AiCommand {
 
     // ------------------------------------------------------------------ status
 
-    private static int status(FabricClientCommandSource source) {
+    private static int status(CommandSourceStack source) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null) {
-            source.sendError(Component.literal(Lang.tr("mcai.cmd.status_not_ready")));
+            error(source, Component.literal(Lang.tr("mcai.cmd.status_not_ready")));
             return 0;
         }
 
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_title")));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_model",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_title")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_model",
                 ModelCatalog.describe(config.model)
                         + (ModelCatalog.lookup(config.model).supportsVision()
                         ? Lang.tr("mcai.cmd.vision_ok")
                         : Lang.tr("mcai.cmd.vision_no")))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_mode",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_mode",
                 ModeCatalog.describe(config.mode))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_resolution",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_resolution",
                 VisionResolution.label(config.visionResolution),
                 describeTarget(config.visionResolution))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_tokens",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_tokens",
                 TokenStats.todayTotal(), LocalDate.now())));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_reasoning",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_reasoning",
                 Lang.tr(config.showReasoning ? "mcai.cmd.reasoning_on" : "mcai.cmd.reasoning_off"),
                 config.reasoningMaxChars == 0
                         ? Lang.tr("mcai.cmd.reasoning_all")
                         : Lang.tr("mcai.cmd.reasoning_chars", config.reasoningMaxChars))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_url", config.apiUrl)));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_url", config.apiUrl)));
         if (LocalProvider.isLocal(config.apiUrl)) {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_local")));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.status_local")));
         }
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_key", maskKey(config.apiKey))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_cost",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_key", maskKey(config.apiKey))));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_cost",
                 formatYuan(TokenStats.todayCost()), budgetLabel(config))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_persona",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_persona",
                 PersonaCatalog.describe(config.persona))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_history",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_history",
                 Math.max(0, config.historyTurns))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_prefix", chatPrefix(config))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_hint")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_prefix", chatPrefix(config))));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.status_hint")));
         return 1;
     }
 
@@ -384,9 +415,9 @@ public final class AiCommand {
 
     // ------------------------------------------------------------------- token
 
-    private static int token(FabricClientCommandSource source) {
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.token_title")));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.token_today",
+    private static int token(CommandSourceStack source) {
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.token_title")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.token_today",
                 LocalDate.now(), TokenStats.todayTotal())));
 
         // 明细从 CSV 异步读，读完再补发到聊天栏
@@ -413,20 +444,20 @@ public final class AiCommand {
 
     // ------------------------------------------------------------------- cost
 
-    private static int cost(FabricClientCommandSource source) {
+    private static int cost(CommandSourceStack source) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_title")));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_today",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.cost_title")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.cost_today",
                 LocalDate.now(), formatYuan(TokenStats.todayCost()))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_tokens",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.cost_tokens",
                 TokenStats.todayTotal())));
 
         PricingCatalog.Quote quote = PricingCatalog.find(config == null ? null : config.model);
         if (quote == null) {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_unknown",
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.cost_unknown",
                     config == null ? "?" : config.model)));
         } else {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_rate",
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.cost_rate",
                     formatYuan(quote.inputPerMillion()), formatYuan(quote.outputPerMillion()),
                     Lang.tr(PricingCatalog.isPeakHour()
                             ? "mcai.cmd.rate_peak" : "mcai.cmd.rate_off"))));
@@ -434,35 +465,35 @@ public final class AiCommand {
 
         if (config != null && config.dailyBudgetYuan > 0) {
             if (TokenStats.isOverDailyBudget()) {
-                source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.budget_over",
+                feedback(source, Component.literal(Lang.tr("mcai.cmd.budget_over",
                         formatYuan(config.dailyBudgetYuan))));
             } else {
-                source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.budget_remain",
+                feedback(source, Component.literal(Lang.tr("mcai.cmd.budget_remain",
                         formatYuan(config.dailyBudgetYuan - TokenStats.todayCost()))));
             }
         } else {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.budget_off")));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.budget_off")));
         }
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_note")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.cost_note")));
         return 1;
     }
 
     // ---------------------------------------------------------------- persona
 
-    private static LiteralArgumentBuilder<FabricClientCommandSource> buildPersonaNode() {
-        LiteralArgumentBuilder<FabricClientCommandSource> node =
-                ClientCommandManager.literal("persona");
+    private static LiteralArgumentBuilder<CommandSourceStack> buildPersonaNode() {
+        LiteralArgumentBuilder<CommandSourceStack> node =
+                Commands.literal("persona");
         for (String id : PersonaCatalog.ids()) {
-            node.then(ClientCommandManager.literal(id)
+            node.then(Commands.literal(id)
                     .executes(context -> setPersona(context.getSource(), id)));
         }
-        node.then(ClientCommandManager.literal("list")
+        node.then(Commands.literal("list")
                 .executes(context -> personaList(context.getSource())));
         node.executes(context -> personaShow(context.getSource()));
         return node;
     }
 
-    private static int setPersona(FabricClientCommandSource source, String id) {
+    private static int setPersona(CommandSourceStack source, String id) {
         ConfigManager.getInstance().update(config -> {
             config.persona = id;
             java.util.List<String> list = new java.util.ArrayList<>(
@@ -472,25 +503,25 @@ public final class AiCommand {
             }
             config.availablePersonas = java.util.List.copyOf(list);
         });
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.persona_set",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.persona_set",
                 PersonaCatalog.describe(id))));
         return 1;
     }
 
     /** 列出所有可用人格预设。 */
-    private static int personaList(FabricClientCommandSource source) {
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.persona_list_title")));
+    private static int personaList(CommandSourceStack source) {
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.persona_list_title")));
         for (String id : PersonaCatalog.ids()) {
-            source.sendFeedback(Component.literal("§7 · " + PersonaCatalog.describe(id)));
+            feedback(source, Component.literal("§7 · " + PersonaCatalog.describe(id)));
         }
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.persona_usage")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.persona_usage")));
         return 1;
     }
 
     /** /ai persona（不带参数）：查看当前人格。 */
-    private static int personaShow(FabricClientCommandSource source) {
+    private static int personaShow(CommandSourceStack source) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.persona_current",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.persona_current",
                 config == null ? PersonaCatalog.describe("default") : PersonaCatalog.describe(config.persona))));
         return 1;
     }
@@ -498,8 +529,8 @@ public final class AiCommand {
     // ----------------------------------------------------------------- chart
 
     /** #17 最近 7 天用量柱状图（纯文字，聊天栏直接显示）。 */
-    private static int chart(FabricClientCommandSource source) {
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.chart_title")));
+    private static int chart(CommandSourceStack source) {
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.chart_title")));
         UsageLog.dailyTotalsAsync(7).whenComplete((days, error) -> {
             if (error != null || days == null || days.isEmpty()) {
                 ClientChat.sendLiteral(Lang.tr("mcai.cmd.token_read_failed",
@@ -531,10 +562,10 @@ public final class AiCommand {
     // ------------------------------------------------------------------ where
 
     /** #3 地理顾问。 */
-    private static int where(FabricClientCommandSource source, String question) {
+    private static int where(CommandSourceStack source, String question) {
         String prompt = WorldContext.asPrompt(question);
         if (WorldContext.snapshot() == null) {
-            source.sendError(Component.literal(Lang.tr("mcai.ctx.not_in_world")));
+            error(source, Component.literal(Lang.tr("mcai.ctx.not_in_world")));
             return 0;
         }
         ChatHandler.ask(prompt);
@@ -544,10 +575,10 @@ public final class AiCommand {
     // ------------------------------------------------------------------- read
 
     /** #5 读取眼前的告示牌或手中的成书并请 AI 翻译。 */
-    private static int read(FabricClientCommandSource source) {
+    private static int read(CommandSourceStack source) {
         TextReader.Found found = TextReader.read();
         if (found == null) {
-            source.sendError(Component.literal(Lang.tr("mcai.read.not_found")));
+            error(source, Component.literal(Lang.tr("mcai.read.not_found")));
             return 0;
         }
         // 文字原样附在提问后面,让模型翻译。纯文本请求,比截图便宜得多。
@@ -563,7 +594,7 @@ public final class AiCommand {
      *
      * @param query null 表示列出"现在材料够做的"；否则按名字查那样东西的配方
      */
-    private static int craft(FabricClientCommandSource source, String query) {
+    private static int craft(CommandSourceStack source, String query) {
         if (query != null && !query.isBlank()) {
             return craftLookup(source, query.trim());
         }
@@ -571,52 +602,52 @@ public final class AiCommand {
         java.util.List<RecipeHelper.Craftable> list = RecipeHelper.craftableNow();
         // 打进日志：万一结果不对，从日志就能看出是扫描失败还是配方确实不匹配
         com.example.mcai.McaiMod.LOGGER.info("mcAI /ai craft: {} craftable recipe(s) found", list.size());
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_title")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.craft_title")));
         if (list.isEmpty()) {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_empty")));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.craft_empty")));
             return 1;
         }
         int shown = 0;
         for (RecipeHelper.Craftable item : list) {
             if (shown >= 12) {
-                source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_more",
+                feedback(source, Component.literal(Lang.tr("mcai.cmd.craft_more",
                         list.size() - shown)));
                 break;
             }
             String ingredients = item.ingredients().isEmpty()
                     ? Lang.tr("mcai.craft.unknown_ingredients")
                     : String.join(Lang.tr("mcai.craft.separator"), item.ingredients());
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_entry",
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.craft_entry",
                     item.count() > 1 ? item.output() + " x" + item.count() : item.output(),
                     ingredients)));
             shown++;
         }
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_note")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.craft_note")));
         return 1;
     }
 
     /** 按名字查配方（不需要背包里有材料）。 */
-    private static int craftLookup(FabricClientCommandSource source, String query) {
+    private static int craftLookup(CommandSourceStack source, String query) {
         java.util.List<net.minecraft.world.item.crafting.RecipeHolder<?>> found = RecipeHelper.findByName(query);
         com.example.mcai.McaiMod.LOGGER.info("mcAI /ai craft {}: {} recipe(s) matched",
                 query, found.size());
         if (found.isEmpty()) {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_lookup_none", query)));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.craft_lookup_none", query)));
             return 1;
         }
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_lookup_title", query)));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.craft_lookup_title", query)));
         for (net.minecraft.world.item.crafting.RecipeHolder<?> entry : found) {
-            source.sendFeedback(Component.literal("§7 " + RecipeHelper.describe(entry)));
+            feedback(source, Component.literal("§7 " + RecipeHelper.describe(entry)));
         }
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_note")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.craft_note")));
         return 1;
     }
 
     // ------------------------------------------------------------------- task
 
     /** #19 按背包内容生成任务。 */
-    private static int taskGenerate(FabricClientCommandSource source) {
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.task_generating")));
+    private static int taskGenerate(CommandSourceStack source) {
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.task_generating")));
         // 回答回来后存成任务；ask 内部会处理冷却、预算、错误提示
         ChatHandler.ask(TaskTracker.buildTaskPrompt(), reply -> {
             TaskTracker.set(reply);
@@ -625,24 +656,24 @@ public final class AiCommand {
         return 1;
     }
 
-    private static int taskShow(FabricClientCommandSource source) {
+    private static int taskShow(CommandSourceStack source) {
         String task = TaskTracker.current();
         if (task == null) {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.task_none")));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.task_none")));
             return 1;
         }
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.task_title")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.task_title")));
         for (String line : task.split("\n")) {
             if (!line.isBlank()) {
-                source.sendFeedback(Component.literal("§7 " + line.trim()));
+                feedback(source, Component.literal("§7 " + line.trim()));
             }
         }
         return 1;
     }
 
-    private static int taskClear(FabricClientCommandSource source) {
+    private static int taskClear(CommandSourceStack source) {
         TaskTracker.clear();
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.task_cleared")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.task_cleared")));
         return 1;
     }
 
@@ -651,7 +682,7 @@ public final class AiCommand {
     /**
      * 切换一个布尔设置。用一个字符串 id 分派，避免为每个开关重复写一遍指令节点。
      */
-    private static int setFlag(FabricClientCommandSource source, String id, boolean value) {
+    private static int setFlag(CommandSourceStack source, String id, boolean value) {
         String label;
         ConfigManager.getInstance().update(config -> {
             switch (id) {
@@ -671,7 +702,7 @@ public final class AiCommand {
             }
         });
         label = Lang.tr("mcai.cmd.flag_" + id);
-        source.sendFeedback(Component.literal(Lang.tr(value
+        feedback(source, Component.literal(Lang.tr(value
                 ? "mcai.cmd.flag_on" : "mcai.cmd.flag_off", label)));
         return 1;
     }
@@ -679,7 +710,7 @@ public final class AiCommand {
     // ---------------------------------------------------------- 1.25 新增指令实现
 
     /** {@code /ai provider} 的 Tab 补全候选。 */
-    private static final com.mojang.brigadier.suggestion.SuggestionProvider<FabricClientCommandSource>
+    private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack>
             PROVIDER_SUGGESTIONS = (context, builder) -> {
         for (String name : new String[]{"auto", "openai", "gemini", "claude"}) {
             builder.suggest(name);
@@ -688,13 +719,13 @@ public final class AiCommand {
     };
 
     /** 物品栏分析：不带参数用默认问题，带了就按玩家的问题问。 */
-    private static int inventory(FabricClientCommandSource source, String question) {
+    private static int inventory(CommandSourceStack source, String question) {
         InventoryQuery.trigger(question);
         return 1;
     }
 
     /** 准星查询：看准的方块 / 生物是什么。 */
-    private static int crosshair(FabricClientCommandSource source) {
+    private static int crosshair(CommandSourceStack source) {
         CrosshairQuery.trigger();
         return 1;
     }
@@ -706,7 +737,7 @@ public final class AiCommand {
      * 客户端指令是在聊天界面里执行的，聊天界面执行完才会自己 {@code setScreen(null)}，
      * 直接在这里开界面会被那一句覆盖掉，看起来就是"敲了没反应"。
      */
-    private static int editAvatar(FabricClientCommandSource source) {
+    private static int editAvatar(CommandSourceStack source) {
         pendingScreen = () -> Minecraft.getInstance().setScreen(
                 new AvatarEditScreen(Minecraft.getInstance().screen));
         return 1;
@@ -718,19 +749,19 @@ public final class AiCommand {
      * <p><b>先验证再保存</b>：把一个打不开的路径写进配置，玩家的现象是"挂件不见了"，
      * 根本想不到是路径问题。所以这里先查「文件在不在 + 是不是 PNG」，通过了才落盘。
      */
-    private static int setAvatarImage(FabricClientCommandSource source, String raw) {
+    private static int setAvatarImage(CommandSourceStack source, String raw) {
         String path = AvatarWidget.normalizeImagePath(raw);
         String problem = AvatarWidget.validateImagePath(path);
         if (problem != null) {
-            source.sendError(Component.literal(problem));
+            error(source, Component.literal(problem));
             return 0;
         }
         ConfigManager.getInstance().update(config -> config.avatarImage = path);
         if (path.isEmpty()) {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.avatar_image_cleared")));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.avatar_image_cleared")));
         } else {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.avatar_image_set", path)));
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.avatar_image_hint")));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.avatar_image_set", path)));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.avatar_image_hint")));
         }
         return 1;
     }
@@ -741,28 +772,28 @@ public final class AiCommand {
      * <p>回显里额外报一次"实际选中的协议"，因为 {@code auto} 猜错了的话，
      * 玩家看到的症状会是一句莫名其妙的 404 或 401，很难联想到是协议没匹配上。
      */
-    private static int setProvider(FabricClientCommandSource source, String name) {
+    private static int setProvider(CommandSourceStack source, String name) {
         String value = (name == null || name.isBlank())
                 ? "auto" : name.trim().toLowerCase(java.util.Locale.ROOT);
         if (!value.equals("auto") && !value.equals("openai")
                 && !value.equals("gemini") && !value.equals("claude")) {
-            source.sendError(Component.literal(Lang.tr("mcai.cmd.provider_invalid", name)));
+            error(source, Component.literal(Lang.tr("mcai.cmd.provider_invalid", name)));
             return 0;
         }
         ConfigManager.getInstance().update(config -> config.apiProvider = value);
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         com.example.mcai.util.ApiProvider resolved = com.example.mcai.util.ApiProvider.detect(
                 value, config == null ? null : config.apiUrl);
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.provider_set", value,
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.provider_set", value,
                 resolved.name().toLowerCase(java.util.Locale.ROOT))));
         return 1;
     }
 
     /** 设置失败自动重试次数。 */
-    private static int setRetry(FabricClientCommandSource source, int count) {
+    private static int setRetry(CommandSourceStack source, int count) {
         int safe = Math.max(0, Math.min(5, count));
         ConfigManager.getInstance().update(config -> config.retryMax = safe);
-        source.sendFeedback(Component.literal(safe == 0
+        feedback(source, Component.literal(safe == 0
                 ? Lang.tr("mcai.cmd.retry_off")
                 : Lang.tr("mcai.cmd.retry_set", safe)));
         return 1;
@@ -771,37 +802,37 @@ public final class AiCommand {
     // ---------------------------------------------------------- 1.24 新增指令实现
 
     /** 中止正在进行的请求（键盘上的 ESC 是同一个功能）。 */
-    private static int cancelRequest(FabricClientCommandSource source) {
+    private static int cancelRequest(CommandSourceStack source) {
         boolean cancelled = com.example.mcai.util.RequestController.cancel();
-        source.sendFeedback(Component.literal(Lang.tr(cancelled
+        feedback(source, Component.literal(Lang.tr(cancelled
                 ? "mcai.cmd.cancel_done" : "mcai.cmd.cancel_none")));
         return 1;
     }
 
     /** 清空相同问题缓存。 */
-    private static int clearCache(FabricClientCommandSource source) {
+    private static int clearCache(CommandSourceStack source) {
         int before = com.example.mcai.util.ResponseCache.size();
         com.example.mcai.util.ResponseCache.clear();
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cache_cleared", before)));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.cache_cleared", before)));
         return 1;
     }
 
     /** 用系统语音念一段文字（无障碍）。 */
-    private static int speak(FabricClientCommandSource source, String text) {
+    private static int speak(CommandSourceStack source, String text) {
         if (text == null || text.isBlank()) {
-            source.sendError(Component.literal(Lang.tr("mcai.cmd.speak_empty")));
+            error(source, Component.literal(Lang.tr("mcai.cmd.speak_empty")));
             return 0;
         }
         com.example.mcai.util.Speech.speakAsync(text);
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.speak_started")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.speak_started")));
         return 1;
     }
 
     /** 记一条长期记忆，之后每次提问都会带上。 */
-    private static int remember(FabricClientCommandSource source, String text) {
+    private static int remember(CommandSourceStack source, String text) {
         String value = text == null ? "" : text.trim();
         if (value.isEmpty()) {
-            source.sendError(Component.literal(Lang.tr("mcai.cmd.remember_empty")));
+            error(source, Component.literal(Lang.tr("mcai.cmd.remember_empty")));
             return 0;
         }
         // 单条限长、总量限 20 条：记忆是进系统提示词的，必须有上限，否则提示词会无限膨胀
@@ -815,22 +846,22 @@ public final class AiCommand {
             next.add(stored);
             config.memories = next;
         });
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.remember_added", stored)));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.remember_added", stored)));
         return 1;
     }
 
     /** 列出所有长期记忆。 */
-    private static int listMemories(FabricClientCommandSource source) {
+    private static int listMemories(CommandSourceStack source) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         java.util.List<String> memories = (config == null || config.memories == null)
                 ? java.util.List.of() : config.memories;
         if (memories.isEmpty()) {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.memories_empty")));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.memories_empty")));
             return 1;
         }
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.memories_title")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.memories_title")));
         for (int i = 0; i < memories.size(); i++) {
-            source.sendFeedback(Component.literal("§8 " + (i + 1) + ". §f" + memories.get(i)));
+            feedback(source, Component.literal("§8 " + (i + 1) + ". §f" + memories.get(i)));
         }
         return 1;
     }
@@ -838,7 +869,7 @@ public final class AiCommand {
     /**
      * 忘掉一条长期记忆；{@code index} 为 null 表示全部忘掉。
      */
-    private static int forget(FabricClientCommandSource source, Integer index) {
+    private static int forget(CommandSourceStack source, Integer index) {
         ConfigManager.getInstance().update(config -> {
             if (config.memories == null || config.memories.isEmpty()) {
                 return;
@@ -854,57 +885,57 @@ public final class AiCommand {
             }
             config.memories = next;
         });
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.forget_done")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.forget_done")));
         return 1;
     }
 
     /** 设置每日预算（元）；0 表示不限制。 */
-    private static int setBudget(FabricClientCommandSource source, double yuan) {
+    private static int setBudget(CommandSourceStack source, double yuan) {
         double safe = Math.max(0.0, yuan);
         ConfigManager.getInstance().update(config -> config.dailyBudgetYuan = safe);
         if (safe <= 0.0) {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.budget_cleared")));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.budget_cleared")));
         } else {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.budget_set", formatYuan(safe))));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.budget_set", formatYuan(safe))));
         }
         return 1;
     }
 
     /** 设置保留几轮上下文；0 表示关闭多轮。 */
-    private static int setHistory(FabricClientCommandSource source, int turns) {
+    private static int setHistory(CommandSourceStack source, int turns) {
         int safe = Math.max(0, Math.min(20, turns));
         ConfigManager.getInstance().update(config -> config.historyTurns = safe);
         HistoryStore.setMaxTurns(safe);
         if (safe == 0) {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.history_off")));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.history_off")));
         } else {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.history_set", safe)));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.history_set", safe)));
         }
         return 1;
     }
 
     /** 设置/清除 Discord webhook。 */
-    private static int setDiscord(FabricClientCommandSource source, String url) {
+    private static int setDiscord(CommandSourceStack source, String url) {
         String value = url == null ? "" : url.trim();
         if (!value.isEmpty() && !value.startsWith("https://")) {
-            source.sendError(Component.literal(Lang.tr("mcai.cmd.discord_invalid")));
+            error(source, Component.literal(Lang.tr("mcai.cmd.discord_invalid")));
             return 0;
         }
         ConfigManager.getInstance().update(config -> config.discordWebhook = value);
         if (value.isEmpty()) {
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.discord_cleared")));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.discord_cleared")));
         } else {
             // 不把完整 URL 打在聊天栏里，避免直播/截图泄露（和 API Key 一样的处理）
             String masked = value.length() <= 40 ? value : value.substring(0, 40) + "…";
-            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.discord_set", masked)));
+            feedback(source, Component.literal(Lang.tr("mcai.cmd.discord_set", masked)));
         }
         return 1;
     }
 
     // -------------------------------------------------------------- resolution
 
-    private static int setResolution(FabricClientCommandSource source, String raw) {
-        if (!VisionResolution.isUsable(raw)) {            source.sendError(Component.literal(Lang.tr("mcai.cmd.resolution_invalid",
+    private static int setResolution(CommandSourceStack source, String raw) {
+        if (!VisionResolution.isUsable(raw)) {            error(source, Component.literal(Lang.tr("mcai.cmd.resolution_invalid",
                     raw, String.join(" / ", VisionResolution.OPTIONS))));
             return 0;
         }
@@ -912,9 +943,9 @@ public final class AiCommand {
         String normalized = VisionResolution.normalize(raw);
         ConfigManager.getInstance().update(config -> config.visionResolution = normalized);
 
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.resolution_set",
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.resolution_set",
                 VisionResolution.label(normalized), describeTarget(normalized))));
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.resolution_saved")));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.resolution_saved")));
         return 1;
     }
 
@@ -939,25 +970,25 @@ public final class AiCommand {
         return config.chatPrefix;
     }
 
-    private static int setPrefix(FabricClientCommandSource source, String raw) {
+    private static int setPrefix(CommandSourceStack source, String raw) {
         String value = raw == null ? "" : raw.trim();
         if (value.isEmpty() || value.chars().anyMatch(Character::isWhitespace)) {
-            source.sendError(Component.literal(Lang.tr("mcai.cmd.prefix_invalid")));
+            error(source, Component.literal(Lang.tr("mcai.cmd.prefix_invalid")));
             return 0;
         }
         ConfigManager.getInstance().update(config -> config.chatPrefix = value);
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.prefix_set", value)));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.prefix_set", value)));
         return 1;
     }
 
-    private static int setTranslateLang(FabricClientCommandSource source, String raw) {
+    private static int setTranslateLang(CommandSourceStack source, String raw) {
         String value = raw == null ? "" : raw.trim();
         if (value.isEmpty()) {
-            source.sendError(Component.literal(Lang.tr("mcai.cmd.tlang_invalid")));
+            error(source, Component.literal(Lang.tr("mcai.cmd.tlang_invalid")));
             return 0;
         }
         ConfigManager.getInstance().update(config -> config.translateLang = value);
-        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.tlang_set", value)));
+        feedback(source, Component.literal(Lang.tr("mcai.cmd.tlang_set", value)));
         return 1;
     }
 
@@ -967,23 +998,23 @@ public final class AiCommand {
      *   /&lt;literal&gt; &lt;text&gt;            （用配置的默认目标语言）
      * 两者是不同参数形态的两个子节点，brigadier 会给 <lang> 优先，给不出就落到纯文本那条。
      */
-    private static LiteralArgumentBuilder<FabricClientCommandSource> buildTranslateNode(String literal) {
-        LiteralArgumentBuilder<FabricClientCommandSource> node =
-                ClientCommandManager.literal(literal);
-        node.then(ClientCommandManager.argument("lang", StringArgumentType.word())
-                .then(ClientCommandManager.argument("text", StringArgumentType.greedyString())
+    private static LiteralArgumentBuilder<CommandSourceStack> buildTranslateNode(String literal) {
+        LiteralArgumentBuilder<CommandSourceStack> node =
+                Commands.literal(literal);
+        node.then(Commands.argument("lang", StringArgumentType.word())
+                .then(Commands.argument("text", StringArgumentType.greedyString())
                         .executes(context -> translate(context.getSource(),
                                 StringArgumentType.getString(context, "lang"),
                                 StringArgumentType.getString(context, "text")))));
-        node.then(ClientCommandManager.argument("text", StringArgumentType.greedyString())
+        node.then(Commands.argument("text", StringArgumentType.greedyString())
                 .executes(context -> translate(context.getSource(), null,
                         StringArgumentType.getString(context, "text"))));
         return node;
     }
 
-    private static int translate(FabricClientCommandSource source, String lang, String text) {
+    private static int translate(CommandSourceStack source, String lang, String text) {
         if (text == null || text.isBlank()) {
-            source.sendError(Component.literal(Lang.tr("mcai.cmd.tl_empty")));
+            error(source, Component.literal(Lang.tr("mcai.cmd.tl_empty")));
             return 0;
         }
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();

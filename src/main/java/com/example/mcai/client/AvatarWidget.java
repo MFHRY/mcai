@@ -3,15 +3,11 @@ package com.example.mcai.client;
 import com.example.mcai.ConfigManager;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.Lang;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.DebugScreenOverlay;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -137,18 +133,39 @@ public final class AvatarWidget {
      * <p>按键轮询走 tick 事件而不是渲染回调：渲染回调在开着界面时不会被调用，
      * 那样按键就会"卡住"到界面关闭才生效。
      */
-    public static void register() {
-        bubbleKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-                "key.mcai.avatar", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "category.mcai"));
+    /**
+     * 创建快捷键对象。
+     *
+     * <p>Forge 把"创建 {@code KeyMapping}"和"登记到游戏"拆成了两步：
+     * 这里只 new，登记交给 {@link #registerKeyMappings}（mod 事件总线）。
+     * Fabric 的 {@code KeyBindingHelper} 是一步到位，所以这里是结构差异。
+     */
+    public static void createKeyMappings() {
+        bubbleKey = new KeyMapping(
+                "key.mcai.avatar", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "category.mcai");
+    }
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+    /** 在 mod 事件总线上登记；不登记的话这个键不会出现在「选项 → 控制」里。 */
+    public static void registerKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
+        if (bubbleKey == null) {
+            createKeyMappings();
+        }
+        event.register(bubbleKey);
+    }
+
+    /**
+     * 由 {@code McaiModClient} 的统一 tick 分发器调用。
+     *
+     * <p>按键轮询走 tick 而不是渲染回调：渲染回调在开着界面时不会被调用，
+     * 那样按键会"卡住"，等到界面关闭才一次性生效。
+     */
+    public static void onClientTick(Minecraft client) {
+        if (bubbleKey != null) {
             while (bubbleKey.consumeClick()) {
                 toggleBubble();
             }
-            hintOnce(client);
-        });
-
-        HudRenderCallback.EVENT.register(AvatarWidget::onHudRender);
+        }
+        hintOnce(client);
     }
 
     /**
@@ -180,7 +197,18 @@ public final class AvatarWidget {
 
     // ================================================================ 渲染入口
 
-    private static void onHudRender(GuiGraphics context, RenderTickCounter tickCounter) {
+    /**
+     * HUD 渲染入口，由 {@code RenderGuiEvent.Post} 调用。
+     *
+     * <p><b>Forge 版与 Fabric 版的差异：</b>Fabric 的 {@code HudRenderCallback} 回调是
+     * {@code (DrawContext, RenderTickCounter)}。{@code RenderTickCounter} 是 <b>1.20.5+</b>
+     * 才有的类，1.20.1 里根本不存在 —— 这里改成接收事件给出的 {@code partialTick}
+     * （当前 tick 内的时间比例，0~1），语义上正对原代码里的 {@code getLastFrameDuration()}。
+     *
+     * <p>夹到 {@code [0.001, 1]} 是给 Q 弹弹簧用的：partialTick 在极端情况下可能为 0
+     * （同一帧内被调用多次），而弹簧的积分步长一旦是 0 就会除以零。
+     */
+    public static void onRenderGui(GuiGraphics context, float partialTick) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
@@ -209,7 +237,7 @@ public final class AvatarWidget {
             return;
         }
 
-        float deltaTicks = tickCounter == null ? 1.0F : tickCounter.getLastFrameDuration();
+        float deltaTicks = Math.max(0.001F, Math.min(1.0F, partialTick));
         updateQState(client, config, deltaTicks);
 
         int screenW = context.getScaledWindowWidth();
