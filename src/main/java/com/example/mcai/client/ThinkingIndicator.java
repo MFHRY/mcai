@@ -2,7 +2,6 @@ package com.example.mcai.client;
 
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.Lang;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
@@ -39,31 +38,29 @@ public final class ThinkingIndicator {
 
     private ThinkingIndicator() {}
 
-    /** 在 McaiModClient.onInitializeClient() 里调用。 */
-    public static void register() {
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (ACTIVE.get() <= 0) {
-                return;
-            }
-            if (client.player == null || client.gui == null) {
-                return;
-            }
+    /** 由 {@code McaiModClient} 的统一 tick 分发器调用。 */
+    public static void onClientTick(Minecraft client) {
+        if (ACTIVE.get() <= 0) {
+            return;
+        }
+        if (client.player == null || client.gui == null) {
+            return;
+        }
 
-            // #8 流式输出已经在往这块 Action Bar 上写正文了。
-            // 两边都写会互相覆盖（转圈符号一帧、正文一帧，看起来就是在闪），
-            // 所以流式期间让位给正文，转圈只在"还没开始吐字"的时候显示。
-            if (StreamingHud.isActive()) {
-                return;
-            }
+        // #8 流式输出已经在往这块 Action Bar 上写正文了。
+        // 两边都写会互相覆盖（转圈符号一帧、正文一帧，看起来就是在闪），
+        // 所以流式期间让位给正文，转圈只在"还没开始吐字"的时候显示。
+        if (StreamingHud.isActive()) {
+            return;
+        }
 
-            tickCounter++;
-            if (tickCounter % TICKS_PER_FRAME == 0) {
-                frameIndex = (frameIndex + 1) % FRAMES.length;
-            }
-            client.gui.setOverlayMessage(
-                    Component.literal("§b" + FRAMES[frameIndex] + " §7" + Lang.tr("mcai.thinking.actionbar")),
-                    false);
-        });
+        tickCounter++;
+        if (tickCounter % TICKS_PER_FRAME == 0) {
+            frameIndex = (frameIndex + 1) % FRAMES.length;
+        }
+        client.gui.setOverlayMessage(
+                Component.literal("§b" + FRAMES[frameIndex] + " §7" + Lang.tr("mcai.thinking.actionbar")),
+                false);
     }
 
     /** 开始一次请求。 */

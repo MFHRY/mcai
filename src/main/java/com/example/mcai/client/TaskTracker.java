@@ -1,7 +1,8 @@
 package com.example.mcai.client;
 
 import com.example.mcai.util.Lang;
-import net.fabricmc.loader.api.FabricLoader;
+import net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraftforge.fml.ModList;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -25,7 +26,7 @@ public final class TaskTracker {
     private static String cached = null;
 
     private static Path file() {
-        return FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
+        return FMLPaths.CONFIGDIR.get().resolve(FILE_NAME);
     }
 
     /** 当前任务文本；没有则返回 null。 */

@@ -1,6 +1,7 @@
 package com.example.mcai.util;
 
-import net.fabricmc.loader.api.FabricLoader;
+import net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraftforge.fml.ModList;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -69,7 +70,7 @@ public final class UsageLog {
 
     /** 延迟获取路径：FabricLoader 在模组初始化期间才可用，不要在静态字段里取。 */
     private static Path file() {
-        return FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
+        return FMLPaths.CONFIGDIR.get().resolve(FILE_NAME);
     }
 
     public static String displayPath() {

@@ -8,7 +8,6 @@ import com.example.mcai.util.TokenStats;
 import com.example.mcai.util.WorldContext;
 import com.example.mcai.vision.ScreenshotCapture;
 import com.example.mcai.vision.VisionHandler;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.platform.NativeImage;
 
@@ -46,12 +45,8 @@ public final class DeathRecap {
         return thread;
     });
 
-    /** 在 McaiModClient.onInitializeClient() 里调用。 */
-    public static void register() {
-        ClientTickEvents.END_CLIENT_TICK.register(DeathRecap::onTick);
-    }
-
-    private static void onTick(Minecraft client) {
+    /** 由 {@code McaiModClient} 的统一 tick 分发器调用。 */
+    public static void onTick(Minecraft client) {
         if (client.player == null || client.level == null) {
             wasDead = false;
             captureAt = 0L;

@@ -7,8 +7,7 @@ import com.example.mcai.util.LocalProvider;
 import com.example.mcai.util.ModeCatalog;
 import com.example.mcai.util.ModelCatalog;
 import com.example.mcai.util.VisionResolution;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 
@@ -30,22 +29,25 @@ public final class StartupGuide {
 
     private StartupGuide() {}
 
-    /** 在 McaiModClient.onInitializeClient() 里调用。 */
-    public static void register() {
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            if (!alreadyShown) {
-                pending = true;
-            }
-        });
+    /** 进入世界时由 {@code McaiModClient} 调用：只登记意图，真正打印推迟到下一个 tick。 */
+    public static void onJoin() {
+        if (!alreadyShown) {
+            pending = true;
+        }
+    }
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (pending && client.player != null && client.gui != null) {
-                pending = false;
-                alreadyShown = true;
-                // 进世界只打精简版；完整版随时可以用 /ai help 调出来
-                show(false);
-            }
-        });
+    /**
+     * 由 {@code McaiModClient} 的统一 tick 分发器调用。
+     *
+     * <p>JOURNAL 触发的瞬间聊天栏可能还没准备好，所以这里等到 player / gui 都就绪才打印。
+     */
+    public static void onClientTick(Minecraft client) {
+        if (pending && client.player != null && client.gui != null) {
+            pending = false;
+            alreadyShown = true;
+            // 进世界只打精简版；完整版随时可以用 /ai help 调出来
+            show(false);
+        }
     }
 
     /** 完整清单：{@code /ai help} 用。 */

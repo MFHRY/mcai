@@ -18,7 +18,6 @@ import com.example.mcai.util.Speech;
 import com.example.mcai.util.SystemPrompt;
 import com.example.mcai.util.TokenStats;
 import com.google.gson.JsonObject;
-import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
@@ -48,12 +47,19 @@ public final class ChatHandler {
     public static ChatHandler getInstance() { return INSTANCE; }
     private static final ChatHandler INSTANCE = new ChatHandler();
 
-    public void register() {
-        ClientSendMessageEvents.ALLOW_CHAT.register(message -> {
-            if (!isAiMessage(message)) return true;
-            handleAiMessage(message);
-            return false;
-        });
+    /**
+     * 聊天拦截回调，由 {@code McaiModClient} 的 {@code ClientChatEvent} 监听器调用。
+     *
+     * <p><b>返回值语义是"是否允许放行"</b>，而不是 Fabric 那边的注册式回调。
+     * 返回 {@code false} 时调用方会取消事件，这条消息就<b>不会发给服务器</b> ——
+     * 这正是"在任意服务器上都能用"的关键：以 {@code !ai} 开头的提问不会出现在别人眼里。
+     */
+    public boolean onChatMessage(String message) {
+        if (!isAiMessage(message)) {
+            return true;
+        }
+        handleAiMessage(message);
+        return false;
     }
 
     /** 当前配置的触发词前缀；配置缺失或为空时回退到默认值 !ai。 */

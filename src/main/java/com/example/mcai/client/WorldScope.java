@@ -1,7 +1,6 @@
 package com.example.mcai.client;
 
 import com.example.mcai.util.HistoryStore;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
 
@@ -27,14 +26,14 @@ public final class WorldScope {
 
     private WorldScope() {}
 
-    /** 在 McaiModClient.onInitializeClient() 里调用。 */
-    public static void register() {
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
-                HistoryStore.setScope(current()));
+    /** 进入世界：把历史切到这个世界的桶。由 {@code McaiModClient} 的登入事件调用。 */
+    public static void onJoin() {
+        HistoryStore.setScope(current());
+    }
 
-        // 离开世界就把所有桶丢掉：既修掉了串味，也顺手把内存还回去
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
-                HistoryStore.clearAll());
+    /** 离开世界就把所有桶丢掉：既修掉了串味，也顺手把内存还回去。 */
+    public static void onDisconnect() {
+        HistoryStore.clearAll();
     }
 
     /** 当前世界的标识；取不到时返回 {@code unknown}（所有这种情况共用一个桶）。 */

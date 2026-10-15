@@ -1,8 +1,9 @@
 package com.example.mcai.util;
 
 import com.example.mcai.ConfigManager;
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.ModContainer;
+import net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.forgespi.language.IModInfo;
 import net.minecraft.SharedConstants;
 
 import java.util.ArrayList;
@@ -61,7 +62,7 @@ public final class EnvironmentContext {
 
         try {
             List<String> names = new ArrayList<>();
-            for (ModContainer mod : FabricLoader.getInstance().getAllMods()) {
+            for (IModInfo mod : ModList.get().getMods()) {
                 String name = mod.getMetadata().getName();
                 if (name == null || name.isBlank()) {
                     name = mod.getMetadata().getId();

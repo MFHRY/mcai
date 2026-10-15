@@ -11,7 +11,8 @@ import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import com.example.mcai.util.LocalProvider;
 import com.example.mcai.util.VisionResolution;
-import net.fabricmc.loader.api.FabricLoader;
+import net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraftforge.fml.ModList;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -99,7 +100,7 @@ public class ConfigManager {
     private final CompletableFuture<Void> initialLoad = new CompletableFuture<>();
 
     private ConfigManager() {
-        configPath = FabricLoader.getInstance().getConfigDir().resolve(CONFIG_FILE);
+        configPath = FMLPaths.CONFIGDIR.get().resolve(CONFIG_FILE);
         this.initial = new ConfigData();
         configRef.set(initial);
         loadAsync();
