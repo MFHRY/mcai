@@ -1,9 +1,9 @@
 package com.example.mcai.vision;
 
 import com.example.mcai.util.VisionResolution;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.texture.NativeImage;
+import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.util.ScreenshotRecorder;
 
 import javax.imageio.IIOImage;
@@ -60,7 +60,7 @@ public final class ScreenshotCapture {
      * @return 截图；失败返回 null。拿到后必须交给 {@link #encode} 处理（由它负责释放）。
      */
     public static NativeImage grab() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         Framebuffer framebuffer = client.getFramebuffer();
         if (framebuffer == null) {
             return null;

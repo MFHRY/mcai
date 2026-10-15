@@ -4,7 +4,7 @@ import com.example.mcai.ConfigManager;
 import com.example.mcai.util.Lang;
 import com.example.mcai.vision.VisionHandler;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.mob.HostileEntity;
 import net.minecraft.util.math.Box;
@@ -38,13 +38,13 @@ public final class DangerWatch {
         ClientTickEvents.END_CLIENT_TICK.register(DangerWatch::tick);
     }
 
-    private static void tick(MinecraftClient client) {
+    private static void tick(Minecraft client) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null || !config.dangerAlert) {
             return;
         }
         ClientPlayerEntity player = client.player;
-        if (player == null || client.world == null) {
+        if (player == null || client.level == null) {
             return;
         }
 
@@ -74,10 +74,10 @@ public final class DangerWatch {
         VisionHandler.trigger(Lang.tr("mcai.danger.prompt"));
     }
 
-    private static boolean hasNearbyHostile(MinecraftClient client, ClientPlayerEntity player, double radius) {
+    private static boolean hasNearbyHostile(Minecraft client, ClientPlayerEntity player, double radius) {
         try {
             Box box = player.getBoundingBox().expand(Math.max(1.0, radius));
-            return !client.world.getEntitiesByClass(HostileEntity.class, box, entity -> entity.isAlive()).isEmpty();
+            return !client.level.getEntitiesByClass(HostileEntity.class, box, entity -> entity.isAlive()).isEmpty();
         } catch (Throwable t) {
             // 任何异常都当作"没有危险"，宁可漏报也不要因为报错把游戏搞崩
             return false;

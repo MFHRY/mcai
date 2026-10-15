@@ -1,10 +1,10 @@
 package com.example.mcai.util;
 
 import com.example.mcai.ConfigManager;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.HoverEvent;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,7 +46,7 @@ public final class ClickableText {
     /**
      * 构造可点击文本。没有命中任何模式时返回等价的纯文本。
      */
-    public static Text build(String raw) {
+    public static Component build(String raw) {
         return build(raw, null);
     }
 
@@ -54,18 +54,18 @@ public final class ClickableText {
      * 构造可点击文本，并给<b>整段</b>挂一个"点击复制"动作（1.25 新增）。
      *
      * <p>实现方式是把复制动作挂在根节点上，而不是给每个普通片段各挂一份。理由在
-     * 1.21.1 的 {@code MutableText#append}：它会把父节点的样式当作"底"传给子节点
+     * 1.21.1 的 {@code MutableComponent#append}：它会把父节点的样式当作"底"传给子节点
      * （{@code child.getStyle().withParent(parentStyle)}），子节点自己非空的字段覆盖父节点。
      * 于是"坐标段自己的 COPY_TO_CLIPBOARD""物品段自己的 SUGGEST_COMMAND"照旧生效，
      * 只有点在既不是坐标也不是物品的文字上时，才轮到根节点那份"复制整段回答"。
      *
      * @param clipboard 点普通文字时要复制的全文；null 或空表示不加这个动作
      */
-    public static Text build(String raw, String clipboard) {
+    public static Component build(String raw, String clipboard) {
         if (raw == null || raw.isEmpty()) {
-            return Text.literal("");
+            return Component.literal("");
         }
-        MutableText out = Text.literal("");
+        MutableComponent out = Component.literal("");
         if (clipboard != null && !clipboard.isEmpty()) {
             out.styled(style -> style
                     .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, clipboard))
@@ -76,18 +76,18 @@ public final class ClickableText {
         int last = 0;
         while (matcher.find()) {
             if (matcher.start() > last) {
-                out.append(Text.literal(raw.substring(last, matcher.start())));
+                out.append(Component.literal(raw.substring(last, matcher.start())));
             }
             out.append(segment(matcher));
             last = matcher.end();
         }
         if (last < raw.length()) {
-            out.append(Text.literal(raw.substring(last)));
+            out.append(Component.literal(raw.substring(last)));
         }
         return out;
     }
 
-    private static MutableText segment(Matcher matcher) {
+    private static MutableComponent segment(Matcher matcher) {
         String shown = matcher.group();
         // 坐标分支（XYZ 优先，其次 CSV）
         String x = matcher.group(1) != null ? matcher.group(1) : matcher.group(4);
@@ -95,7 +95,7 @@ public final class ClickableText {
             String y = matcher.group(1) != null ? matcher.group(2) : matcher.group(5);
             String z = matcher.group(1) != null ? matcher.group(3) : matcher.group(6);
             String clipboard = x + " " + y + " " + z;
-            return Text.literal(shown).styled(style ->
+            return Component.literal(shown).styled(style ->
                     style.withColor(COORD_COLOR)
                             .withUnderline(true)
                             .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, clipboard))
@@ -108,7 +108,7 @@ public final class ClickableText {
         if (item != null) {
             String prefix = chatPrefix();
             String suggested = prefix + " " + item;
-            return Text.literal(shown).styled(style ->
+            return Component.literal(shown).styled(style ->
                     style.withColor(ITEM_COLOR)
                             .withUnderline(true)
                             .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, suggested))
@@ -116,7 +116,7 @@ public final class ClickableText {
                                     Lang.text("mcai.chat.click_ask_item", suggested))));
         }
 
-        return Text.literal(shown);
+        return Component.literal(shown);
     }
 
     private static String chatPrefix() {

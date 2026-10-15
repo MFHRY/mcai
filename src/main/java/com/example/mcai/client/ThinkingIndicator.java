@@ -3,8 +3,8 @@ package com.example.mcai.client;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.Lang;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -45,7 +45,7 @@ public final class ThinkingIndicator {
             if (ACTIVE.get() <= 0) {
                 return;
             }
-            if (client.player == null || client.inGameHud == null) {
+            if (client.player == null || client.gui == null) {
                 return;
             }
 
@@ -60,8 +60,8 @@ public final class ThinkingIndicator {
             if (tickCounter % TICKS_PER_FRAME == 0) {
                 frameIndex = (frameIndex + 1) % FRAMES.length;
             }
-            client.inGameHud.setOverlayMessage(
-                    Text.literal("§b" + FRAMES[frameIndex] + " §7" + Lang.tr("mcai.thinking.actionbar")),
+            client.gui.setOverlayMessage(
+                    Component.literal("§b" + FRAMES[frameIndex] + " §7" + Lang.tr("mcai.thinking.actionbar")),
                     false);
         });
     }
@@ -80,11 +80,11 @@ public final class ThinkingIndicator {
     private static long endRequest(long startNanos) {
         if (ACTIVE.decrementAndGet() <= 0) {
             ACTIVE.set(0);
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client != null) {
                 client.execute(() -> {
-                    if (client.inGameHud != null) {
-                        client.inGameHud.setOverlayMessage(null, false);
+                    if (client.gui != null) {
+                        client.gui.setOverlayMessage(null, false);
                     }
                 });
             }

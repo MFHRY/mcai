@@ -1,7 +1,7 @@
 package com.example.mcai.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 /**
  * 流式输出的实时显示（#8）。
@@ -52,13 +52,13 @@ public final class StreamingHud {
 
         String tail = tailOf(partial.replace('\n', ' ').trim());
         String color = Lang_Color();
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
         client.execute(() -> {
-            if (client.inGameHud != null) {
-                client.inGameHud.setOverlayMessage(Text.literal(color + tail), false);
+            if (client.gui != null) {
+                client.gui.setOverlayMessage(Component.literal(color + tail), false);
             }
         });
     }
@@ -70,13 +70,13 @@ public final class StreamingHud {
         }
         active = false;
         lastUpdate = 0L;
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
         client.execute(() -> {
-            if (client.inGameHud != null) {
-                client.inGameHud.setOverlayMessage(null, false);
+            if (client.gui != null) {
+                client.gui.setOverlayMessage(null, false);
             }
         });
     }

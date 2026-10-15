@@ -1,7 +1,7 @@
 package com.example.mcai.util;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 
 /**
@@ -35,8 +35,8 @@ public final class ScreenCrop {
      * 当前是否开着"容器类界面"（背包/箱子/工作台……）。这类界面才值得裁剪。
      */
     public static Region forCurrentScreen() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        Screen screen = client.currentScreen;
+        Minecraft client = Minecraft.getInstance();
+        Screen screen = client.screen;
         if (!(screen instanceof HandledScreen<?> handled)) {
             return null;
         }

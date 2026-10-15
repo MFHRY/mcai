@@ -2,11 +2,11 @@ package com.example.mcai.item;
 
 import com.example.mcai.ConfigManager;
 import com.example.mcai.util.ModeCatalog;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 
 import java.util.List;
 
@@ -20,11 +20,11 @@ public class AiModeSwitcherItem extends Item {
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, Item.TooltipContext context, List<Text> tooltip, TooltipType type) {
+    public void appendTooltip(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipType type) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         String mode = (config == null) ? null : config.mode;
 
-        tooltip.add(Text.translatable("tooltip.mcai.mode_switcher.action").formatted(Formatting.GRAY));
-        tooltip.add(Text.translatable("tooltip.mcai.current", ModeCatalog.describe(mode)).formatted(Formatting.AQUA));
+        tooltip.add(Component.translatable("tooltip.mcai.mode_switcher.action").formatted(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip.mcai.current", ModeCatalog.describe(mode)).formatted(ChatFormatting.AQUA));
     }
 }

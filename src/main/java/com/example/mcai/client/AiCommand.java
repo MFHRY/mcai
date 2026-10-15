@@ -22,8 +22,8 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 import java.time.LocalDate;
 
@@ -87,7 +87,7 @@ public final class AiCommand {
                     .executes(context -> {
                         HistoryStore.clear();
                         context.getSource().sendFeedback(
-                                Text.literal(Lang.tr("mcai.cmd.clear_done")));
+                                Component.literal(Lang.tr("mcai.cmd.clear_done")));
                         return 1;
                     }));
 
@@ -142,7 +142,7 @@ public final class AiCommand {
                     .executes(context -> {
                         // 不能在这里直接 setScreen：聊天界面稍后会把自己关掉并覆盖掉它。
                         // 登记到下一个 tick 再打开，见 pendingScreen 的说明。
-                        pendingScreen = () -> MinecraftClient.getInstance().setScreen(new ConfigScreen(null));
+                        pendingScreen = () -> Minecraft.getInstance().setScreen(new ConfigScreen(null));
                         return 1;
                     }));
 
@@ -330,41 +330,41 @@ public final class AiCommand {
     private static int status(FabricClientCommandSource source) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null) {
-            source.sendError(Text.literal(Lang.tr("mcai.cmd.status_not_ready")));
+            source.sendError(Component.literal(Lang.tr("mcai.cmd.status_not_ready")));
             return 0;
         }
 
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_title")));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_model",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_title")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_model",
                 ModelCatalog.describe(config.model)
                         + (ModelCatalog.lookup(config.model).supportsVision()
                         ? Lang.tr("mcai.cmd.vision_ok")
                         : Lang.tr("mcai.cmd.vision_no")))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_mode",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_mode",
                 ModeCatalog.describe(config.mode))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_resolution",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_resolution",
                 VisionResolution.label(config.visionResolution),
                 describeTarget(config.visionResolution))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_tokens",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_tokens",
                 TokenStats.todayTotal(), LocalDate.now())));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_reasoning",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_reasoning",
                 Lang.tr(config.showReasoning ? "mcai.cmd.reasoning_on" : "mcai.cmd.reasoning_off"),
                 config.reasoningMaxChars == 0
                         ? Lang.tr("mcai.cmd.reasoning_all")
                         : Lang.tr("mcai.cmd.reasoning_chars", config.reasoningMaxChars))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_url", config.apiUrl)));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_url", config.apiUrl)));
         if (LocalProvider.isLocal(config.apiUrl)) {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_local")));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_local")));
         }
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_key", maskKey(config.apiKey))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_cost",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_key", maskKey(config.apiKey))));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_cost",
                 formatYuan(TokenStats.todayCost()), budgetLabel(config))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_persona",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_persona",
                 PersonaCatalog.describe(config.persona))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_history",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_history",
                 Math.max(0, config.historyTurns))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_prefix", chatPrefix(config))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.status_hint")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_prefix", chatPrefix(config))));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.status_hint")));
         return 1;
     }
 
@@ -385,8 +385,8 @@ public final class AiCommand {
     // ------------------------------------------------------------------- token
 
     private static int token(FabricClientCommandSource source) {
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.token_title")));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.token_today",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.token_title")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.token_today",
                 LocalDate.now(), TokenStats.todayTotal())));
 
         // 明细从 CSV 异步读，读完再补发到聊天栏
@@ -415,18 +415,18 @@ public final class AiCommand {
 
     private static int cost(FabricClientCommandSource source) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_title")));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_today",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_title")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_today",
                 LocalDate.now(), formatYuan(TokenStats.todayCost()))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_tokens",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_tokens",
                 TokenStats.todayTotal())));
 
         PricingCatalog.Quote quote = PricingCatalog.find(config == null ? null : config.model);
         if (quote == null) {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_unknown",
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_unknown",
                     config == null ? "?" : config.model)));
         } else {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_rate",
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_rate",
                     formatYuan(quote.inputPerMillion()), formatYuan(quote.outputPerMillion()),
                     Lang.tr(PricingCatalog.isPeakHour()
                             ? "mcai.cmd.rate_peak" : "mcai.cmd.rate_off"))));
@@ -434,16 +434,16 @@ public final class AiCommand {
 
         if (config != null && config.dailyBudgetYuan > 0) {
             if (TokenStats.isOverDailyBudget()) {
-                source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.budget_over",
+                source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.budget_over",
                         formatYuan(config.dailyBudgetYuan))));
             } else {
-                source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.budget_remain",
+                source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.budget_remain",
                         formatYuan(config.dailyBudgetYuan - TokenStats.todayCost()))));
             }
         } else {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.budget_off")));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.budget_off")));
         }
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cost_note")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cost_note")));
         return 1;
     }
 
@@ -472,25 +472,25 @@ public final class AiCommand {
             }
             config.availablePersonas = java.util.List.copyOf(list);
         });
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.persona_set",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.persona_set",
                 PersonaCatalog.describe(id))));
         return 1;
     }
 
     /** 列出所有可用人格预设。 */
     private static int personaList(FabricClientCommandSource source) {
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.persona_list_title")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.persona_list_title")));
         for (String id : PersonaCatalog.ids()) {
-            source.sendFeedback(Text.literal("§7 · " + PersonaCatalog.describe(id)));
+            source.sendFeedback(Component.literal("§7 · " + PersonaCatalog.describe(id)));
         }
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.persona_usage")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.persona_usage")));
         return 1;
     }
 
     /** /ai persona（不带参数）：查看当前人格。 */
     private static int personaShow(FabricClientCommandSource source) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.persona_current",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.persona_current",
                 config == null ? PersonaCatalog.describe("default") : PersonaCatalog.describe(config.persona))));
         return 1;
     }
@@ -499,7 +499,7 @@ public final class AiCommand {
 
     /** #17 最近 7 天用量柱状图（纯文字，聊天栏直接显示）。 */
     private static int chart(FabricClientCommandSource source) {
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.chart_title")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.chart_title")));
         UsageLog.dailyTotalsAsync(7).whenComplete((days, error) -> {
             if (error != null || days == null || days.isEmpty()) {
                 ClientChat.sendLiteral(Lang.tr("mcai.cmd.token_read_failed",
@@ -534,7 +534,7 @@ public final class AiCommand {
     private static int where(FabricClientCommandSource source, String question) {
         String prompt = WorldContext.asPrompt(question);
         if (WorldContext.snapshot() == null) {
-            source.sendError(Text.literal(Lang.tr("mcai.ctx.not_in_world")));
+            source.sendError(Component.literal(Lang.tr("mcai.ctx.not_in_world")));
             return 0;
         }
         ChatHandler.ask(prompt);
@@ -547,7 +547,7 @@ public final class AiCommand {
     private static int read(FabricClientCommandSource source) {
         TextReader.Found found = TextReader.read();
         if (found == null) {
-            source.sendError(Text.literal(Lang.tr("mcai.read.not_found")));
+            source.sendError(Component.literal(Lang.tr("mcai.read.not_found")));
             return 0;
         }
         // 文字原样附在提问后面,让模型翻译。纯文本请求,比截图便宜得多。
@@ -571,27 +571,27 @@ public final class AiCommand {
         java.util.List<RecipeHelper.Craftable> list = RecipeHelper.craftableNow();
         // 打进日志：万一结果不对，从日志就能看出是扫描失败还是配方确实不匹配
         com.example.mcai.McaiMod.LOGGER.info("mcAI /ai craft: {} craftable recipe(s) found", list.size());
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_title")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_title")));
         if (list.isEmpty()) {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_empty")));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_empty")));
             return 1;
         }
         int shown = 0;
         for (RecipeHelper.Craftable item : list) {
             if (shown >= 12) {
-                source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_more",
+                source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_more",
                         list.size() - shown)));
                 break;
             }
             String ingredients = item.ingredients().isEmpty()
                     ? Lang.tr("mcai.craft.unknown_ingredients")
                     : String.join(Lang.tr("mcai.craft.separator"), item.ingredients());
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_entry",
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_entry",
                     item.count() > 1 ? item.output() + " x" + item.count() : item.output(),
                     ingredients)));
             shown++;
         }
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_note")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_note")));
         return 1;
     }
 
@@ -601,14 +601,14 @@ public final class AiCommand {
         com.example.mcai.McaiMod.LOGGER.info("mcAI /ai craft {}: {} recipe(s) matched",
                 query, found.size());
         if (found.isEmpty()) {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_lookup_none", query)));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_lookup_none", query)));
             return 1;
         }
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_lookup_title", query)));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_lookup_title", query)));
         for (net.minecraft.recipe.RecipeEntry<?> entry : found) {
-            source.sendFeedback(Text.literal("§7 " + RecipeHelper.describe(entry)));
+            source.sendFeedback(Component.literal("§7 " + RecipeHelper.describe(entry)));
         }
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.craft_note")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.craft_note")));
         return 1;
     }
 
@@ -616,7 +616,7 @@ public final class AiCommand {
 
     /** #19 按背包内容生成任务。 */
     private static int taskGenerate(FabricClientCommandSource source) {
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.task_generating")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.task_generating")));
         // 回答回来后存成任务；ask 内部会处理冷却、预算、错误提示
         ChatHandler.ask(TaskTracker.buildTaskPrompt(), reply -> {
             TaskTracker.set(reply);
@@ -628,13 +628,13 @@ public final class AiCommand {
     private static int taskShow(FabricClientCommandSource source) {
         String task = TaskTracker.current();
         if (task == null) {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.task_none")));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.task_none")));
             return 1;
         }
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.task_title")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.task_title")));
         for (String line : task.split("\n")) {
             if (!line.isBlank()) {
-                source.sendFeedback(Text.literal("§7 " + line.trim()));
+                source.sendFeedback(Component.literal("§7 " + line.trim()));
             }
         }
         return 1;
@@ -642,7 +642,7 @@ public final class AiCommand {
 
     private static int taskClear(FabricClientCommandSource source) {
         TaskTracker.clear();
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.task_cleared")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.task_cleared")));
         return 1;
     }
 
@@ -671,7 +671,7 @@ public final class AiCommand {
             }
         });
         label = Lang.tr("mcai.cmd.flag_" + id);
-        source.sendFeedback(Text.literal(Lang.tr(value
+        source.sendFeedback(Component.literal(Lang.tr(value
                 ? "mcai.cmd.flag_on" : "mcai.cmd.flag_off", label)));
         return 1;
     }
@@ -707,8 +707,8 @@ public final class AiCommand {
      * 直接在这里开界面会被那一句覆盖掉，看起来就是"敲了没反应"。
      */
     private static int editAvatar(FabricClientCommandSource source) {
-        pendingScreen = () -> MinecraftClient.getInstance().setScreen(
-                new AvatarEditScreen(MinecraftClient.getInstance().currentScreen));
+        pendingScreen = () -> Minecraft.getInstance().setScreen(
+                new AvatarEditScreen(Minecraft.getInstance().screen));
         return 1;
     }
 
@@ -722,15 +722,15 @@ public final class AiCommand {
         String path = AvatarWidget.normalizeImagePath(raw);
         String problem = AvatarWidget.validateImagePath(path);
         if (problem != null) {
-            source.sendError(Text.literal(problem));
+            source.sendError(Component.literal(problem));
             return 0;
         }
         ConfigManager.getInstance().update(config -> config.avatarImage = path);
         if (path.isEmpty()) {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.avatar_image_cleared")));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.avatar_image_cleared")));
         } else {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.avatar_image_set", path)));
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.avatar_image_hint")));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.avatar_image_set", path)));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.avatar_image_hint")));
         }
         return 1;
     }
@@ -746,14 +746,14 @@ public final class AiCommand {
                 ? "auto" : name.trim().toLowerCase(java.util.Locale.ROOT);
         if (!value.equals("auto") && !value.equals("openai")
                 && !value.equals("gemini") && !value.equals("claude")) {
-            source.sendError(Text.literal(Lang.tr("mcai.cmd.provider_invalid", name)));
+            source.sendError(Component.literal(Lang.tr("mcai.cmd.provider_invalid", name)));
             return 0;
         }
         ConfigManager.getInstance().update(config -> config.apiProvider = value);
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         com.example.mcai.util.ApiProvider resolved = com.example.mcai.util.ApiProvider.detect(
                 value, config == null ? null : config.apiUrl);
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.provider_set", value,
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.provider_set", value,
                 resolved.name().toLowerCase(java.util.Locale.ROOT))));
         return 1;
     }
@@ -762,7 +762,7 @@ public final class AiCommand {
     private static int setRetry(FabricClientCommandSource source, int count) {
         int safe = Math.max(0, Math.min(5, count));
         ConfigManager.getInstance().update(config -> config.retryMax = safe);
-        source.sendFeedback(Text.literal(safe == 0
+        source.sendFeedback(Component.literal(safe == 0
                 ? Lang.tr("mcai.cmd.retry_off")
                 : Lang.tr("mcai.cmd.retry_set", safe)));
         return 1;
@@ -773,7 +773,7 @@ public final class AiCommand {
     /** 中止正在进行的请求（键盘上的 ESC 是同一个功能）。 */
     private static int cancelRequest(FabricClientCommandSource source) {
         boolean cancelled = com.example.mcai.util.RequestController.cancel();
-        source.sendFeedback(Text.literal(Lang.tr(cancelled
+        source.sendFeedback(Component.literal(Lang.tr(cancelled
                 ? "mcai.cmd.cancel_done" : "mcai.cmd.cancel_none")));
         return 1;
     }
@@ -782,18 +782,18 @@ public final class AiCommand {
     private static int clearCache(FabricClientCommandSource source) {
         int before = com.example.mcai.util.ResponseCache.size();
         com.example.mcai.util.ResponseCache.clear();
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.cache_cleared", before)));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.cache_cleared", before)));
         return 1;
     }
 
     /** 用系统语音念一段文字（无障碍）。 */
     private static int speak(FabricClientCommandSource source, String text) {
         if (text == null || text.isBlank()) {
-            source.sendError(Text.literal(Lang.tr("mcai.cmd.speak_empty")));
+            source.sendError(Component.literal(Lang.tr("mcai.cmd.speak_empty")));
             return 0;
         }
         com.example.mcai.util.Speech.speakAsync(text);
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.speak_started")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.speak_started")));
         return 1;
     }
 
@@ -801,7 +801,7 @@ public final class AiCommand {
     private static int remember(FabricClientCommandSource source, String text) {
         String value = text == null ? "" : text.trim();
         if (value.isEmpty()) {
-            source.sendError(Text.literal(Lang.tr("mcai.cmd.remember_empty")));
+            source.sendError(Component.literal(Lang.tr("mcai.cmd.remember_empty")));
             return 0;
         }
         // 单条限长、总量限 20 条：记忆是进系统提示词的，必须有上限，否则提示词会无限膨胀
@@ -815,7 +815,7 @@ public final class AiCommand {
             next.add(stored);
             config.memories = next;
         });
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.remember_added", stored)));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.remember_added", stored)));
         return 1;
     }
 
@@ -825,12 +825,12 @@ public final class AiCommand {
         java.util.List<String> memories = (config == null || config.memories == null)
                 ? java.util.List.of() : config.memories;
         if (memories.isEmpty()) {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.memories_empty")));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.memories_empty")));
             return 1;
         }
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.memories_title")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.memories_title")));
         for (int i = 0; i < memories.size(); i++) {
-            source.sendFeedback(Text.literal("§8 " + (i + 1) + ". §f" + memories.get(i)));
+            source.sendFeedback(Component.literal("§8 " + (i + 1) + ". §f" + memories.get(i)));
         }
         return 1;
     }
@@ -854,7 +854,7 @@ public final class AiCommand {
             }
             config.memories = next;
         });
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.forget_done")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.forget_done")));
         return 1;
     }
 
@@ -863,9 +863,9 @@ public final class AiCommand {
         double safe = Math.max(0.0, yuan);
         ConfigManager.getInstance().update(config -> config.dailyBudgetYuan = safe);
         if (safe <= 0.0) {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.budget_cleared")));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.budget_cleared")));
         } else {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.budget_set", formatYuan(safe))));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.budget_set", formatYuan(safe))));
         }
         return 1;
     }
@@ -876,9 +876,9 @@ public final class AiCommand {
         ConfigManager.getInstance().update(config -> config.historyTurns = safe);
         HistoryStore.setMaxTurns(safe);
         if (safe == 0) {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.history_off")));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.history_off")));
         } else {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.history_set", safe)));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.history_set", safe)));
         }
         return 1;
     }
@@ -887,16 +887,16 @@ public final class AiCommand {
     private static int setDiscord(FabricClientCommandSource source, String url) {
         String value = url == null ? "" : url.trim();
         if (!value.isEmpty() && !value.startsWith("https://")) {
-            source.sendError(Text.literal(Lang.tr("mcai.cmd.discord_invalid")));
+            source.sendError(Component.literal(Lang.tr("mcai.cmd.discord_invalid")));
             return 0;
         }
         ConfigManager.getInstance().update(config -> config.discordWebhook = value);
         if (value.isEmpty()) {
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.discord_cleared")));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.discord_cleared")));
         } else {
             // 不把完整 URL 打在聊天栏里，避免直播/截图泄露（和 API Key 一样的处理）
             String masked = value.length() <= 40 ? value : value.substring(0, 40) + "…";
-            source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.discord_set", masked)));
+            source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.discord_set", masked)));
         }
         return 1;
     }
@@ -904,7 +904,7 @@ public final class AiCommand {
     // -------------------------------------------------------------- resolution
 
     private static int setResolution(FabricClientCommandSource source, String raw) {
-        if (!VisionResolution.isUsable(raw)) {            source.sendError(Text.literal(Lang.tr("mcai.cmd.resolution_invalid",
+        if (!VisionResolution.isUsable(raw)) {            source.sendError(Component.literal(Lang.tr("mcai.cmd.resolution_invalid",
                     raw, String.join(" / ", VisionResolution.OPTIONS))));
             return 0;
         }
@@ -912,9 +912,9 @@ public final class AiCommand {
         String normalized = VisionResolution.normalize(raw);
         ConfigManager.getInstance().update(config -> config.visionResolution = normalized);
 
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.resolution_set",
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.resolution_set",
                 VisionResolution.label(normalized), describeTarget(normalized))));
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.resolution_saved")));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.resolution_saved")));
         return 1;
     }
 
@@ -942,22 +942,22 @@ public final class AiCommand {
     private static int setPrefix(FabricClientCommandSource source, String raw) {
         String value = raw == null ? "" : raw.trim();
         if (value.isEmpty() || value.chars().anyMatch(Character::isWhitespace)) {
-            source.sendError(Text.literal(Lang.tr("mcai.cmd.prefix_invalid")));
+            source.sendError(Component.literal(Lang.tr("mcai.cmd.prefix_invalid")));
             return 0;
         }
         ConfigManager.getInstance().update(config -> config.chatPrefix = value);
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.prefix_set", value)));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.prefix_set", value)));
         return 1;
     }
 
     private static int setTranslateLang(FabricClientCommandSource source, String raw) {
         String value = raw == null ? "" : raw.trim();
         if (value.isEmpty()) {
-            source.sendError(Text.literal(Lang.tr("mcai.cmd.tlang_invalid")));
+            source.sendError(Component.literal(Lang.tr("mcai.cmd.tlang_invalid")));
             return 0;
         }
         ConfigManager.getInstance().update(config -> config.translateLang = value);
-        source.sendFeedback(Text.literal(Lang.tr("mcai.cmd.tlang_set", value)));
+        source.sendFeedback(Component.literal(Lang.tr("mcai.cmd.tlang_set", value)));
         return 1;
     }
 
@@ -983,7 +983,7 @@ public final class AiCommand {
 
     private static int translate(FabricClientCommandSource source, String lang, String text) {
         if (text == null || text.isBlank()) {
-            source.sendError(Text.literal(Lang.tr("mcai.cmd.tl_empty")));
+            source.sendError(Component.literal(Lang.tr("mcai.cmd.tl_empty")));
             return 0;
         }
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();

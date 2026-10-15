@@ -2,11 +2,11 @@ package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
 import com.example.mcai.util.Lang;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
 /**
  * 「调整挂件位置」界面（1.25 新增）。
@@ -58,14 +58,14 @@ public final class AvatarEditScreen extends Screen {
 
     @Override
     protected void init() {
-        addDrawableChild(ButtonWidget.builder(Lang.text("mcai.avatar.edit_done"), button -> close())
+        addDrawableChild(Button.builder(Lang.text("mcai.avatar.edit_done"), button -> close())
                 .dimensions(this.width / 2 - 60, this.height - 28, 120, 20)
                 .build());
     }
 
     /** 故意留空：要能看见游戏画面，才判断得出挂件有没有挡住该避开的 HUD 元素。 */
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
         // no-op
     }
 
@@ -76,7 +76,7 @@ public final class AvatarEditScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null) {
             super.render(context, mouseX, mouseY, delta);
@@ -98,8 +98,8 @@ public final class AvatarEditScreen extends Screen {
 
         // 拖动时实时跟随，不等松手才动——那样没有手感
         if (dragging) {
-            x = MathHelper.clamp((int) Math.round(mouseX - grabDx), 0, Math.max(0, width - w));
-            y = MathHelper.clamp((int) Math.round(mouseY - grabDy), 0, Math.max(0, height - h));
+            x = Mth.clamp((int) Math.round(mouseX - grabDx), 0, Math.max(0, width - w));
+            y = Mth.clamp((int) Math.round(mouseY - grabDy), 0, Math.max(0, height - h));
         }
 
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFFFF);
@@ -111,7 +111,7 @@ public final class AvatarEditScreen extends Screen {
                     width / 2, height / 2, 0xFFFF5555);
         } else {
             // 选中框暗示"这块可以拖"；拖动中换成暖色，给一点反馈
-            context.drawBorder(x - 1, y - 1, w + 2, h + 2, dragging ? 0xFFFFD040 : 0x8055FFFF);
+            context.renderOutline(x - 1, y - 1, w + 2, h + 2, dragging ? 0xFFFFD040 : 0x8055FFFF);
             AvatarWidget.renderWidget(context, textRenderer, x, y, w, h, width, height);
         }
 

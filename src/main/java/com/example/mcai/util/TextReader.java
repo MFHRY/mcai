@@ -3,13 +3,13 @@ package com.example.mcai.util;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.SignBlockEntity;
 import net.minecraft.block.entity.SignText;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
@@ -50,9 +50,9 @@ public final class TextReader {
     // ------------------------------------------------------------- 告示牌
 
     private static Found readSign() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         ClientPlayerEntity player = client.player;
-        World world = client.world;
+        World world = client.level;
         if (player == null || world == null) {
             return null;
         }
@@ -84,13 +84,13 @@ public final class TextReader {
         if (side == null) {
             return;
         }
-        Text[] messages;
+        Component[] messages;
         try {
             messages = side.getMessages(false);
         } catch (Throwable t) {
             return;
         }
-        for (Text message : messages) {
+        for (Component message : messages) {
             if (message == null) {
                 continue;
             }
@@ -111,7 +111,7 @@ public final class TextReader {
      * 不影响告示牌那条路径。
      */
     private static Found readHeldBook() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         ClientPlayerEntity player = client.player;
         if (player == null) {
             return null;
@@ -139,8 +139,8 @@ public final class TextReader {
                 if (page == null) {
                     continue;
                 }
-                // pages 的元素是 Filterable<Text>，要再取一次字符串
-                Text pageText = page.raw();
+                // pages 的元素是 Filterable<Component>，要再取一次字符串
+                Component pageText = page.raw();
                 String raw = pageText == null ? null : pageText.getString();
                 if (raw != null && !raw.isBlank()) {
                     lines.add(raw.trim());

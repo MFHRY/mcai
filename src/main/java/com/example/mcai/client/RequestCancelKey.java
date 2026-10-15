@@ -4,17 +4,17 @@ import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.Lang;
 import com.example.mcai.util.RequestController;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.util.InputUtil;
+import net.minecraft.client.gui.screens.Screen;
+import com.mojang.blaze3d.platform.InputConstants;
 import org.lwjgl.glfw.GLFW;
 
 /**
  * 按 <b>ESC</b> 中止正在进行中的请求（1.24 新增）。
  *
  * <p><b>为什么不注册成普通快捷键：</b>Minecraft 会先处理 ESC（在游戏里打开暂停菜单），
- * 等轮到快捷键系统时它已经被消耗掉了，{@code KeyBinding.wasPressed()} 永远为 false。
+ * 等轮到快捷键系统时它已经被消耗掉了，{@code KeyMapping.consumeClick()} 永远为 false。
  * 所以这里直接轮询按键状态，绕开快捷键系统。
  *
  * <p><b>为什么允许"暂停菜单刚被 ESC 打开"这一种情况：</b>
@@ -37,14 +37,14 @@ public final class RequestCancelKey {
         ClientTickEvents.END_CLIENT_TICK.register(RequestCancelKey::tick);
     }
 
-    private static void tick(MinecraftClient client) {
+    private static void tick(Minecraft client) {
         if (!RequestController.isBusy()) {
             // 没有请求在跑时完全不干预，ESC 保持原版行为
             escapeWasDown = false;
             return;
         }
 
-        Screen screen = client.currentScreen;
+        Screen screen = client.screen;
         boolean inGameLike = screen == null || screen instanceof GameMenuScreen;
         if (!inGameLike) {
             // 开着背包之类界面：ESC 是用来关界面的，不要抢
@@ -54,7 +54,7 @@ public final class RequestCancelKey {
 
         boolean down;
         try {
-            down = InputUtil.isKeyPressed(client.getWindow().getHandle(), GLFW.GLFW_KEY_ESCAPE);
+            down = InputConstants.isKeyDown(client.getWindow().getHandle(), GLFW.GLFW_KEY_ESCAPE);
         } catch (Throwable t) {
             return;
         }

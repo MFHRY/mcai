@@ -2,16 +2,16 @@ package com.example.mcai.client;
 
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.Lang;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.core.BlockPos;
 
 /**
  * 准星查询（1.25 新增）：看准一个方块或生物按一下键，把它的名字和注册 ID 交给 AI 解释。
@@ -29,8 +29,8 @@ public final class CrosshairQuery {
 
     /** 由 {@code key.mcai.what}（默认 V）和 {@code /ai what} 共同调用。 */
     public static void trigger() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.world == null) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.level == null) {
             return;
         }
 
@@ -42,7 +42,7 @@ public final class CrosshairQuery {
 
         if (hit instanceof BlockHitResult blockHit) {
             BlockPos pos = blockHit.getBlockPos();
-            BlockState state = client.world.getBlockState(pos);
+            BlockState state = client.level.getBlockState(pos);
             Block block = state.getBlock();
             String name = block.getName().getString();
             String id = Registries.BLOCK.getId(block).toString();

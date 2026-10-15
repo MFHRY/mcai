@@ -9,8 +9,8 @@ import com.example.mcai.util.WorldContext;
 import com.example.mcai.vision.ScreenshotCapture;
 import com.example.mcai.vision.VisionHandler;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.platform.NativeImage;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -51,8 +51,8 @@ public final class DeathRecap {
         ClientTickEvents.END_CLIENT_TICK.register(DeathRecap::onTick);
     }
 
-    private static void onTick(MinecraftClient client) {
-        if (client.player == null || client.world == null) {
+    private static void onTick(Minecraft client) {
+        if (client.player == null || client.level == null) {
             wasDead = false;
             captureAt = 0L;
             return;
@@ -80,7 +80,7 @@ public final class DeathRecap {
         }
     }
 
-    private static void recap(MinecraftClient client) {
+    private static void recap(Minecraft client) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null) {
             return;

@@ -80,7 +80,7 @@ public final class TaskTracker {
 
     /** 把背包内容列成 "物品 x数量" 的清单。 */
     private static String inventorySummary() {
-        net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
         net.minecraft.client.network.ClientPlayerEntity player = client.player;
         if (player == null) {
             return "";
@@ -89,11 +89,11 @@ public final class TaskTracker {
         try {
             var inventory = player.getInventory();
             for (int slot = 0; slot < inventory.size(); slot++) {
-                net.minecraft.item.ItemStack stack = inventory.getStack(slot);
+                net.minecraft.world.item.ItemStack stack = inventory.getStack(slot);
                 if (stack == null || stack.isEmpty()) {
                     continue;
                 }
-                counts.merge(stack.getName().getString(), stack.getCount(), Integer::sum);
+                counts.merge(stack.getHoverName().getString(), stack.getCount(), Integer::sum);
             }
         } catch (Throwable t) {
             return "";

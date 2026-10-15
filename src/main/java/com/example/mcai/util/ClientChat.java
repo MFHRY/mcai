@@ -2,8 +2,8 @@ package com.example.mcai.util;
 
 import com.example.mcai.ConfigManager;
 import com.google.gson.JsonObject;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 /**
  * 往本地聊天栏发消息的小工具（不经过服务器，不会产生额外网络流量）。
@@ -16,21 +16,21 @@ public final class ClientChat {
     private ClientChat() {}
 
     /** 在主线程上把消息塞进聊天栏；从任意线程调用都安全。 */
-    public static void send(Text text) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public static void send(Component text) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             // 客户端还没起来（理论上不该发生），静默跳过而不是抛 NPE
             return;
         }
         client.execute(() -> {
-            if (client.inGameHud != null) {
-                client.inGameHud.getChatHud().addMessage(text);
+            if (client.gui != null) {
+                client.gui.getChat().addMessage(text);
             }
         });
     }
 
     public static void sendLiteral(String text) {
-        send(Text.literal(text));
+        send(Component.literal(text));
     }
 
     /**

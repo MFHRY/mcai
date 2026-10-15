@@ -2,7 +2,7 @@ package com.example.mcai.client;
 
 import com.example.mcai.util.HistoryStore;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.ServerInfo;
 
 import java.util.Locale;
@@ -39,7 +39,7 @@ public final class WorldScope {
 
     /** 当前世界的标识；取不到时返回 {@code unknown}（所有这种情况共用一个桶）。 */
     public static String current() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return "unknown";
         }

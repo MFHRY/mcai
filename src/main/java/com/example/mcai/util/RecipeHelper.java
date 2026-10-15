@@ -1,9 +1,9 @@
 package com.example.mcai.util;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.level.ClientWorld;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.recipe.CraftingRecipe;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.recipe.Recipe;
@@ -25,7 +25,7 @@ import java.util.Map;
  * 而"背包里这些东西现在能合成什么"只要遍历配方 + 调 {@code matches()}，
  * 既准确又<b>完全不花钱</b>（零 token、不用联网）。
  *
- * <p>配方表来自 {@code client.world.getRecipeManager()}，是玩家当前所在服务器
+ * <p>配方表来自 {@code client.level.getRecipeManager()}，是玩家当前所在服务器
  * 真实生效的配方（包括数据包/模组新增的），不是硬编码的。
  */
 public final class RecipeHelper {
@@ -40,9 +40,9 @@ public final class RecipeHelper {
      * 不在世界里返回空列表。
      */
     public static List<Craftable> craftableNow() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         ClientPlayerEntity player = client.player;
-        ClientWorld world = client.world;
+        ClientWorld world = client.level;
         List<Craftable> out = new ArrayList<>();
         if (player == null || world == null) {
             return out;
@@ -67,7 +67,7 @@ public final class RecipeHelper {
                 if (result == null || result.isEmpty()) {
                     continue;
                 }
-                String name = result.getName().getString();
+                String name = result.getHoverName().getString();
                 unique.putIfAbsent(name, new Craftable(
                         name, result.getCount(), describeIngredients(recipe)));
             }
@@ -109,7 +109,7 @@ public final class RecipeHelper {
         }
 
         // 先把背包里的物品数量统计出来
-        Map<net.minecraft.item.Item, Integer> available = new LinkedHashMap<>();
+        Map<net.minecraft.world.item.Item, Integer> available = new LinkedHashMap<>();
         try {
             var inventory = player.getInventory();
             for (int slot = 0; slot < inventory.size(); slot++) {
@@ -135,18 +135,18 @@ public final class RecipeHelper {
      * 运行开销可以忽略。
      */
     private static boolean maxMatchingSatisfies(List<Ingredient> required,
-                                                Map<net.minecraft.item.Item, Integer> available) {
+                                                Map<net.minecraft.world.item.Item, Integer> available) {
         int n = required.size();
         // 每个槽位可选哪些物品类型（只保留背包里真实有货的）
-        List<java.util.List<net.minecraft.item.Item>> slotItems = new ArrayList<>(n);
-        java.util.Set<net.minecraft.item.Item> allItems = new java.util.HashSet<>();
+        List<java.util.List<net.minecraft.world.item.Item>> slotItems = new ArrayList<>(n);
+        java.util.Set<net.minecraft.world.item.Item> allItems = new java.util.HashSet<>();
         for (Ingredient ingredient : required) {
-            java.util.Set<net.minecraft.item.Item> opts = new java.util.HashSet<>();
+            java.util.Set<net.minecraft.world.item.Item> opts = new java.util.HashSet<>();
             for (ItemStack option : ingredient.getMatchingStacks()) {
                 if (option == null || option.isEmpty()) {
                     continue;
                 }
-                net.minecraft.item.Item item = option.getItem();
+                net.minecraft.world.item.Item item = option.getItem();
                 if (available.containsKey(item)) {
                     opts.add(item);
                 }
@@ -159,8 +159,8 @@ public final class RecipeHelper {
         }
 
         // 右部顶点：把每种物品按数量摊开成多份（每份只能被一个槽位独占）
-        List<net.minecraft.item.Item> unitItems = new ArrayList<>();
-        for (net.minecraft.item.Item item : allItems) {
+        List<net.minecraft.world.item.Item> unitItems = new ArrayList<>();
+        for (net.minecraft.world.item.Item item : allItems) {
             int cap = Math.min(available.get(item), n);
             for (int c = 0; c < cap; c++) {
                 unitItems.add(item);
@@ -172,7 +172,7 @@ public final class RecipeHelper {
 
         // 邻接表：槽位 -> 它能接受的「份」的下标
         List<java.util.List<Integer>> adj = new ArrayList<>(n);
-        for (java.util.List<net.minecraft.item.Item> opts : slotItems) {
+        for (java.util.List<net.minecraft.world.item.Item> opts : slotItems) {
             java.util.List<Integer> list = new ArrayList<>();
             for (int u = 0; u < unitItems.size(); u++) {
                 if (opts.contains(unitItems.get(u))) {
@@ -234,7 +234,7 @@ public final class RecipeHelper {
                 if (stacks.length == 0) {
                     continue;
                 }
-                String name = stacks[0].getName().getString();
+                String name = stacks[0].getHoverName().getString();
                 counts.merge(name, 1, Integer::sum);
             }
             for (Map.Entry<String, Integer> e : counts.entrySet()) {
@@ -252,8 +252,8 @@ public final class RecipeHelper {
      */
     public static List<RecipeEntry<?>> findByName(String query) {
         List<RecipeEntry<?>> out = new ArrayList<>();
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientWorld world = client.world;
+        Minecraft client = Minecraft.getInstance();
+        ClientWorld world = client.level;
         if (world == null || query == null || query.isBlank()) {
             return out;
         }
@@ -271,7 +271,7 @@ public final class RecipeHelper {
                 if (icon == null || icon.isEmpty()) {
                     continue;
                 }
-                String name = icon.getName().getString().toLowerCase(Locale.ROOT);
+                String name = icon.getHoverName().getString().toLowerCase(Locale.ROOT);
                 if (name.contains(needle) || needle.contains(name)) {
                     out.add(entry);
                 }
@@ -289,7 +289,7 @@ public final class RecipeHelper {
     public static String describe(RecipeEntry<?> entry) {
         Recipe<?> recipe = entry.value();
         ItemStack icon = iconOf(recipe);
-        String output = icon == null ? Lang.tr("mcai.value.unknown") : icon.getName().getString();
+        String output = icon == null ? Lang.tr("mcai.value.unknown") : icon.getHoverName().getString();
         List<String> lines = describeIngredients(recipe);
         String ingredients = lines.isEmpty()
                 ? Lang.tr("mcai.craft.unknown_ingredients")
@@ -331,7 +331,7 @@ public final class RecipeHelper {
             return null;
         }
 
-        ClientWorld world = MinecraftClient.getInstance().world;
+        ClientWorld world = Minecraft.getInstance().level;
         if (world == null) {
             return null;
         }
@@ -348,7 +348,7 @@ public final class RecipeHelper {
                 if (icon == null || icon.isEmpty()) {
                     continue;
                 }
-                String name = icon.getName().getString();
+                String name = icon.getHoverName().getString();
                 if (name.length() > bestLength && lower.contains(name.toLowerCase(Locale.ROOT))) {
                     best = entry;
                     bestLength = name.length();

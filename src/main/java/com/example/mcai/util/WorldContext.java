@@ -1,10 +1,10 @@
 package com.example.mcai.util;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.level.ClientWorld;
 import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.biome.Biome;
 
 /**
@@ -14,7 +14,7 @@ import net.minecraft.world.biome.Biome;
  * {@code DebugHud} 内部临时拼出来的，既没有公开访问器，排版也随版本变化。
  * 这里改成自己调 API 拼一份"人话版"环境摘要，稳定且可控。
  *
- * <p>全部取值都在客户端主线程上做（读的是 {@code client.player}/{@code client.world}），
+ * <p>全部取值都在客户端主线程上做（读的是 {@code client.player}/{@code client.level}），
  * 拼好的字符串可以直接塞进提示词。
  */
 public final class WorldContext {
@@ -23,9 +23,9 @@ public final class WorldContext {
 
     /** 当前环境的文字摘要；玩家不在世界里时返回 null。 */
     public static String snapshot() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         ClientPlayerEntity player = client.player;
-        ClientWorld world = client.world;
+        ClientWorld world = client.level;
         if (player == null || world == null) {
             return null;
         }

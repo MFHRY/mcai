@@ -19,8 +19,8 @@ import com.example.mcai.util.SystemPrompt;
 import com.example.mcai.util.TokenStats;
 import com.google.gson.JsonObject;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -76,7 +76,7 @@ public final class ChatHandler {
             question = question.substring(1).trim();
         }
         if (question.isEmpty()) {
-            sendLocalMessage(MinecraftClient.getInstance(), Lang.tr("mcai.chat.empty"));
+            sendLocalMessage(Minecraft.getInstance(), Lang.tr("mcai.chat.empty"));
             return;
         }
 
@@ -85,7 +85,7 @@ public final class ChatHandler {
         if (config != null && config.recipeCache) {
             String local = RecipeHelper.answerCraftQuestion(question);
             if (local != null) {
-                sendLocalMessage(MinecraftClient.getInstance(), local);
+                sendLocalMessage(Minecraft.getInstance(), local);
                 return;
             }
         }
@@ -124,7 +124,7 @@ public final class ChatHandler {
      * @param historyNote 记进上下文的内容；null 或空白表示用 {@code question} 本身
      */
     public static void ask(String question, String historyNote, Consumer<String> onReply) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
         long now = System.currentTimeMillis();
         long allowedAt = INSTANCE.nextAllowedTime.get();
@@ -201,7 +201,7 @@ public final class ChatHandler {
     }
 
     /** 请求真正发出前检查今日预算;超了就拦下并提示。 */
-    private static boolean blockedByBudget(MinecraftClient mc) {
+    private static boolean blockedByBudget(Minecraft mc) {
         if (!TokenStats.isOverDailyBudget()) {
             return false;
         }
@@ -220,7 +220,7 @@ public final class ChatHandler {
      * <p>原来只有"花完了直接拦下"这一道，中途完全没有预警——对按量计费的服务来说，
      * 等你发现的时候钱已经花完了。现在提前提醒，还来得及换个便宜模型或收手。
      */
-    private static void warnIfNearBudget(MinecraftClient mc, ConfigManager.ConfigData config) {
+    private static void warnIfNearBudget(Minecraft mc, ConfigManager.ConfigData config) {
         if (config == null || config.dailyBudgetYuan <= 0.0) {
             return;
         }
@@ -244,7 +244,7 @@ public final class ChatHandler {
     }
 
     /** 发请求前把这句问题的大致花费写一行暗色提示，让玩家在烧钱之前心里有数。 */
-    private static void sendEstimate(MinecraftClient mc, ConfigManager.ConfigData config, String question) {
+    private static void sendEstimate(Minecraft mc, ConfigManager.ConfigData config, String question) {
         double yuan = estimateCostYuan(config, question);
         if (yuan < 0.0) {
             // 这个模型没有单价表，明确说"无法估算"而不是瞎猜一个数字
@@ -293,14 +293,14 @@ public final class ChatHandler {
      * <p>聊天和截图两条链路都走这里，保证观感一致。
      *
      * <p><b>点击优先级：</b>整段复制是加在根节点上的样式，坐标/物品段各自带自己的
-     * clickEvent。Minecraft 的 {@code MutableText} 在 append 时会把父样式作为"底"传给子样式
+     * clickEvent。Minecraft 的 {@code MutableComponent} 在 append 时会把父样式作为"底"传给子样式
      * （子节点非空的字段覆盖父节点），所以点坐标仍然复制坐标、点物品名仍然填指令，
      * 只有点在普通文字上才是复制整段回答——不会出现"想复制坐标结果复制了一整篇"。
      *
      * @param elapsedMillis 耗时；&lt;=0 表示不显示耗时（缓存命中时用）
      * @param costYuan      这一次调用按真实 usage 算出的花费；&lt;=0 表示不显示（缓存命中/无单价表）
      */
-    private static void replyToPlayer(MinecraftClient mc, String reply, long elapsedMillis, double costYuan) {
+    private static void replyToPlayer(Minecraft mc, String reply, long elapsedMillis, double costYuan) {
         String flat = reply == null ? "" : reply.replace("\n", " ").trim();
 
         StringBuilder suffix = new StringBuilder();
@@ -312,10 +312,10 @@ public final class ChatHandler {
             suffix.append(' ').append(Lang.tr("mcai.chat.cost", formatYuan(costYuan)));
         }
 
-        Text text = ClickableText.build("§f[AI] " + flat + suffix, flat);
+        Component text = ClickableText.build("§f[AI] " + flat + suffix, flat);
         mc.execute(() -> {
-            if (mc.inGameHud != null) {
-                mc.inGameHud.getChatHud().addMessage(text);
+            if (mc.gui != null) {
+                mc.gui.getChat().addMessage(text);
             }
         });
         // TTS 默认关闭；开了就顺带念一遍（无障碍用途）
@@ -339,7 +339,7 @@ public final class ChatHandler {
      * 分片结构与 OpenAI 不同，而那部分细节属于"协议差异"，应该跟请求体构造放在一起。
      * 这里只负责界面：Action Bar 实时刷新、收完写聊天栏、出错提示。
      */
-    private void sendStreamingRequest(MinecraftClient mc, ApiKeyManager.PickedKey picked,
+    private void sendStreamingRequest(Minecraft mc, ApiKeyManager.PickedKey picked,
                                       ConfigManager.ConfigData config, String model, String question,
                                       String historyNote, Consumer<String> onReply) {
         ApiRequest apiRequest = ApiRequest.text(model, SystemPrompt.build(), question,
@@ -387,7 +387,7 @@ public final class ChatHandler {
     }
 
     /** 流式收完后：记统计、显示思维链、写聊天栏、记历史、回调。 */
-    private void finishStreaming(MinecraftClient mc, String question, String historyNote,
+    private void finishStreaming(Minecraft mc, String question, String historyNote,
                                  ApiClient.StreamResult result,
                                  long elapsedMillis, Consumer<String> onReply) {
         double cost = 0.0;
@@ -431,7 +431,7 @@ public final class ChatHandler {
 
     // ------------------------------------------------------------ 非流式
 
-    private void sendRequest(MinecraftClient mc, ApiKeyManager.PickedKey picked,
+    private void sendRequest(Minecraft mc, ApiKeyManager.PickedKey picked,
                              ConfigManager.ConfigData config, String model, String question,
                              String historyNote, Consumer<String> onReply) {
         ApiRequest apiRequest = ApiRequest.text(model, SystemPrompt.build(), question,
@@ -485,7 +485,7 @@ public final class ChatHandler {
      * <p>三种情况分开说，因为玩家的下一步动作完全不同：
      * 服务端返回错误码 → 看错误说明；地址非法 → 去改配置；网络层失败 → 多半是网络问题。
      */
-    private static void reportFailure(MinecraftClient mc, ApiKeyManager.PickedKey picked,
+    private static void reportFailure(Minecraft mc, ApiKeyManager.PickedKey picked,
                                       String question, ApiClient.ApiException error) {
         if (error.cancelled) {
             // 玩家自己取消的，不要弹"错误"
@@ -502,7 +502,7 @@ public final class ChatHandler {
         }
     }
 
-    private void handleSuccess(MinecraftClient mc, JsonObject root, String question,
+    private void handleSuccess(Minecraft mc, JsonObject root, String question,
                                String historyNote, long elapsedMillis, Consumer<String> onReply) {
         if (root == null) {
             sendLocalMessage(mc, Lang.tr("mcai.error.unparsable"));
@@ -539,15 +539,15 @@ public final class ChatHandler {
         replyToPlayer(mc, reply, elapsedMillis, cost);
     }
 
-    private static void handleHttpError(MinecraftClient mc, String question, int statusCode) {
+    private static void handleHttpError(Minecraft mc, String question, int statusCode) {
         sendLocalMessage(mc, "§c" + question + " (" + statusCode + ": "
                 + com.example.mcai.util.HttpErrorCatalog.describe(statusCode) + ")");
     }
 
-    private static void sendLocalMessage(MinecraftClient mc, String text) {
+    private static void sendLocalMessage(Minecraft mc, String text) {
         mc.execute(() -> {
-            if (mc.inGameHud != null) {
-                mc.inGameHud.getChatHud().addMessage(Text.literal(text));
+            if (mc.gui != null) {
+                mc.gui.getChat().addMessage(Component.literal(text));
             }
         });
     }

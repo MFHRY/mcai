@@ -6,18 +6,18 @@ import com.example.mcai.util.HistoryStore;
 import com.example.mcai.util.Lang;
 import com.example.mcai.util.VisionResolution;
 import com.example.mcai.vision.VisionHandler;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.KeyMapping;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -41,19 +41,19 @@ import java.util.function.Supplier;
  *       {@code buildGroups} 里多一行，布局 / 搜索 / 滚动全部自动适配。</li>
  *   <li><b>写盘只走 {@code ConfigManager.update()}</b>：界面里改的只是行内的草稿值，
  *       点「保存」时才在 copy-on-write 里一次性写回，绝不会去改 {@code get()} 返回的对象。</li>
- *   <li><b>按键不进 mcai.json</b>：四个快捷键直接改原版 {@link KeyBinding} 并
+ *   <li><b>按键不进 mcai.json</b>：四个快捷键直接改原版 {@link KeyMapping} 并
  *       {@code options.write()} —— 原版 options.txt 是唯一真相，另存一份必然打架。</li>
  * </ul>
  *
  * <p><b>1.21.1 的界面 API 陷阱（全部已核实）：</b>
  * <ul>
- *   <li>{@code TextFieldWidget} 是 6 参构造：{@code (TextRenderer, x, y, w, h, Text)}。</li>
- *   <li>按钮不是 {@code new ButtonWidget(...)}，而是
- *       {@code ButtonWidget.builder(Text, pressAction).dimensions(x,y,w,h).build()}。</li>
+ *   <li>{@code EditBox} 是 6 参构造：{@code (Font, x, y, w, h, Component)}。</li>
+ *   <li>按钮不是 {@code new Button(...)}，而是
+ *       {@code Button.builder(Component, pressAction).dimensions(x,y,w,h).build()}。</li>
  *   <li>{@code ClickableWidget} 没有 {@code setPosition}，只有 {@code setX/setY}。</li>
  *   <li>滚轮是 4 参 {@code mouseScrolled(double,double,double,double)}。</li>
  *   <li>绘制多行 tooltip 要用带 {@code Optional<TooltipData>} 的那个重载。</li>
- *   <li>{@code Formatting} 在 {@code net.minecraft.util}，不在 {@code net.minecraft.text}。</li>
+ *   <li>{@code ChatFormatting} 在 {@code net.minecraft.util}，不在 {@code net.minecraft.text}。</li>
  * </ul>
  *
  * <p>所有界面文字走语言文件（{@link Lang}），代码里不出现硬编码文案。
@@ -76,17 +76,17 @@ public class ConfigScreen extends Screen {
     private static final int PARKED = -10000;
 
     /** 搜索框里是否有内容时，ESC 优先清空搜索而不是关窗口。 */
-    private static final Text HELP_LINK =
-            Text.translatable("mcai.screen.help_link").formatted(Formatting.AQUA, Formatting.UNDERLINE);
+    private static final Component HELP_LINK =
+            Component.translatable("mcai.screen.help_link").formatted(ChatFormatting.AQUA, ChatFormatting.UNDERLINE);
 
     private final Screen parent;
 
     private final List<Group> groups = new ArrayList<>();
     private boolean built;
 
-    private TextFieldWidget searchField;
-    private ButtonWidget saveButton;
-    private ButtonWidget cancelButton;
+    private EditBox searchField;
+    private Button saveButton;
+    private Button cancelButton;
 
     private String query = "";
     private int scroll;
@@ -109,7 +109,7 @@ public class ConfigScreen extends Screen {
     private int helpWidth;
 
     public ConfigScreen(Screen parent) {
-        super(Text.translatable("mcai.screen.title"));
+        super(Component.translatable("mcai.screen.title"));
         this.parent = parent;
     }
 
@@ -123,10 +123,10 @@ public class ConfigScreen extends Screen {
             built = true;
         }
 
-        searchField = new TextFieldWidget(textRenderer, 0, 0, 200, WIDGET_HEIGHT, Lang.text("mcai.config.search"));
+        searchField = new EditBox(textRenderer, 0, 0, 200, WIDGET_HEIGHT, Lang.text("mcai.config.search"));
         searchField.setMaxLength(64);
         searchField.setText(query);
-        searchField.setPlaceholder(Lang.text("mcai.config.search_hint").formatted(Formatting.DARK_GRAY));
+        searchField.setPlaceholder(Lang.text("mcai.config.search_hint").formatted(ChatFormatting.DARK_GRAY));
         searchField.setChangedListener(text -> {
             String next = text == null ? "" : text.trim().toLowerCase(Locale.ROOT);
             if (!next.equals(query)) {
@@ -138,11 +138,11 @@ public class ConfigScreen extends Screen {
         // 这样滚到边界上的行绝不会抢走搜索框 / 保存按钮的点击。
         addSelectableChild(searchField);
 
-        saveButton = ButtonWidget.builder(Lang.text("mcai.screen.save"), b -> save())
+        saveButton = Button.builder(Lang.text("mcai.screen.save"), b -> save())
                 .dimensions(0, 0, 100, WIDGET_HEIGHT).build();
         addSelectableChild(saveButton);
 
-        cancelButton = ButtonWidget.builder(Lang.text("mcai.screen.cancel"), b -> close())
+        cancelButton = Button.builder(Lang.text("mcai.screen.cancel"), b -> close())
                 .dimensions(0, 0, 100, WIDGET_HEIGHT).build();
         addSelectableChild(cancelButton);
 
@@ -160,7 +160,7 @@ public class ConfigScreen extends Screen {
 
     @Override
     public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 
     // ------------------------------------------------------------ 交互
@@ -180,7 +180,7 @@ public class ConfigScreen extends Screen {
         }
         scroll = next;
         // 滚走的输入框不要再抢键盘
-        if (getFocused() instanceof TextFieldWidget) {
+        if (getFocused() instanceof EditBox) {
             setFocused(null);
         }
         relayout();
@@ -325,7 +325,7 @@ public class ConfigScreen extends Screen {
     // ------------------------------------------------------------ 渲染
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
 
         context.drawCenteredTextWithShadow(textRenderer, this.title, this.width / 2, 6, 0xFFFFFF);
@@ -343,7 +343,7 @@ public class ConfigScreen extends Screen {
             }
             if (contentHeight == 0) {
                 context.drawCenteredTextWithShadow(textRenderer,
-                        Lang.text("mcai.config.no_result").formatted(Formatting.GRAY),
+                        Lang.text("mcai.config.no_result").formatted(ChatFormatting.GRAY),
                         (contentLeft + contentRight) / 2, (contentTop + contentBottom) / 2 - 4, 0xFFFFFF);
             }
             context.disableScissor();
@@ -353,12 +353,12 @@ public class ConfigScreen extends Screen {
 
         // ---- 底部：提示 + 帮助链接 + 保存/取消 ----
         context.drawCenteredTextWithShadow(textRenderer,
-                Lang.text("mcai.screen.hint").formatted(Formatting.DARK_GRAY),
+                Lang.text("mcai.screen.hint").formatted(ChatFormatting.DARK_GRAY),
                 this.width / 2, footerTop + 2, 0xFFFFFF);
         this.helpWidth = textRenderer.getWidth(HELP_LINK);
         this.helpX = contentLeft;
         this.helpY = footerTop + 18;
-        context.drawTextWithShadow(textRenderer, HELP_LINK, helpX, helpY, 0xFFFFFF);
+        context.drawString(textRenderer, HELP_LINK, helpX, helpY, 0xFFFFFF);
 
         searchField.render(context, mouseX, mouseY, delta);
         saveButton.render(context, mouseX, mouseY, delta);
@@ -369,7 +369,7 @@ public class ConfigScreen extends Screen {
         }
     }
 
-    private void renderGroupHeaders(DrawContext context, int mouseX, int mouseY) {
+    private void renderGroupHeaders(GuiGraphics context, int mouseX, int mouseY) {
         for (Group group : groups) {
             if (!group.headerVisible) {
                 continue;
@@ -383,15 +383,15 @@ public class ConfigScreen extends Screen {
             context.fill(contentLeft, y, contentRight, y + GROUP_HEADER_HEIGHT - 2,
                     hovered ? 0x44FFFFFF : 0x33000000);
             String arrow = group.isExpanded(query) ? "\u25bc " : "\u25b6 ";
-            context.drawTextWithShadow(textRenderer, Text.literal(arrow).formatted(Formatting.AQUA),
+            context.drawString(textRenderer, Component.literal(arrow).formatted(ChatFormatting.AQUA),
                     contentLeft + 6, y + 6, 0xFFFFFF);
-            context.drawTextWithShadow(textRenderer,
-                    Lang.text(group.titleKey).formatted(Formatting.BOLD),
+            context.drawString(textRenderer,
+                    Lang.text(group.titleKey).formatted(ChatFormatting.BOLD),
                     contentLeft + 6 + textRenderer.getWidth(arrow), y + 6, 0xFFFFFF);
         }
     }
 
-    private void renderScrollbar(DrawContext context) {
+    private void renderScrollbar(GuiGraphics context) {
         if (maxScroll <= 0 || contentBottom <= contentTop) {
             return;
         }
@@ -407,25 +407,25 @@ public class ConfigScreen extends Screen {
     }
 
     /** 悬停提示的正文。网址与 {@code sk-} 前缀保持原样，其余跟随游戏语言。 */
-    private static List<Text> helpTooltip() {
-        List<Text> lines = new ArrayList<>();
-        lines.add(Lang.text("mcai.help.title").formatted(Formatting.AQUA, Formatting.BOLD));
-        lines.add(Lang.text("mcai.help.body1").formatted(Formatting.GRAY));
-        lines.add(Lang.text("mcai.help.body2").formatted(Formatting.GRAY));
-        lines.add(Text.empty());
-        lines.add(Lang.text("mcai.help.where").formatted(Formatting.AQUA, Formatting.BOLD));
-        lines.add(Lang.text("mcai.help.step1").formatted(Formatting.GRAY)
-                .append(Text.literal("platform.deepseek.com").formatted(Formatting.WHITE)));
-        lines.add(Lang.text("mcai.help.step2").formatted(Formatting.GRAY));
-        lines.add(Lang.text("mcai.help.step3a").formatted(Formatting.GRAY)
-                .append(Text.literal("sk-").formatted(Formatting.WHITE))
-                .append(Lang.text("mcai.help.step3b").formatted(Formatting.GRAY)));
-        lines.add(Lang.text("mcai.help.step4").formatted(Formatting.GRAY));
-        lines.add(Text.empty());
-        lines.add(Lang.text("mcai.help.notes").formatted(Formatting.AQUA, Formatting.BOLD));
-        lines.add(Lang.text("mcai.help.note1").formatted(Formatting.GRAY));
-        lines.add(Lang.text("mcai.help.note2a").formatted(Formatting.GRAY)
-                .append(Lang.text("mcai.help.note2b").formatted(Formatting.RED)));
+    private static List<Component> helpTooltip() {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Lang.text("mcai.help.title").formatted(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        lines.add(Lang.text("mcai.help.body1").formatted(ChatFormatting.GRAY));
+        lines.add(Lang.text("mcai.help.body2").formatted(ChatFormatting.GRAY));
+        lines.add(Component.empty());
+        lines.add(Lang.text("mcai.help.where").formatted(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        lines.add(Lang.text("mcai.help.step1").formatted(ChatFormatting.GRAY)
+                .append(Component.literal("platform.deepseek.com").formatted(ChatFormatting.WHITE)));
+        lines.add(Lang.text("mcai.help.step2").formatted(ChatFormatting.GRAY));
+        lines.add(Lang.text("mcai.help.step3a").formatted(ChatFormatting.GRAY)
+                .append(Component.literal("sk-").formatted(ChatFormatting.WHITE))
+                .append(Lang.text("mcai.help.step3b").formatted(ChatFormatting.GRAY)));
+        lines.add(Lang.text("mcai.help.step4").formatted(ChatFormatting.GRAY));
+        lines.add(Component.empty());
+        lines.add(Lang.text("mcai.help.notes").formatted(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        lines.add(Lang.text("mcai.help.note1").formatted(ChatFormatting.GRAY));
+        lines.add(Lang.text("mcai.help.note2a").formatted(ChatFormatting.GRAY)
+                .append(Lang.text("mcai.help.note2b").formatted(ChatFormatting.RED)));
         return lines;
     }
 
@@ -646,7 +646,7 @@ public class ConfigScreen extends Screen {
         misc.add(new ToggleRow("recipe_cache", "mcai.screen.toggle_recipe",
                 c -> c.recipeCache, (c, v) -> c.recipeCache = v));
 
-        // ---- 快捷键（不进 mcai.json，直接改原版 KeyBinding）----
+        // ---- 快捷键（不进 mcai.json，直接改原版 KeyMapping）----
         Group keys = group("mcai.config.group.keys", false);
         keys.add(new KeyRow("key_vision", "key.mcai.vision", VisionHandler::visionKeyBinding));
         keys.add(new KeyRow("key_build", "key.mcai.build", VisionHandler::buildKeyBinding));
@@ -730,7 +730,7 @@ public class ConfigScreen extends Screen {
             this.labelKey = labelKey;
         }
 
-        Text label() {
+        Component label() {
             return Lang.text(labelKey);
         }
 
@@ -769,7 +769,7 @@ public class ConfigScreen extends Screen {
             return haystack.contains(q);
         }
 
-        void renderLabel(DrawContext context, int mouseX, int mouseY, float delta) {
+        void renderLabel(GuiGraphics context, int mouseX, int mouseY, float delta) {
             drawTruncated(context, Lang.tr(labelKey), labelX, labelY, labelMaxWidth, 0xA0A0A0);
         }
 
@@ -818,7 +818,7 @@ public class ConfigScreen extends Screen {
             }
         }
 
-        final void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        final void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
             renderLabel(context, mouseX, mouseY, delta);
             for (Control control : controls) {
                 control.widget.render(context, mouseX, mouseY, delta);
@@ -832,7 +832,7 @@ public class ConfigScreen extends Screen {
         private final String placeholder;
         private final Function<ConfigManager.ConfigData, String> getter;
         private final BiConsumer<ConfigManager.ConfigData, String> setter;
-        protected TextFieldWidget field;
+        protected EditBox field;
         protected String draft;
 
         TextRow(String id, String labelKey, int maxLength, String placeholder,
@@ -845,15 +845,15 @@ public class ConfigScreen extends Screen {
             this.setter = setter;
         }
 
-        protected final TextFieldWidget ensureField() {
+        protected final EditBox ensureField() {
             if (field == null) {
                 if (draft == null) {
                     draft = nullToEmpty(getter.apply(safeConfig()));
                 }
-                field = new TextFieldWidget(textRenderer, 0, 0, CONTROL_WIDTH, WIDGET_HEIGHT, label());
+                field = new EditBox(textRenderer, 0, 0, CONTROL_WIDTH, WIDGET_HEIGHT, label());
                 field.setMaxLength(maxLength);
                 if (placeholder != null) {
-                    field.setPlaceholder(Text.literal(placeholder).formatted(Formatting.DARK_GRAY));
+                    field.setPlaceholder(Component.literal(placeholder).formatted(ChatFormatting.DARK_GRAY));
                 }
                 field.setText(draft);
                 field.setChangedListener(text -> draft = text);
@@ -874,7 +874,7 @@ public class ConfigScreen extends Screen {
 
     /** API Key：默认打码，右边一个「显示 / 隐藏」。 */
     private class SecretRow extends TextRow {
-        private ButtonWidget revealButton;
+        private Button revealButton;
 
         SecretRow(String id, String labelKey, int maxLength, String placeholder,
                   Function<ConfigManager.ConfigData, String> getter,
@@ -884,9 +884,9 @@ public class ConfigScreen extends Screen {
 
         @Override
         protected void buildControls() {
-            TextFieldWidget textField = ensureField();
+            EditBox textField = ensureField();
             applyMask();
-            revealButton = ButtonWidget.builder(revealLabel(), button -> {
+            revealButton = Button.builder(revealLabel(), button -> {
                 revealKey = !revealKey;
                 applyMask();
                 button.setMessage(revealLabel());
@@ -899,11 +899,11 @@ public class ConfigScreen extends Screen {
         private void applyMask() {
             field.setRenderTextProvider((text, firstCharacterIndex) -> {
                 String shown = revealKey ? text : "*".repeat(text.length());
-                return OrderedText.styledForwardsVisitedString(shown, Style.EMPTY);
+                return FormattedCharSequence.styledForwardsVisitedString(shown, Style.EMPTY);
             });
         }
 
-        private Text revealLabel() {
+        private Component revealLabel() {
             return Lang.text(revealKey ? "mcai.screen.hide" : "mcai.screen.show");
         }
     }
@@ -913,7 +913,7 @@ public class ConfigScreen extends Screen {
         private final Predicate<ConfigManager.ConfigData> getter;
         private final BiConsumer<ConfigManager.ConfigData, Boolean> setter;
         private boolean value;
-        private ButtonWidget button;
+        private Button button;
 
         ToggleRow(String id, String labelKey,
                   Predicate<ConfigManager.ConfigData> getter,
@@ -926,16 +926,16 @@ public class ConfigScreen extends Screen {
         @Override
         protected void buildControls() {
             value = getter.test(safeConfig());
-            button = ButtonWidget.builder(stateLabel(), b -> {
+            button = Button.builder(stateLabel(), b -> {
                 value = !value;
                 b.setMessage(stateLabel());
             }).dimensions(0, 0, TOGGLE_WIDTH, WIDGET_HEIGHT).build();
             addControl(button, TOGGLE_WIDTH);
         }
 
-        private Text stateLabel() {
+        private Component stateLabel() {
             return Lang.text(value ? "mcai.screen.on" : "mcai.screen.off")
-                    .formatted(value ? Formatting.GREEN : Formatting.RED);
+                    .formatted(value ? ChatFormatting.GREEN : ChatFormatting.RED);
         }
 
         @Override
@@ -950,7 +950,7 @@ public class ConfigScreen extends Screen {
         private final int max;
         private final Function<ConfigManager.ConfigData, Integer> getter;
         private final BiConsumer<ConfigManager.ConfigData, Integer> setter;
-        private TextFieldWidget field;
+        private EditBox field;
         private String draft;
 
         IntRow(String id, String labelKey, int min, int max,
@@ -967,7 +967,7 @@ public class ConfigScreen extends Screen {
         protected void buildControls() {
             Integer initial = getter.apply(safeConfig());
             draft = String.valueOf(initial == null ? 0 : initial);
-            field = new TextFieldWidget(textRenderer, 0, 0, 120, WIDGET_HEIGHT, label());
+            field = new EditBox(textRenderer, 0, 0, 120, WIDGET_HEIGHT, label());
             field.setMaxLength(12);
             field.setText(draft);
             field.setChangedListener(text -> draft = text);
@@ -991,7 +991,7 @@ public class ConfigScreen extends Screen {
         private final double max;
         private final Function<ConfigManager.ConfigData, Double> getter;
         private final BiConsumer<ConfigManager.ConfigData, Double> setter;
-        private TextFieldWidget field;
+        private EditBox field;
         private String draft;
 
         DoubleRow(String id, String labelKey, double min, double max,
@@ -1008,7 +1008,7 @@ public class ConfigScreen extends Screen {
         protected void buildControls() {
             Double initial = getter.apply(safeConfig());
             draft = formatNumber(initial == null ? 0.0 : initial);
-            field = new TextFieldWidget(textRenderer, 0, 0, 120, WIDGET_HEIGHT, label());
+            field = new EditBox(textRenderer, 0, 0, 120, WIDGET_HEIGHT, label());
             field.setMaxLength(20);
             field.setText(draft);
             field.setChangedListener(text -> draft = text);
@@ -1032,7 +1032,7 @@ public class ConfigScreen extends Screen {
         private final int maxLength;
         private final Function<ConfigManager.ConfigData, List<String>> getter;
         private final BiConsumer<ConfigManager.ConfigData, List<String>> setter;
-        private TextFieldWidget field;
+        private EditBox field;
         private String draft;
 
         ListRow(String id, String labelKey, int maxLength, String separator,
@@ -1049,7 +1049,7 @@ public class ConfigScreen extends Screen {
         protected void buildControls() {
             List<String> initial = getter.apply(safeConfig());
             draft = join(initial, separator);
-            field = new TextFieldWidget(textRenderer, 0, 0, CONTROL_WIDTH, WIDGET_HEIGHT, label());
+            field = new EditBox(textRenderer, 0, 0, CONTROL_WIDTH, WIDGET_HEIGHT, label());
             field.setMaxLength(maxLength);
             field.setText(draft);
             field.setChangedListener(text -> draft = text);
@@ -1078,7 +1078,7 @@ public class ConfigScreen extends Screen {
         private final Function<ConfigManager.ConfigData, String> getter;
         private final BiConsumer<ConfigManager.ConfigData, String> setter;
         private String value;
-        private ButtonWidget button;
+        private Button button;
 
         CycleRow(String id, String labelKey, String labelPrefix, Supplier<List<String>> optionsSupplier,
                  Function<ConfigManager.ConfigData, String> getter,
@@ -1093,7 +1093,7 @@ public class ConfigScreen extends Screen {
         @Override
         protected void buildControls() {
             value = getter.apply(safeConfig());
-            button = ButtonWidget.builder(valueLabel(), b -> {
+            button = Button.builder(valueLabel(), b -> {
                 value = nextValue();
                 b.setMessage(valueLabel());
             }).dimensions(0, 0, CONTROL_WIDTH, WIDGET_HEIGHT).build();
@@ -1117,7 +1117,7 @@ public class ConfigScreen extends Screen {
             return options.get((index + 1) % options.size());
         }
 
-        private Text valueLabel() {
+        private Component valueLabel() {
             if (value == null || value.isBlank()) {
                 return Lang.text("mcai.value.unknown");
             }
@@ -1127,7 +1127,7 @@ public class ConfigScreen extends Screen {
                     return Lang.text(key);
                 }
             }
-            return Text.literal(value);
+            return Component.literal(value);
         }
 
         @Override
@@ -1146,42 +1146,42 @@ public class ConfigScreen extends Screen {
      * 绝不会存进 mcai.json —— 两份状态必然打架。
      */
     private class KeyRow extends Row {
-        private final Supplier<KeyBinding> bindingSupplier;
-        private ButtonWidget button;
+        private final Supplier<KeyMapping> bindingSupplier;
+        private Button button;
 
-        KeyRow(String id, String labelKey, Supplier<KeyBinding> bindingSupplier) {
+        KeyRow(String id, String labelKey, Supplier<KeyMapping> bindingSupplier) {
             super(id, labelKey);
             this.bindingSupplier = bindingSupplier;
         }
 
         @Override
         protected void buildControls() {
-            button = ButtonWidget.builder(rebindLabel(), b -> beginCapture())
+            button = Button.builder(rebindLabel(), b -> beginCapture())
                     .dimensions(0, 0, REBIND_WIDTH, WIDGET_HEIGHT).build();
             addControl(button, REBIND_WIDTH);
         }
 
         @Override
-        void renderLabel(DrawContext context, int mouseX, int mouseY, float delta) {
+        void renderLabel(GuiGraphics context, int mouseX, int mouseY, float delta) {
             super.renderLabel(context, mouseX, mouseY, delta);
             String keyName = currentKeyName();
             int width = textRenderer.getWidth(keyName);
             int x = controlLeft - 8 - width;
             if (x > labelX + 30) {
-                context.drawTextWithShadow(textRenderer,
-                        Text.literal(keyName).formatted(Formatting.YELLOW), x, labelY, 0xFFFFFF);
+                context.drawString(textRenderer,
+                        Component.literal(keyName).formatted(ChatFormatting.YELLOW), x, labelY, 0xFFFFFF);
             }
         }
 
         private String currentKeyName() {
-            KeyBinding binding = bindingSupplier.get();
+            KeyMapping binding = bindingSupplier.get();
             if (binding == null || binding.isUnbound()) {
                 return Lang.tr("mcai.config.key_unbound");
             }
             return binding.getBoundKeyLocalizedText().getString();
         }
 
-        private Text rebindLabel() {
+        private Component rebindLabel() {
             return capturing == this ? Lang.text("mcai.config.rebind_waiting") : Lang.text("mcai.config.rebind");
         }
 
@@ -1204,10 +1204,10 @@ public class ConfigScreen extends Screen {
         }
 
         void applyKeyCode(int keyCode) {
-            KeyBinding binding = bindingSupplier.get();
+            KeyMapping binding = bindingSupplier.get();
             if (binding != null) {
-                binding.setBoundKey(InputUtil.Type.KEYSYM.createFromCode(keyCode));
-                MinecraftClient.getInstance().options.write();
+                binding.setBoundKey(InputConstants.Type.KEYSYM.createFromCode(keyCode));
+                Minecraft.getInstance().options.write();
             }
             capturing = null;
             button.setMessage(rebindLabel());
@@ -1216,9 +1216,9 @@ public class ConfigScreen extends Screen {
 
     // ------------------------------------------------------------ 小工具
 
-    private void drawTruncated(DrawContext context, String text, int x, int y, int maxWidth, int color) {
+    private void drawTruncated(GuiGraphics context, String text, int x, int y, int maxWidth, int color) {
         String shown = maxWidth <= 0 ? text : textRenderer.trimToWidth(text, maxWidth);
-        context.drawTextWithShadow(textRenderer, Text.literal(shown), x, y, color);
+        context.drawString(textRenderer, Component.literal(shown), x, y, color);
     }
 
     private static ConfigManager.ConfigData safeConfig() {

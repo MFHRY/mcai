@@ -3,10 +3,10 @@ package com.example.mcai.client;
 import com.example.mcai.util.Lang;
 import com.example.mcai.util.ScreenCrop;
 import com.example.mcai.vision.VisionHandler;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -56,7 +56,7 @@ public class VisionCaptureScreen extends Screen {
     private static final int BORDER = 0xFF55FFFF;
 
     public VisionCaptureScreen(NativeImage image, String promptOverride) {
-        super(Text.translatable("mcai.pick.title"));
+        super(Component.translatable("mcai.pick.title"));
         this.image = image;
         this.promptOverride = promptOverride;
     }
@@ -68,7 +68,7 @@ public class VisionCaptureScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         int left = (int) Math.round(x0 * this.width);
         int top = (int) Math.round(y0 * this.height);
         int right = (int) Math.round(x1 * this.width);
@@ -80,11 +80,11 @@ public class VisionCaptureScreen extends Screen {
         context.fill(0, top, left, bottom, DIM);
         context.fill(right, top, this.width, bottom, DIM);
 
-        context.drawBorder(left, top, Math.max(1, right - left), Math.max(1, bottom - top), BORDER);
+        context.renderOutline(left, top, Math.max(1, right - left), Math.max(1, bottom - top), BORDER);
 
-        context.drawTextWithShadow(this.textRenderer, Lang.text("mcai.pick.hint"), 8, 8, 0xFFFFFF);
+        context.drawString(this.font, Lang.text("mcai.pick.hint"), 8, 8, 0xFFFFFF);
         int percent = (int) Math.round(100.0 * (x1 - x0) * (y1 - y0));
-        context.drawTextWithShadow(this.textRenderer,
+        context.drawString(this.font,
                 Lang.text("mcai.pick.size", Math.max(1, right - left), Math.max(1, bottom - top), percent),
                 8, 20, 0xFFAAAAAA);
 
