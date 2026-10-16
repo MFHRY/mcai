@@ -325,6 +325,24 @@ public class ConfigManager {
         @SerializedName("avatar_bubble_items") public List<String> avatarBubbleItems =
                 List.of("cost", "budget", "peak", "model", "cache", "balance");
 
+        // ---- 1.0.1 新增 ----
+
+        /**
+         * mcAI 界面的背景样式：{@code dim}（暗色渐变）/ {@code dirt}（泥土）/
+         * {@code none}（透明）/ {@code custom}（自定义图片）。
+         *
+         * <p>默认 {@code dim}，也就是原版在游戏内打开界面的观感 —— 加这个选项时
+         * 刻意选了"和之前一模一样"的默认值，老玩家升级后不会觉得界面突然变了。
+         */
+        @SerializedName("screen_background") public String screenBackground = "dim";
+
+        /**
+         * {@code screen_background = custom} 时要平铺的 PNG 绝对路径。
+         *
+         * <p>同样做成路径而不是内置图片：本模组不分发任何来路不明的美术素材。
+         */
+        @SerializedName("screen_background_image") public String screenBackgroundImage = "";
+
         public ConfigData() {}
 
         public ConfigData(ConfigData src) {
@@ -363,6 +381,9 @@ public class ConfigManager {
             this.avatarSound = src.avatarSound;
             this.avatarBubbleItems = src.avatarBubbleItems != null
                     ? List.copyOf(src.avatarBubbleItems) : List.of();
+            // ---- 1.0.1 ----
+            this.screenBackground = src.screenBackground;
+            this.screenBackgroundImage = src.screenBackgroundImage;
         }
 
         public boolean fillDefaults() {

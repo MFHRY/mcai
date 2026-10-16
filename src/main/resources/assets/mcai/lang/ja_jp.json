@@ -1,18 +1,15 @@
 {
   "_comment": "mcAI 日本語（ja_jp）文案。英語は en_us.json、簡体字中国語は zh_cn.json、繁体字中国語は zh_tw.json。4つの言語ファイルはキー名を完全に一致させること。",
-
   "item.mcai.ai_model_switcher": "モデル切り替えツール",
   "item.mcai.ai_mode_switcher": "モード切り替えツール",
   "tooltip.mcai.model_switcher.action": "右クリック：次のモデルに切り替え",
   "tooltip.mcai.mode_switcher.action": "右クリック：次のモードに切り替え",
   "tooltip.mcai.current": "現在：%s",
-
   "category.mcai": "mcAI アシスタント",
   "key.mcai.vision": "スクリーンショット認識（ビジョン）",
   "key.mcai.build": "建築 / レッドストーンを分析（ビジョン）",
   "mcai.vision.prompt.build": "このMinecraftのスクリーンショットにある建築物またはレッドストーン回路を分析してください。まず仕組みを説明し、次に具体的な改善案を挙げてください。回答は簡潔に。",
   "mcai.vision.prompt.describe": "この画面で重要なものをすべて説明してください。HUDの情報、周囲のブロック、Mobやアイテム、そして危険な要素です。位置と方角は具体的に。回答は簡潔に。",
-
   "mcai.vendor.deepseek": "DeepSeek",
   "mcai.vendor.openai": "OpenAI",
   "mcai.vendor.anthropic": "Anthropic",
@@ -23,22 +20,17 @@
   "mcai.vendor.baidu": "Baidu ERNIE",
   "mcai.vendor.tencent": "Tencent Hunyuan",
   "mcai.vendor.unknown": "不明なベンダー",
-
   "mcai.tier.low": "Low",
   "mcai.tier.mid": "Mid",
   "mcai.tier.high": "High",
   "mcai.tier.unknown": "不明なティア",
-
   "mcai.mode.chat": "チャット",
   "mcai.mode.vision": "ビジョン",
   "mcai.mode.unknown": "不明なモード",
   "mcai.value.unknown": "不明",
-
   "mcai.resolution.original": "オリジナル",
-
   "mcai.source.chat": "チャット",
   "mcai.source.vision": "スクリーンショット",
-
   "mcai.http.400": "リクエストが不正です",
   "mcai.http.401": "APIキーが無効です",
   "mcai.http.402": "残高が不足しています",
@@ -58,15 +50,12 @@
   "mcai.http.server_error": "サーバーエラー",
   "mcai.http.client_error": "リクエストエラー",
   "mcai.http.unknown_error": "不明なエラー",
-
   "mcai.reasoning.prefix": "§7[思考] §8",
   "mcai.reasoning.truncated": "§8…（%s 文字を省略、全 %s 文字。mcai.json の reasoning_max_chars を 0 にすると全文を表示します）",
-
   "mcai.thinking.actionbar": "AI が考えています...",
   "mcai.stream.prefix": "AI：",
   "mcai.thinking.chat": "§7[⏳] AI が考えています...",
   "mcai.thinking.elapsed": "§7(思考：%s秒)",
-
   "mcai.error.config_load": "§c[AI] 設定の読み込みに失敗しました。設定ファイルを確認してください。",
   "mcai.error.no_apikey": "§c[AI] apiKey が未入力です。設定ファイルを編集してください。",
   "mcai.error.no_apiurl": "§c[AI] apiUrl が未入力です。設定ファイルを編集してください。",
@@ -76,10 +65,8 @@
   "mcai.error.response": "応答の処理に失敗しました: %s",
   "mcai.error.unparsable": "§c[AI] 解析できない応答が返されました。",
   "mcai.reply.empty": "（応答に内容がありません）",
-
   "mcai.chat.empty": "§e[AI] 質問を入力してください。例：!ai ダイヤのツルハシの作り方は？",
   "mcai.chat.cooldown": "§e[AI] 連投しないでください。あと %s 秒お待ちください。",
-
   "mcai.prompt.system": "あなたはMinecraftのゲームアシスタントです。プレイヤーの質問に簡潔な日本語で答えてください。",
   "mcai.persona.default": "デフォルト",
   "mcai.persona.builder": "建築",
@@ -90,7 +77,6 @@
   "mcai.persona.suffix.redstone": "レッドストーン技術者の視点で答えてください。まず回路の原理を説明し、次にコンパクトで信頼できる構成と正確なブロックの配置を示してください。",
   "mcai.persona.suffix.survival": "サバイバルモードの案内役として答えてください。序盤向けの低コストな方法を優先し、よくある危険も知らせてください。",
   "mcai.persona.suffix.english": "英会話の練習相手として答えてください。簡単な英語で答え、使った難しい単語を簡単に説明してください。",
-
   "mcai.vision.cooldown": "§e[AI] スクリーンショット認識はクールダウン中です。あと %s 秒お待ちください。",
   "mcai.vision.no_vision": "§c[AI] 現在のモデル %s は画像認識に対応していません。「モデル切り替えツール」でビジョン対応モデル（例：deepseek-flash）に切り替えてください。",
   "mcai.vision.grab_failed": "§c[AI] スクリーンショットに失敗しました：%s",
@@ -100,13 +86,11 @@
   "mcai.vision.failed_network": "§c[AI] スクリーンショット認識に失敗しました (ネットワークエラー: %s)",
   "mcai.vision.prompt": "このMinecraftのスクリーンショットに写っている内容を、簡潔な日本語で説明してください。",
   "mcai.vision.local_hint": "§e[AI] エンドポイントをローカルモデル（例：http://localhost:11434/v1）に向ければ APIキーは不要です。",
-
   "mcai.switch.config_not_ready": "§c[AI] 設定がまだ読み込まれていません。しばらくしてからお試しください。",
   "mcai.switch.no_models": "§c[AI] 利用可能なモデルがありません。切り替えできません。",
   "mcai.switch.no_modes": "§c[AI] 利用可能なモードがありません。切り替えできません。",
   "mcai.switch.model_switched": "§b[AI] モデルを §f%s §bに切り替えました",
   "mcai.switch.mode_switched": "§b[AI] モードを §f%s §bに切り替えました",
-
   "mcai.guide.title": "§b§l[mcAI] §r§f機能とコマンド一覧",
   "mcai.guide.config": "§e /ai config §8→ §7設定画面を開き、APIキーを入力",
   "mcai.guide.ask": "§e !ai §7<質問> §8→ §7チャット欄からAIに質問§8（§7クールダウン 8 秒§8）",
@@ -139,7 +123,6 @@
   "mcai.guide.current_mode": "§8  · 現在のモード：§f%s",
   "mcai.guide.current_resolution": "§8  · スクリーンショット解像度：§f%s §8（mcai.json の vision_resolution で変更可）",
   "mcai.guide.no_key": "§c[!] APIキーが未入力です —— ここをクリックして設定画面を開く",
-
   "mcai.cmd.status_not_ready": "§c[AI] 設定がまだ読み込まれていません。",
   "mcai.cmd.status_title": "§b§l[mcAI] §r§f現在の状態",
   "mcai.cmd.status_model": "§7 · モデル：§f%s",
@@ -188,7 +171,6 @@
   "mcai.cmd.chart_row": "§8 %s  %s §7%s §8tokens  §7¥%s",
   "mcai.cmd.chart_empty": "§8 直近7日間の使用記録はありません。",
   "mcai.cmd.chart_note": "§8 本日：¥%s",
-
   "mcai.ctx.not_in_world": "§c[AI] まだワールドに入っていません。",
   "mcai.ctx.header": "【現在の環境】",
   "mcai.ctx.dimension": "- ディメンション：%s",
@@ -199,15 +181,12 @@
   "mcai.ctx.time": "- 時刻：%s / 24000",
   "mcai.ctx.health": "- 体力：%s / %s",
   "mcai.ctx.ask_default": "現在の環境をもとに、次に何を探すべきか、何をすべきか教えてください。",
-
   "mcai.read.not_found": "§c[AI] 読み取れる文字が見つかりません。カーソルを看板に合わせるか、記入済みの本を手に持ってください。",
   "mcai.read.source_sign": "看板",
   "mcai.read.source_book": "記入済みの本",
   "mcai.read.ask": "以下は Minecraft の%sから取得した文章です。私の言語に翻訳してください。重要な情報があれば短く補足してください：",
-
   "mcai.death.prompt": "Minecraftで死にました。目の前の死亡画面のスクリーンショットを見て、次を教えてください：誰/何に殺されたか、おそらく何を間違えたか、次は具体的にどうすべきか。簡潔に。",
   "mcai.death.broadcast": "☠️ %s が Minecraft で死亡しました",
-
   "mcai.craft.line": "§f%s §7← %s",
   "mcai.craft.local_answer": "§b[ローカルレシピ]§f",
   "mcai.craft.unknown_ingredients": "材料不明",
@@ -219,7 +198,6 @@
   "mcai.cmd.craft_note": "§8 これはローカル回答のため、トークンを消費していません。!ai にアイテム名を付けるとレシピを調べられます。",
   "mcai.cmd.craft_lookup_title": "§b[mcAI] §f「%s」のレシピ：",
   "mcai.cmd.craft_lookup_none": "§8 「%s」のレシピが見つかりません。より短い名前か、正確なアイテム名でお試しください。",
-
   "mcai.task.prompt": "以下の私のインベントリを見て、今すぐ完了できる具体的な小タスクを3つ挙げてください。すでに持っているものだけで作れるものに限ります。1行に1タスク、番号は付けず、余計な説明も不要です。",
   "mcai.task.inventory_header": "【私のインベントリ】",
   "mcai.cmd.task_generating": "§7[mcAI] インベントリからタスクを生成しています……",
@@ -252,7 +230,6 @@
   "mcai.cmd.persona_current": "§b[AI] 現在のペルソナ：§f%s",
   "mcai.cmd.persona_list_title": "§b[mcAI] §f利用可能なペルソナ：",
   "mcai.cmd.persona_usage": "§8 /ai persona <id> で切り替え、/ai persona で現在の設定を確認。",
-
   "mcai.screen.title": "mcAI 設定",
   "mcai.screen.help_link": "APIとは？どこで取得する？",
   "mcai.screen.api_key": "APIキー",
@@ -274,7 +251,6 @@
   "mcai.screen.saved_empty": "§e[AI] 設定を保存しましたが、APIキーが空のためまだ使用できません。",
   "mcai.screen.saved": "§b[AI] 設定を保存しました：§f%s",
   "mcai.screen.saved_hint": "§8 config/mcai.json に非同期で書き込みました。これで §f!ai§8 で質問できます。",
-
   "mcai.help.title": "APIキーとは？",
   "mcai.help.body1": "AIサービスを呼び出すための「通行証」です。このMODはこのキーを使って",
   "mcai.help.body2": "AI企業のサーバーにリクエストを送り、相手はそれでアカウントを識別して課金します。",
@@ -288,16 +264,13 @@
   "mcai.help.note1": "· キーはパスワードと同じです。他人に渡したり、配信やスクリーンショットに映したりしないでください",
   "mcai.help.note2a": "· アカウントに残高が必要です。ない場合は ",
   "mcai.help.note2b": "402 残高不足",
-
   "key.mcai.pick": "範囲を指定してスクリーンショット（ビジョン）",
   "key.mcai.what": "照準先を調べる（これは何）",
   "key.mcai.avatar": "使用量の吹き出し（クジラ娘ウィジェット）",
-
   "mcai.pick.title": "送信する範囲を選択",
   "mcai.pick.hint": "ドラッグで枠を描き、Enter で確定（ESC でキャンセル）。枠の内側だけが送信されるので、画像コストを大幅に節約できます。",
   "mcai.pick.size": "§7選択範囲：%s × %s px（画面の約 %s%%）",
   "mcai.pick.close_screen": "§e[AI] 先に現在の画面を閉じてから、R を押して範囲を指定してください。",
-
   "mcai.preview.title": "送信するスクリーンショットの確認",
   "mcai.preview.send": "送信",
   "mcai.preview.discard": "キャンセル",
@@ -305,18 +278,14 @@
   "mcai.preview.cost": "§7およそ %s 画像トークン / ¥%s",
   "mcai.preview.cost_unknown": "§7およそ %s 画像トークン（このモデルの単価表がありません）",
   "mcai.preview.no_texture": "プレビュー画像を生成できませんでした。送信されるのは処理後のスクリーンショットです。",
-
   "mcai.chat.estimate": "§8[概算] このリクエストは約 ¥%s",
   "mcai.chat.click_copy_coords": "§7クリックで座標をコピー：§f%s",
   "mcai.chat.click_ask_item": "§7クリックでチャット欄に入力：§f%s",
   "mcai.chat.click_copy_reply": "§7クリックで回答全体をコピー",
   "mcai.chat.cost": " §8[§7実測 ¥%s§8]",
   "mcai.cache.hit": "§8[キャッシュ] 以前と同じ質問だったため、前回の回答を再利用しました（トークン消費なし）。",
-
   "mcai.prompt.memories": "プレイヤーについての次の事実を常に覚えておいてください：",
-
   "mcai.danger.prompt": "体力がかなり低く、近くに敵対 Mob がいます。このスクリーンショットを見て、1〜2 文で教えてください：逃げるべきか戦うべきか、どちらへ退避すべきか、今すぐできる生存行動はあるか。",
-
   "mcai.cmd.budget_warn": "§e[AI] 本日 ¥%s / 予算 ¥%s を使用（%s%%）。上限が近いです。安いモデルへの切り替えもご検討ください。",
   "mcai.cmd.cancel_done": "§b[AI] リクエストを中止しました。",
   "mcai.cmd.cancel_none": "§8[AI] 進行中のリクエストはありません。",
@@ -328,30 +297,25 @@
   "mcai.cmd.memories_title": "§b[mcAI] §f覚えていること：",
   "mcai.cmd.memories_empty": "§8 まだ何も覚えていません。§7/ai remember <内容>§8 で追加できます。",
   "mcai.cmd.forget_done": "§b[AI] 忘れました。",
-
   "mcai.cmd.flag_preview": "送信前プレビュー",
   "mcai.cmd.flag_mask": "プライバシーマスク",
   "mcai.cmd.flag_tts": "読み上げ",
   "mcai.cmd.flag_danger": "危険アラート",
   "mcai.cmd.flag_cache": "回答キャッシュ",
   "mcai.cmd.flag_env": "Mod 構成の認識",
-
   "mcai.cmd.flag_avatar": "クジラ娘ウィジェット",
   "mcai.cmd.provider_invalid": "§c不明な API プロトコル：%s（auto / openai / gemini / claude）",
   "mcai.cmd.provider_set": "§b[AI] API プロトコルを §f%s§b に設定しました（実際に使用中：§f%s§b）",
   "mcai.cmd.retry_off": "§b[AI] 失敗時の自動再試行を無効にしました",
   "mcai.cmd.retry_set": "§b[AI] 失敗時の自動再試行回数：§f%s",
-
   "mcai.what.block": "照準先のブロックは「%s」（登録 ID %s）、座標 X=%s Y=%s Z=%s です。これは何ですか？用途・入手方法・注意点を教えてください。",
   "mcai.what.entity": "照準先のエンティティは「%s」（登録 ID %s）です。これは何ですか？注意点は？",
   "mcai.what.entity_living": "照準先のモブは「%s」（登録 ID %s）、現在の体力は %s/%s です。これは何ですか？危険ですか？戦うべきですか？",
   "mcai.what.nothing": "§e[AI] 照準先にブロックもエンティティもありません。",
-
   "mcai.inv.question": "現在のインベントリの中身です（防具とオフハンドを含み、E を押したときと同じ順序）：\n%s\nこれについて答えてください：%s",
   "mcai.inv.default_question": "今何ができますか？注意すべき点はありますか？",
   "mcai.inv.history_note": "（インベントリ一覧を添付）%s",
   "mcai.inv.empty": "§e[AI] インベントリは空です。",
-
   "mcai.avatar.line_cost": "§7本日：§f¥%s§7 · §f%s§7 トークン",
   "mcai.avatar.line_budget": "§7予算の残り：§f¥%s§7（%s%% 使用済み）",
   "mcai.avatar.line_budget_off": "§7予算：§8未設定",
@@ -364,13 +328,11 @@
   "mcai.avatar.line_balance_loading": "§7残高：§8照会中…",
   "mcai.avatar.line_balance_unknown": "§7残高：§8取得できません（キーまたはネットワークを確認）",
   "mcai.avatar.line_none": "§8（表示項目が選択されていません）",
-
   "mcai.guide.what": "§e V §8→ §7ブロック / モブに照準を合わせて「これは何」と聞く",
   "mcai.guide.avatar": "§e B §8→ §7使用量の吹き出しを切り替え§8（§7位置は §e/ai avatar edit§8）",
   "mcai.guide.inv": "§e /ai inv §7[質問] §8→ §7インベントリを AI に渡して分析させる",
   "mcai.guide.toggles_125": "§e /ai avatar §7on|off §8、§e/ai provider §7<auto|openai|gemini|claude> §8、§e/ai retry §7<回数>",
   "mcai.guide.more": "§8  · コマンド一覧（全部）：§e/ai help",
-
   "mcai.config.group.connection": "接続と API キー",
   "mcai.config.group.model": "モデルとモード",
   "mcai.config.group.cost": "費用と予算",
@@ -380,6 +342,13 @@
   "mcai.config.group.sound": "サウンドと読み上げ",
   "mcai.config.group.notify": "通知と連携",
   "mcai.config.group.avatar": "ウィジェット",
+  "mcai.config.group.background": "画面の背景",
+  "mcai.config.screen_background": "背景スタイル",
+  "mcai.config.background.dim": "暗転（バニラ）",
+  "mcai.config.background.dirt": "土",
+  "mcai.config.background.none": "透明",
+  "mcai.config.background.custom": "カスタム画像",
+  "mcai.config.background_image": "背景画像のパス",
   "mcai.config.group.misc": "その他",
   "mcai.config.group.keys": "キー設定",
   "mcai.config.search": "設定を検索",
@@ -431,7 +400,6 @@
   "mcai.config.avatar_image": "カスタム画像のパス（空欄で内蔵）",
   "mcai.config.avatar_sound": "ウィジェット押下時に音を鳴らす",
   "mcai.config.avatar_bubble": "吹き出しの表示項目（; 区切り）",
-
   "mcai.avatar.tip_click": "B で使用量の吹き出しを切り替え",
   "mcai.avatar.tip_drag": "位置の変更は /ai avatar edit",
   "mcai.avatar.bubble_empty": "（表示できる統計がありません）",

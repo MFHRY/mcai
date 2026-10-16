@@ -48,6 +48,11 @@ public final class McaiModClient {
 
     /** 由 {@code McaiMod} 经 {@code DistExecutor} 调用，只在物理客户端上执行。 */
     public static void register(IEventBus modBus) {
+        // 每个环节都打一行日志。这个移植没有在开发环境跑过，所以"客户端模块到底有没有
+        // 装上"必须能从日志里直接读出来，而不是靠猜。上一版一行都没打，出了问题只能
+        // 从症状倒推，代价很大。
+        McaiMod.LOGGER.info("mcAI client modules: registering event listeners");
+
         // ---- mod 总线：初始化期一次性事件 ----
         modBus.addListener(McaiModClient::onRegisterKeyMappings);
 
@@ -59,6 +64,9 @@ public final class McaiModClient {
         MinecraftForge.EVENT_BUS.addListener(McaiModClient::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(McaiModClient::onLoggedOut);
         MinecraftForge.EVENT_BUS.addListener(ItemSwitchHandler::onRightClickItem);
+
+        McaiMod.LOGGER.info("mcAI client modules: 8 listeners registered "
+                + "(tick, commands, hud, chat, join, leave, item-use)");
 
         // ---- 不需要额外接线的模块 ----
         // ChatHandler / StartupGuide / WorldScope / AvatarWidget / VisionHandler /
@@ -77,6 +85,9 @@ public final class McaiModClient {
     private static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         VisionHandler.registerKeyMappings(event);
         AvatarWidget.registerKeyMappings(event);
+        // 这行是"按键到底有没有登记上"的唯一证据。挂错事件总线时这里根本不会执行，
+        // 而且游戏不会有任何报错，只是按键不出现在「选项 → 控制」里。
+        McaiMod.LOGGER.info("mcAI key mappings registered: H, G, R, V (screenshots) and B (widget bubble)");
     }
 
     // ------------------------------------------------------------------ 每 tick
@@ -114,6 +125,9 @@ public final class McaiModClient {
      */
     private static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
         AiCommand.onRegisterCommands(event.getDispatcher());
+        // 指令注册成功与否同样只能从日志确认：注册失败时游戏不报错，
+        // 只是输入 /ai 会得到"未知指令"。
+        McaiMod.LOGGER.info("mcAI registered the /ai client command tree");
     }
 
     /** HUD 渲染（鲸鱼娘挂件）。 */
@@ -135,6 +149,7 @@ public final class McaiModClient {
 
     /** 进入世界：切上下文作用域 + 准备打印进服清单。 */
     private static void onLoggedIn(ClientPlayerNetworkEvent.LoggingIn event) {
+        McaiMod.LOGGER.info("mcAI: joined a world, scope = {}", WorldScope.current());
         WorldScope.onJoin();
         StartupGuide.onJoin();
     }

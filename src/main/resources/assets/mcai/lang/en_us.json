@@ -1,18 +1,15 @@
 {
   "_comment": "mcAI English strings. The Chinese counterpart is zh_cn.json; both files must keep the exact same key set.",
-
   "item.mcai.ai_model_switcher": "AI Model Switcher",
   "item.mcai.ai_mode_switcher": "AI Mode Switcher",
   "tooltip.mcai.model_switcher.action": "Right-click: switch to the next model",
   "tooltip.mcai.mode_switcher.action": "Right-click: switch to the next mode",
   "tooltip.mcai.current": "Current: %s",
-
   "category.mcai": "mcAI Assistant",
   "key.mcai.vision": "Screenshot Recognition (Vision)",
   "key.mcai.build": "Analyze Build / Redstone (Vision)",
   "mcai.vision.prompt.build": "Analyze the Minecraft build or redstone circuit in this screenshot: explain how it works, then suggest concrete improvements. Keep it short.",
   "mcai.vision.prompt.describe": "Describe everything important on this screen: the HUD, the blocks around me, any mobs or items, and any danger. Be concrete about positions and directions. Keep it short.",
-
   "mcai.vendor.deepseek": "DeepSeek",
   "mcai.vendor.openai": "OpenAI",
   "mcai.vendor.anthropic": "Anthropic",
@@ -23,22 +20,17 @@
   "mcai.vendor.baidu": "Baidu ERNIE",
   "mcai.vendor.tencent": "Tencent Hunyuan",
   "mcai.vendor.unknown": "Unknown vendor",
-
   "mcai.tier.low": "Low",
   "mcai.tier.mid": "Mid",
   "mcai.tier.high": "High",
   "mcai.tier.unknown": "Unknown tier",
-
   "mcai.mode.chat": "Chat",
   "mcai.mode.vision": "Vision",
   "mcai.mode.unknown": "Unknown mode",
   "mcai.value.unknown": "Unknown",
-
   "mcai.resolution.original": "Original",
-
   "mcai.source.chat": "chat",
   "mcai.source.vision": "screenshot",
-
   "mcai.http.400": "Bad request",
   "mcai.http.401": "Invalid API key",
   "mcai.http.402": "Insufficient balance",
@@ -58,15 +50,12 @@
   "mcai.http.server_error": "Server error",
   "mcai.http.client_error": "Bad request",
   "mcai.http.unknown_error": "Unknown error",
-
   "mcai.reasoning.prefix": "§7[Thinking] §8",
   "mcai.reasoning.truncated": "§8... (%s of %s chars hidden; set reasoning_max_chars to 0 in mcai.json to show everything)",
-
   "mcai.thinking.actionbar": "AI is thinking...",
   "mcai.stream.prefix": "AI:",
   "mcai.thinking.chat": "§7[⏳] AI is thinking...",
   "mcai.thinking.elapsed": "§7(%ss)",
-
   "mcai.error.config_load": "§c[AI] Failed to load the config, please check the config file.",
   "mcai.error.no_apikey": "§c[AI] apiKey is not set yet, please edit the config file first.",
   "mcai.error.no_apiurl": "§c[AI] apiUrl is not set yet, please edit the config file first.",
@@ -76,10 +65,8 @@
   "mcai.error.response": "failed to handle the response: %s",
   "mcai.error.unparsable": "§c[AI] The API returned a response that could not be parsed.",
   "mcai.reply.empty": "(the API returned no content)",
-
   "mcai.chat.empty": "§e[AI] Please type a question, for example: !ai How do I craft a diamond pickaxe?",
   "mcai.chat.cooldown": "§e[AI] Please slow down, wait another %ss.",
-
   "mcai.prompt.system": "You are a Minecraft game assistant. Answer the player's questions concisely in English.",
   "mcai.persona.default": "default",
   "mcai.persona.builder": "Builder",
@@ -90,7 +77,6 @@
   "mcai.persona.suffix.redstone": "Act as a redstone engineer. Explain the circuit principle first, then give a compact, reliable design with exact block placement.",
   "mcai.persona.suffix.survival": "Act as a survival-mode guide. Prefer early-game, low-resource solutions and warn about common dangers.",
   "mcai.persona.suffix.english": "Act as an English tutor. Answer in simple English and briefly explain any difficult word you use.",
-
   "mcai.vision.cooldown": "§e[AI] Screenshot recognition is cooling down, wait another %ss.",
   "mcai.vision.no_vision": "§c[AI] Model %s does not support image input. Use the \"AI Model Switcher\" to pick a vision-capable model (for example deepseek-flash).",
   "mcai.vision.grab_failed": "§c[AI] Screenshot failed: %s",
@@ -100,13 +86,11 @@
   "mcai.vision.failed_network": "§c[AI] Screenshot recognition failed (network error: %s)",
   "mcai.vision.prompt": "Briefly describe what you see in this Minecraft screenshot.",
   "mcai.vision.local_hint": "§e[AI] Point the endpoint at a local model (for example http://localhost:11434/v1) so no API key is required.",
-
   "mcai.switch.config_not_ready": "§c[AI] The config is not loaded yet, please try again in a moment.",
   "mcai.switch.no_models": "§c[AI] The model list is empty, nothing to switch to.",
   "mcai.switch.no_modes": "§c[AI] The mode list is empty, nothing to switch to.",
   "mcai.switch.model_switched": "§b[AI] Model switched to §f%s",
   "mcai.switch.mode_switched": "§b[AI] Mode switched to §f%s",
-
   "mcai.guide.title": "§b§l[mcAI] §r§fFeatures and commands",
   "mcai.guide.config": "§e /ai config §8-> §7Open the settings screen and enter your API Key",
   "mcai.guide.ask": "§e !ai §7<question> §8-> §7Ask the AI in chat§8 (§78s cooldown§8)",
@@ -139,7 +123,6 @@
   "mcai.guide.current_mode": "§8  - Current mode: §f%s",
   "mcai.guide.current_resolution": "§8  - Screenshot resolution: §f%s §8(change vision_resolution in mcai.json)",
   "mcai.guide.no_key": "§c[!] API Key is not set - click here to open the settings screen",
-
   "mcai.cmd.status_not_ready": "§c[AI] The config is not loaded yet.",
   "mcai.cmd.status_title": "§b§l[mcAI] §r§fCurrent status",
   "mcai.cmd.status_model": "§7 - Model: §f%s",
@@ -188,7 +171,6 @@
   "mcai.cmd.chart_row": "§8 %s  %s §7%s §8tokens  §7¥%s",
   "mcai.cmd.chart_empty": "§8 No usage recorded in the last 7 days.",
   "mcai.cmd.chart_note": "§8 Today: ¥%s",
-
   "mcai.ctx.not_in_world": "§c[AI] You are not in a world yet.",
   "mcai.ctx.header": "[Current environment]",
   "mcai.ctx.dimension": "- Dimension: %s",
@@ -199,15 +181,12 @@
   "mcai.ctx.time": "- Time of day: %s / 24000",
   "mcai.ctx.health": "- Health: %s / %s",
   "mcai.ctx.ask_default": "Based on my current environment, tell me what I should look for or do next.",
-
   "mcai.read.not_found": "§c[AI] Nothing readable: look at a sign, or hold a written book.",
   "mcai.read.source_sign": "sign",
   "mcai.read.source_book": "written book",
   "mcai.read.ask": "Translate the following text from a Minecraft %s into my language, then add one short note if anything looks important:",
-
   "mcai.death.prompt": "I just died in Minecraft. Look at this screenshot of the death screen and tell me what killed me, what mistake I likely made, and one concrete thing to do differently next time. Keep it short.",
   "mcai.death.broadcast": "☠️ %s died in Minecraft",
-
   "mcai.craft.line": "§f%s §7<- %s",
   "mcai.craft.local_answer": "§b[Local recipe]§f",
   "mcai.craft.unknown_ingredients": "ingredients unknown",
@@ -219,7 +198,6 @@
   "mcai.cmd.craft_note": "§8 Answered locally - no tokens used. Ask an item name after !ai to see its recipe.",
   "mcai.cmd.craft_lookup_title": "§b[mcAI] §fRecipes for \"%s\":",
   "mcai.cmd.craft_lookup_none": "§8 No recipe found for \"%s\". Try a shorter name, or name the exact item.",
-
   "mcai.task.prompt": "Look at my inventory below and give me exactly 3 short, concrete tasks I can finish right now using only what I already have. One task per line, no numbering, no extra commentary.",
   "mcai.task.inventory_header": "[My inventory]",
   "mcai.cmd.task_generating": "§7[mcAI] Generating a task from your inventory...",
@@ -252,7 +230,6 @@
   "mcai.cmd.persona_current": "§b[AI] Current persona: §f%s",
   "mcai.cmd.persona_list_title": "§b[mcAI] §fAvailable personas:",
   "mcai.cmd.persona_usage": "§8 Use /ai persona <id> to switch; /ai persona to see the current one.",
-
   "mcai.screen.title": "mcAI Settings",
   "mcai.screen.help_link": "What is an API? Where do I get one?",
   "mcai.screen.api_key": "API Key",
@@ -274,7 +251,6 @@
   "mcai.screen.saved_empty": "§e[AI] Settings saved, but the API Key is still empty so the mod cannot be used yet.",
   "mcai.screen.saved": "§b[AI] Settings saved: §f%s",
   "mcai.screen.saved_hint": "§8 Written to config/mcai.json asynchronously; you can now ask with §f!ai§8.",
-
   "mcai.help.title": "What is an API Key?",
   "mcai.help.body1": "It is the \"passport\" for calling an AI service. This mod sends the key",
   "mcai.help.body2": "to the provider's servers, which use it to identify and bill your account.",
@@ -288,16 +264,13 @@
   "mcai.help.note1": "- Treat the key like a password: never share it or show it in streams/screenshots",
   "mcai.help.note2a": "- Your account needs a positive balance, otherwise you get ",
   "mcai.help.note2b": "402 insufficient balance",
-
   "key.mcai.pick": "Region Screenshot (Vision)",
   "key.mcai.what": "Inspect Crosshair (What is this)",
   "key.mcai.avatar": "Usage bubble (whale widget)",
-
   "mcai.pick.title": "Select the region to send",
   "mcai.pick.hint": "Drag to draw a box, then press Enter to confirm (ESC cancels). Only the boxed area is sent, which saves most of the image cost.",
   "mcai.pick.size": "§7Selection: %s x %s px, about %s%% of the screen",
   "mcai.pick.close_screen": "§e[AI] Close the current screen first, then press R to pick a region.",
-
   "mcai.preview.title": "Confirm the screenshot to send",
   "mcai.preview.send": "Send",
   "mcai.preview.discard": "Cancel",
@@ -305,18 +278,14 @@
   "mcai.preview.cost": "§7about %s image tokens / ¥%s",
   "mcai.preview.cost_unknown": "§7about %s image tokens (no price table for this model)",
   "mcai.preview.no_texture": "The preview image could not be built; the processed screenshot is still what gets sent.",
-
   "mcai.chat.estimate": "§8[estimate] this request costs about ¥%s",
   "mcai.chat.click_copy_coords": "§7Click to copy the coordinates: §f%s",
   "mcai.chat.click_ask_item": "§7Click to put this in the chat box: §f%s",
   "mcai.chat.click_copy_reply": "§7Click to copy the whole reply",
   "mcai.chat.cost": " §8[§7actual ¥%s§8]",
   "mcai.cache.hit": "§8[cache] You asked this before — reused the previous answer (no tokens spent).",
-
   "mcai.prompt.memories": "Always keep the following facts about the player in mind:",
-
   "mcai.danger.prompt": "My health is very low and there are hostile mobs nearby. Look at this screenshot and tell me in one or two sentences: should I run or fight, which way should I retreat, and is there anything I can do right now to survive?",
-
   "mcai.cmd.budget_warn": "§e[AI] ¥%s of the ¥%s budget spent today (%s%%). Getting close — consider a cheaper model, or stop here.",
   "mcai.cmd.cancel_done": "§b[AI] Request cancelled.",
   "mcai.cmd.cancel_none": "§8[AI] There is no request in progress.",
@@ -328,30 +297,25 @@
   "mcai.cmd.memories_title": "§b[mcAI] §fThings I remember:",
   "mcai.cmd.memories_empty": "§8 Nothing remembered yet. Add one with §7/ai remember <text>§8.",
   "mcai.cmd.forget_done": "§b[AI] Forgotten.",
-
   "mcai.cmd.flag_preview": "Send preview",
   "mcai.cmd.flag_mask": "Privacy mask",
   "mcai.cmd.flag_tts": "Text to speech",
   "mcai.cmd.flag_danger": "Danger alert",
   "mcai.cmd.flag_cache": "Answer cache",
   "mcai.cmd.flag_env": "Modlist awareness",
-
   "mcai.cmd.flag_avatar": "Whale companion",
   "mcai.cmd.provider_invalid": "§cUnknown API protocol: %s (use auto / openai / gemini / claude)",
   "mcai.cmd.provider_set": "§b[AI] API protocol set to §f%s§b; actually using §f%s",
   "mcai.cmd.retry_off": "§b[AI] Automatic retry disabled",
   "mcai.cmd.retry_set": "§b[AI] Retry attempts on failure: §f%s",
-
   "mcai.what.block": "The block under my crosshair is \"%s\" (registry id %s) at X=%s Y=%s Z=%s. What is it, what is it for, how do I get it, and what should I watch out for?",
   "mcai.what.entity": "The entity under my crosshair is \"%s\" (registry id %s). What is it and what should I watch out for?",
   "mcai.what.entity_living": "The mob under my crosshair is \"%s\" (registry id %s) with %s/%s health. What is it? Is it dangerous? Should I fight it?",
   "mcai.what.nothing": "§e[AI] Your crosshair is not pointing at any block or entity.",
-
   "mcai.inv.question": "These are the items in my inventory right now (including armour and offhand, in the same order as when I press E):\n%s\nAnswer this: %s",
   "mcai.inv.default_question": "What can I do right now, and is anything worth noting?",
   "mcai.inv.history_note": "(inventory list attached) %s",
   "mcai.inv.empty": "§e[AI] Your inventory is empty.",
-
   "mcai.avatar.line_cost": "§7Today: §f¥%s§7 · §f%s§7 tokens",
   "mcai.avatar.line_budget": "§7Budget left: §f¥%s§7 (%s%% used)",
   "mcai.avatar.line_budget_off": "§7Budget: §8not set",
@@ -364,13 +328,11 @@
   "mcai.avatar.line_balance_loading": "§7Balance: §8checking…",
   "mcai.avatar.line_balance_unknown": "§7Balance: §8unavailable (check key or network)",
   "mcai.avatar.line_none": "§8(nothing selected to show)",
-
   "mcai.guide.what": "§e V §8-> §7Look at a block or mob and ask what it is",
   "mcai.guide.avatar": "§e B §8-> §7Toggle the usage bubble§8 (§7move the widget with §e/ai avatar edit§8)",
   "mcai.guide.inv": "§e /ai inv §7[question] §8-> §7Hand your inventory to the AI for analysis",
   "mcai.guide.toggles_125": "§e /ai avatar §7on|off §8, §e/ai provider §7<auto|openai|gemini|claude> §8, §e/ai retry §7<count>",
   "mcai.guide.more": "§8  - Full command list: §e/ai help",
-
   "mcai.config.group.connection": "Connection & API key",
   "mcai.config.group.model": "Model & mode",
   "mcai.config.group.cost": "Cost & budget",
@@ -380,6 +342,13 @@
   "mcai.config.group.sound": "Sound & speech",
   "mcai.config.group.notify": "Notifications & integrations",
   "mcai.config.group.avatar": "Widget",
+  "mcai.config.group.background": "Screen background",
+  "mcai.config.screen_background": "Background style",
+  "mcai.config.background.dim": "Dim (vanilla)",
+  "mcai.config.background.dirt": "Dirt",
+  "mcai.config.background.none": "Transparent",
+  "mcai.config.background.custom": "Custom image",
+  "mcai.config.background_image": "Background image path",
   "mcai.config.group.misc": "Misc",
   "mcai.config.group.keys": "Key bindings",
   "mcai.config.search": "Search settings",
@@ -431,7 +400,6 @@
   "mcai.config.avatar_image": "Custom avatar image path (empty = built-in)",
   "mcai.config.avatar_sound": "Play a sound when the widget is pressed",
   "mcai.config.avatar_bubble": "Bubble items (separate with ;)",
-
   "mcai.avatar.tip_click": "Press B to toggle the usage bubble",
   "mcai.avatar.tip_drag": "Use /ai avatar edit to move it",
   "mcai.avatar.bubble_empty": "(no stats available)",

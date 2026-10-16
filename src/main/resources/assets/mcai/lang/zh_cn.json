@@ -1,18 +1,15 @@
 {
   "_comment": "mcAI 简体中文文案。英文在 en_us.json，两份必须保持键名一致。",
-
   "item.mcai.ai_model_switcher": "模型切换器",
   "item.mcai.ai_mode_switcher": "模式切换器",
   "tooltip.mcai.model_switcher.action": "右键：切换到下一个模型",
   "tooltip.mcai.mode_switcher.action": "右键：切换到下一个模式",
   "tooltip.mcai.current": "当前：%s",
-
   "category.mcai": "mcAI 智能助手",
   "key.mcai.vision": "截图识别（视觉）",
   "key.mcai.build": "分析建筑 / 红石（视觉）",
   "mcai.vision.prompt.build": "请分析这张 Minecraft 截图里的建筑或红石电路：先说明它的工作原理，再给出具体的改进建议。回答要简洁。",
   "mcai.vision.prompt.describe": "请描述这个画面上所有重要的内容：界面信息、我周围的方块、任何生物或物品、以及潜在危险。位置和方向要说得具体。回答要简洁。",
-
   "mcai.vendor.deepseek": "深度求索",
   "mcai.vendor.openai": "OpenAI",
   "mcai.vendor.anthropic": "Anthropic",
@@ -23,22 +20,17 @@
   "mcai.vendor.baidu": "百度文心",
   "mcai.vendor.tencent": "腾讯混元",
   "mcai.vendor.unknown": "未知厂商",
-
   "mcai.tier.low": "Low",
   "mcai.tier.mid": "Mid",
   "mcai.tier.high": "High",
   "mcai.tier.unknown": "未知等级",
-
   "mcai.mode.chat": "聊天",
   "mcai.mode.vision": "视觉识别",
   "mcai.mode.unknown": "未知模式",
   "mcai.value.unknown": "未知",
-
   "mcai.resolution.original": "原始",
-
   "mcai.source.chat": "聊天",
   "mcai.source.vision": "截图",
-
   "mcai.http.400": "请求参数错误",
   "mcai.http.401": "密钥无效",
   "mcai.http.402": "余额不足",
@@ -58,15 +50,12 @@
   "mcai.http.server_error": "服务器错误",
   "mcai.http.client_error": "请求错误",
   "mcai.http.unknown_error": "未知错误",
-
   "mcai.reasoning.prefix": "§7[思考] §8",
   "mcai.reasoning.truncated": "§8…（省略 %s 字，共 %s 字；把 mcai.json 的 reasoning_max_chars 设为 0 可显示完整思考）",
-
   "mcai.thinking.actionbar": "AI 正在思考中...",
   "mcai.stream.prefix": "AI：",
   "mcai.thinking.chat": "§7[⏳] AI 正在思考中...",
   "mcai.thinking.elapsed": "§7(思考：%s秒)",
-
   "mcai.error.config_load": "§c[AI] 配置加载失败，请检查配置文件。",
   "mcai.error.no_apikey": "§c[AI] 还没有填写 apiKey，请先修改配置文件。",
   "mcai.error.no_apiurl": "§c[AI] 还没有填写 apiUrl，请先修改配置文件。",
@@ -76,10 +65,8 @@
   "mcai.error.response": "处理响应失败: %s",
   "mcai.error.unparsable": "§c[AI] 接口返回了无法识别的内容。",
   "mcai.reply.empty": "（接口没有返回内容）",
-
   "mcai.chat.empty": "§e[AI] 请输入你的问题，例如：!ai 怎么合成钻石镐？",
   "mcai.chat.cooldown": "§e[AI] 请不要刷屏，还需等待 %s 秒。",
-
   "mcai.prompt.system": "你是一个 Minecraft 游戏助手，请用简洁的中文回答玩家的问题。",
   "mcai.persona.default": "默认",
   "mcai.persona.builder": "建筑",
@@ -90,7 +77,6 @@
   "mcai.persona.suffix.redstone": "请以红石工程师的视角回答：先讲清电路原理，再给出紧凑可靠的方案和精确的方块摆放。",
   "mcai.persona.suffix.survival": "请以生存模式向导的视角回答：优先给前期、低消耗的方案，并提醒常见危险。",
   "mcai.persona.suffix.english": "请以英语陪练的身份回答：用简单英文作答，并简要解释你用到的难词。",
-
   "mcai.vision.cooldown": "§e[AI] 截图识别冷却中，还需等待 %s 秒。",
   "mcai.vision.no_vision": "§c[AI] 当前模型 %s 不支持图片识别。请用「模型切换器」切换到支持视觉的模型（例如 deepseek-flash）。",
   "mcai.vision.grab_failed": "§c[AI] 截图失败：%s",
@@ -100,13 +86,11 @@
   "mcai.vision.failed_network": "§c[AI] 截图识别失败 (网络错误: %s)",
   "mcai.vision.prompt": "请用简洁的中文描述你在这张 Minecraft 游戏截图里看到的内容。",
   "mcai.vision.local_hint": "§e[AI] 把接口地址指向本地模型（例如 http://localhost:11434/v1）就不需要 API Key。",
-
   "mcai.switch.config_not_ready": "§c[AI] 配置尚未加载完成，请稍后再试。",
   "mcai.switch.no_models": "§c[AI] 可用模型列表为空，无法切换。",
   "mcai.switch.no_modes": "§c[AI] 可用模式列表为空，无法切换。",
   "mcai.switch.model_switched": "§b[AI] 模型已切换为 §f%s",
   "mcai.switch.mode_switched": "§b[AI] 模式已切换为 §f%s",
-
   "mcai.guide.title": "§b§l[mcAI] §r§f功能与指令一览",
   "mcai.guide.config": "§e /ai config §8→ §7打开设置窗口，填写 API Key",
   "mcai.guide.ask": "§e !ai §7<问题> §8→ §7在聊天栏向 AI 提问§8（§7冷却 8 秒§8）",
@@ -139,7 +123,6 @@
   "mcai.guide.current_mode": "§8  · 当前模式：§f%s",
   "mcai.guide.current_resolution": "§8  · 截图分辨率：§f%s §8（可在 mcai.json 里改 vision_resolution）",
   "mcai.guide.no_key": "§c[!] 还没有填写 API Key —— 点这里打开设置窗口",
-
   "mcai.cmd.status_not_ready": "§c[AI] 配置尚未加载完成。",
   "mcai.cmd.status_title": "§b§l[mcAI] §r§f当前状态",
   "mcai.cmd.status_model": "§7 · 模型：§f%s",
@@ -188,7 +171,6 @@
   "mcai.cmd.chart_row": "§8 %s  %s §7%s §8tokens  §7¥%s",
   "mcai.cmd.chart_empty": "§8 最近 7 天没有用量记录。",
   "mcai.cmd.chart_note": "§8 今日：¥%s",
-
   "mcai.ctx.not_in_world": "§c[AI] 你还没有进入世界。",
   "mcai.ctx.header": "【当前环境】",
   "mcai.ctx.dimension": "- 维度：%s",
@@ -199,15 +181,12 @@
   "mcai.ctx.time": "- 时间：%s / 24000",
   "mcai.ctx.health": "- 生命值：%s / %s",
   "mcai.ctx.ask_default": "根据我当前的环境，告诉我接下来该找什么、该做什么。",
-
   "mcai.read.not_found": "§c[AI] 没找到可读的文字：请准星对准告示牌，或手持成书。",
   "mcai.read.source_sign": "告示牌",
   "mcai.read.source_book": "成书",
   "mcai.read.ask": "请把下面这段来自 Minecraft %s 的文字翻译成我的语言，如果有重要信息再补一句简短说明：",
-
   "mcai.death.prompt": "我刚刚在 Minecraft 里死了。请看你面前这张死亡界面的截图，告诉我：是谁/什么杀死了我、我大概犯了什么错、下次具体该怎么做。要简洁。",
   "mcai.death.broadcast": "☠️ %s 在 Minecraft 里死了",
-
   "mcai.craft.line": "§f%s §7← %s",
   "mcai.craft.local_answer": "§b[本地配方]§f",
   "mcai.craft.unknown_ingredients": "材料未知",
@@ -219,7 +198,6 @@
   "mcai.cmd.craft_note": "§8 本条为本地回答，未消耗 token。用 !ai 加物品名可查它的配方。",
   "mcai.cmd.craft_lookup_title": "§b[mcAI] §f「%s」的配方：",
   "mcai.cmd.craft_lookup_none": "§8 没找到「%s」的配方。可以换个更短的名字，或用物品的准确名称再试。",
-
   "mcai.task.prompt": "看看下面我的背包，给我 3 个现在就能完成的具体小任务，只能用我已经有的东西。每行一个任务，不要编号，不要多余的解释。",
   "mcai.task.inventory_header": "【我的背包】",
   "mcai.cmd.task_generating": "§7[mcAI] 正在根据你的背包生成任务……",
@@ -252,7 +230,6 @@
   "mcai.cmd.persona_current": "§b[AI] 当前人格：§f%s",
   "mcai.cmd.persona_list_title": "§b[mcAI] §f可用人格：",
   "mcai.cmd.persona_usage": "§8 用 /ai persona <id> 切换；/ai persona 查看当前。",
-
   "mcai.screen.title": "mcAI 设置",
   "mcai.screen.help_link": "API 是什么？在哪里获取？",
   "mcai.screen.api_key": "API Key",
@@ -274,7 +251,6 @@
   "mcai.screen.saved_empty": "§e[AI] 设置已保存，但 API Key 还是空的，暂时无法使用。",
   "mcai.screen.saved": "§b[AI] 设置已保存：§f%s",
   "mcai.screen.saved_hint": "§8 已异步写入 config/mcai.json，现在可以用 §f!ai§8 提问了。",
-
   "mcai.help.title": "什么是 API Key？",
   "mcai.help.body1": "它是调用 AI 服务的「通行证」。本模组拿着这串密钥",
   "mcai.help.body2": "去请求 AI 公司的服务器，对方凭它识别你的账号并计费。",
@@ -288,16 +264,13 @@
   "mcai.help.note1": "· 密钥等同密码，不要发给别人，也别在直播/截图里露出",
   "mcai.help.note2a": "· 账户需要有余额，否则会返回 ",
   "mcai.help.note2b": "402 余额不足",
-
   "key.mcai.pick": "框选截图（视觉）",
   "key.mcai.what": "准星查询（这是什么）",
   "key.mcai.avatar": "用量气泡（鲸鱼娘挂件）",
-
   "mcai.pick.title": "框选要发送的区域",
   "mcai.pick.hint": "拖拽鼠标画框 → 回车确认，ESC 取消。只有框住的部分会发给 AI，能省下大部分图片费用。",
   "mcai.pick.size": "§7当前选区：%s × %s 像素，约占整屏 %s%%",
   "mcai.pick.close_screen": "§e[AI] 请先关掉当前界面，再按 R 框选截图。",
-
   "mcai.preview.title": "确认要发送的截图",
   "mcai.preview.send": "发送",
   "mcai.preview.discard": "取消",
@@ -305,18 +278,14 @@
   "mcai.preview.cost": "§7预计约 %s 图片 token / ¥%s",
   "mcai.preview.cost_unknown": "§7预计约 %s 图片 token（该模型没有单价表）",
   "mcai.preview.no_texture": "预览图没能生成，实际发送的仍是处理后的截图。",
-
   "mcai.chat.estimate": "§8[预估] 本次请求约 ¥%s",
   "mcai.chat.click_copy_coords": "§7点击复制坐标：§f%s",
   "mcai.chat.click_ask_item": "§7点击填入提问：§f%s",
   "mcai.chat.click_copy_reply": "§7点击复制整段回答",
   "mcai.chat.cost": " §8[§7实际 ¥%s§8]",
   "mcai.cache.hit": "§8[缓存] 这个问题之前问过，直接用了上次的回答（未消耗 token）。",
-
   "mcai.prompt.memories": "请务必记住以下关于玩家的事实：",
-
   "mcai.danger.prompt": "我血量很低，附近有敌对生物。请看这张截图，用一两句话告诉我：现在该跑还是该打、往哪个方向撤、有没有立刻能保命的动作。",
-
   "mcai.cmd.budget_warn": "§e[AI] 今日已花 ¥%s / 预算 ¥%s（已达 %s%%）。快超了，可以考虑换个便宜模型或者收手。",
   "mcai.cmd.cancel_done": "§b[AI] 已中止本次请求。",
   "mcai.cmd.cancel_none": "§8[AI] 当前没有正在进行的请求。",
@@ -328,30 +297,25 @@
   "mcai.cmd.memories_title": "§b[mcAI] §f已记住的事情：",
   "mcai.cmd.memories_empty": "§8 还没有记住任何事情。用 §7/ai remember <内容>§8 添加。",
   "mcai.cmd.forget_done": "§b[AI] 已忘记。",
-
   "mcai.cmd.flag_preview": "发送前预览",
   "mcai.cmd.flag_mask": "隐私遮罩",
   "mcai.cmd.flag_tts": "语音朗读",
   "mcai.cmd.flag_danger": "危险预警",
   "mcai.cmd.flag_cache": "回答缓存",
   "mcai.cmd.flag_env": "环境感知",
-
   "mcai.cmd.flag_avatar": "鲸鱼娘挂件",
   "mcai.cmd.provider_invalid": "§c未知的 API 协议：%s（可用：auto / openai / gemini / claude）",
   "mcai.cmd.provider_set": "§b[AI] API 协议已设为 §f%s§b，当前实际使用 §f%s",
   "mcai.cmd.retry_off": "§b[AI] 已关闭失败自动重试",
   "mcai.cmd.retry_set": "§b[AI] 失败自动重试次数：§f%s",
-
   "mcai.what.block": "我准星指向的方块是「%s」（注册 ID %s），坐标 X=%s Y=%s Z=%s。这是什么方块？有什么用途、怎么获取、有什么坑？",
   "mcai.what.entity": "我准星指向的实体是「%s」（注册 ID %s）。这是什么？要注意什么？",
   "mcai.what.entity_living": "我准星指向的生物是「%s」（注册 ID %s），当前血量 %s/%s。这是什么？危险吗？要不要打？",
   "mcai.what.nothing": "§e[AI] 准星没有指向任何方块或实体。",
-
   "mcai.inv.question": "以下是我现在背包里的物品（含护甲和副手，顺序和我按 E 打开时一致）：\n%s\n请据此回答：%s",
   "mcai.inv.default_question": "我现在能做什么？有什么值得注意的？",
   "mcai.inv.history_note": "（附上背包清单）%s",
   "mcai.inv.empty": "§e[AI] 背包是空的。",
-
   "mcai.avatar.line_cost": "§7今日：§f¥%s§7 · §f%s§7 token",
   "mcai.avatar.line_budget": "§7预算剩余：§f¥%s§7（已用 %s%%）",
   "mcai.avatar.line_budget_off": "§7预算：§8未设置",
@@ -364,13 +328,11 @@
   "mcai.avatar.line_balance_loading": "§7账户余额：§8查询中…",
   "mcai.avatar.line_balance_unknown": "§7账户余额：§8查不到（检查密钥或网络）",
   "mcai.avatar.line_none": "§8（没有勾选任何显示项）",
-
   "mcai.guide.what": "§e V §8→ §7看准一个方块 / 生物，问「这是什么」",
   "mcai.guide.avatar": "§e B §8→ §7开关用量气泡§8（§7挂件位置：§e/ai avatar edit§8）",
   "mcai.guide.inv": "§e /ai inv §7[问题] §8→ §7把背包清单交给 AI 分析",
   "mcai.guide.toggles_125": "§e /ai avatar §7on|off §8、§e/ai provider §7<auto|openai|gemini|claude> §8、§e/ai retry §7<次数>",
   "mcai.guide.more": "§8  · 完整指令清单：§e/ai help",
-
   "mcai.config.group.connection": "连接与密钥",
   "mcai.config.group.model": "模型与模式",
   "mcai.config.group.cost": "花费与预算",
@@ -380,6 +342,13 @@
   "mcai.config.group.sound": "声音与朗读",
   "mcai.config.group.notify": "通知与集成",
   "mcai.config.group.avatar": "挂件",
+  "mcai.config.group.background": "界面背景",
+  "mcai.config.screen_background": "背景样式",
+  "mcai.config.background.dim": "暗色渐变（原版）",
+  "mcai.config.background.dirt": "泥土",
+  "mcai.config.background.none": "透明",
+  "mcai.config.background.custom": "自定义图片",
+  "mcai.config.background_image": "背景图片路径",
   "mcai.config.group.misc": "其它",
   "mcai.config.group.keys": "快捷键",
   "mcai.config.search": "搜索设置",
@@ -431,7 +400,6 @@
   "mcai.config.avatar_image": "自定义头像图片路径（留空用内置）",
   "mcai.config.avatar_sound": "按压挂件时播放音效",
   "mcai.config.avatar_bubble": "气泡显示条目（; 分隔）",
-
   "mcai.avatar.tip_click": "按 B 开关用量气泡",
   "mcai.avatar.tip_drag": "用 /ai avatar edit 调整位置",
   "mcai.avatar.bubble_empty": "（暂无可显示的统计）",

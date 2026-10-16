@@ -67,6 +67,13 @@ public class VisionCaptureScreen extends Screen {
         return false;
     }
 
+
+    /** 界面背景跟随 {@code screen_background} 设置（默认仍是原版的暗色渐变）。 */
+    @Override
+    public void renderBackground(GuiGraphics context) {
+        ScreenBackgrounds.render(this, context);
+    }
+
     @Override
     public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         int left = (int) Math.round(x0 * this.width);

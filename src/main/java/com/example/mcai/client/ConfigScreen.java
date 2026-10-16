@@ -324,6 +324,13 @@ public class ConfigScreen extends Screen {
 
     // ------------------------------------------------------------ 渲染
 
+
+    /** 界面背景跟随 {@code screen_background} 设置（默认仍是原版的暗色渐变）。 */
+    @Override
+    public void renderBackground(GuiGraphics context) {
+        ScreenBackgrounds.render(this, context);
+    }
+
     @Override
     public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
@@ -640,6 +647,22 @@ public class ConfigScreen extends Screen {
                 c -> c.avatarSound, (c, v) -> c.avatarSound = v));
         avatar.add(new ListRow("avatar_bubble_items", "mcai.config.avatar_bubble", 256, ";",
                 c -> c.avatarBubbleItems, (c, v) -> c.avatarBubbleItems = v));
+
+        // ---- 界面背景 ----
+        Group background = group("mcai.config.group.background", false);
+        background.add(new CycleRow("screen_background", "mcai.config.screen_background",
+                "mcai.config.background.",
+                () -> ScreenBackgrounds.OPTIONS,
+                c -> c.screenBackground, (c, v) -> c.screenBackground = v));
+        background.add(new TextRow("screen_background_image", "mcai.config.background_image",
+                512, "C:\\path\\to\\background.png",
+                c -> c.screenBackgroundImage, (c, v) -> {
+                    if (!v.trim().equals(c.screenBackgroundImage)) {
+                        c.screenBackgroundImage = v.trim();
+                        // 换了图要丢掉缓存的那张纹理，否则画面还是旧的
+                        ScreenBackgrounds.invalidateCustomImage();
+                    }
+                }));
 
         // ---- 其它 ----
         Group misc = group("mcai.config.group.misc", false);

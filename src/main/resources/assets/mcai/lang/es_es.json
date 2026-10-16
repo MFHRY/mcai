@@ -1,18 +1,15 @@
 {
   "_comment": "Textos de mcAI en español. El original en inglés está en en_us.json; ambos archivos deben conservar exactamente el mismo conjunto de claves.",
-
   "item.mcai.ai_model_switcher": "Selector de modelo de IA",
   "item.mcai.ai_mode_switcher": "Selector de modo de IA",
   "tooltip.mcai.model_switcher.action": "Clic derecho: cambiar al siguiente modelo",
   "tooltip.mcai.mode_switcher.action": "Clic derecho: cambiar al siguiente modo",
   "tooltip.mcai.current": "Actual: %s",
-
   "category.mcai": "Asistente mcAI",
   "key.mcai.vision": "Reconocimiento de capturas (visión)",
   "key.mcai.build": "Analizar construcción / redstone (visión)",
   "mcai.vision.prompt.build": "Analiza la construcción o el circuito de redstone de Minecraft que aparece en esta captura: explica cómo funciona y luego sugiere mejoras concretas. Sé breve.",
   "mcai.vision.prompt.describe": "Describe todo lo importante de esta pantalla: la interfaz, los bloques que me rodean, cualquier criatura u objeto y cualquier peligro. Sé concreto con las posiciones y las direcciones. Sé breve.",
-
   "mcai.vendor.deepseek": "DeepSeek",
   "mcai.vendor.openai": "OpenAI",
   "mcai.vendor.anthropic": "Anthropic",
@@ -23,22 +20,17 @@
   "mcai.vendor.baidu": "Baidu ERNIE",
   "mcai.vendor.tencent": "Tencent Hunyuan",
   "mcai.vendor.unknown": "Proveedor desconocido",
-
   "mcai.tier.low": "Bajo",
   "mcai.tier.mid": "Medio",
   "mcai.tier.high": "Alto",
   "mcai.tier.unknown": "Nivel desconocido",
-
   "mcai.mode.chat": "Chat",
   "mcai.mode.vision": "Visión",
   "mcai.mode.unknown": "Modo desconocido",
   "mcai.value.unknown": "Desconocido",
-
   "mcai.resolution.original": "Original",
-
   "mcai.source.chat": "chat",
   "mcai.source.vision": "captura",
-
   "mcai.http.400": "Solicitud incorrecta",
   "mcai.http.401": "Clave de API no válida",
   "mcai.http.402": "Saldo insuficiente",
@@ -58,15 +50,12 @@
   "mcai.http.server_error": "Error del servidor",
   "mcai.http.client_error": "Solicitud incorrecta",
   "mcai.http.unknown_error": "Error desconocido",
-
   "mcai.reasoning.prefix": "§7[Pensando] §8",
   "mcai.reasoning.truncated": "§8... (%s de %s caracteres ocultos; pon reasoning_max_chars a 0 en mcai.json para mostrarlo todo)",
-
   "mcai.thinking.actionbar": "La IA está pensando...",
   "mcai.stream.prefix": "IA:",
   "mcai.thinking.chat": "§7[⏳] La IA está pensando...",
   "mcai.thinking.elapsed": "§7(%ss)",
-
   "mcai.error.config_load": "§c[AI] No se pudo cargar la configuración, revisa el archivo de configuración.",
   "mcai.error.no_apikey": "§c[AI] apiKey todavía no está configurada, edita antes el archivo de configuración.",
   "mcai.error.no_apiurl": "§c[AI] apiUrl todavía no está configurada, edita antes el archivo de configuración.",
@@ -76,10 +65,8 @@
   "mcai.error.response": "no se pudo procesar la respuesta: %s",
   "mcai.error.unparsable": "§c[AI] La API devolvió una respuesta que no se pudo interpretar.",
   "mcai.reply.empty": "(la API no devolvió ningún contenido)",
-
   "mcai.chat.empty": "§e[AI] Escribe una pregunta, por ejemplo: !ai ¿Cómo fabrico un pico de diamante?",
   "mcai.chat.cooldown": "§e[AI] Ve más despacio, espera otros %ss.",
-
   "mcai.prompt.system": "Eres un asistente del juego Minecraft. Responde a las preguntas del jugador de forma concisa en español.",
   "mcai.persona.default": "Predeterminada",
   "mcai.persona.builder": "Constructor",
@@ -90,7 +77,6 @@
   "mcai.persona.suffix.redstone": "Actúa como ingeniero de redstone. Explica primero el principio del circuito y después propón un diseño compacto y fiable con la colocación exacta de los bloques.",
   "mcai.persona.suffix.survival": "Actúa como guía del modo supervivencia. Prioriza soluciones de principios de partida y de bajo consumo de recursos, y avisa de los peligros habituales.",
   "mcai.persona.suffix.english": "Actúa como profesor de inglés. Responde en un inglés sencillo y explica brevemente las palabras difíciles que uses.",
-
   "mcai.vision.cooldown": "§e[AI] El reconocimiento de capturas está en enfriamiento, espera otros %ss.",
   "mcai.vision.no_vision": "§c[AI] El modelo %s no admite imágenes. Usa el «Selector de modelo de IA» para elegir un modelo con visión (por ejemplo, deepseek-flash).",
   "mcai.vision.grab_failed": "§c[AI] Error al capturar la pantalla: %s",
@@ -100,13 +86,11 @@
   "mcai.vision.failed_network": "§c[AI] El reconocimiento de la captura ha fallado (error de red: %s)",
   "mcai.vision.prompt": "Describe brevemente lo que ves en esta captura de Minecraft.",
   "mcai.vision.local_hint": "§e[AI] Apunta el punto de conexión a un modelo local (por ejemplo http://localhost:11434/v1) y no necesitarás ninguna clave de API.",
-
   "mcai.switch.config_not_ready": "§c[AI] La configuración todavía no se ha cargado, inténtalo de nuevo en un momento.",
   "mcai.switch.no_models": "§c[AI] La lista de modelos está vacía, no hay nada a lo que cambiar.",
   "mcai.switch.no_modes": "§c[AI] La lista de modos está vacía, no hay nada a lo que cambiar.",
   "mcai.switch.model_switched": "§b[AI] Modelo cambiado a §f%s",
   "mcai.switch.mode_switched": "§b[AI] Modo cambiado a §f%s",
-
   "mcai.guide.title": "§b§l[mcAI] §r§fFunciones y comandos",
   "mcai.guide.config": "§e /ai config §8-> §7Abre la pantalla de ajustes e introduce tu clave de API",
   "mcai.guide.ask": "§e !ai §7<pregunta> §8-> §7Pregunta a la IA en el chat§8 (§7enfriamiento de 8 s§8)",
@@ -139,7 +123,6 @@
   "mcai.guide.current_mode": "§8  - Modo actual: §f%s",
   "mcai.guide.current_resolution": "§8  - Resolución de las capturas: §f%s §8(cambia vision_resolution en mcai.json)",
   "mcai.guide.no_key": "§c[!] La clave de API no está configurada: haz clic aquí para abrir la pantalla de ajustes",
-
   "mcai.cmd.status_not_ready": "§c[AI] La configuración todavía no se ha cargado.",
   "mcai.cmd.status_title": "§b§l[mcAI] §r§fEstado actual",
   "mcai.cmd.status_model": "§7 - Modelo: §f%s",
@@ -188,7 +171,6 @@
   "mcai.cmd.chart_row": "§8 %s  %s §7%s §8tokens  §7¥%s",
   "mcai.cmd.chart_empty": "§8 No hay uso registrado en los últimos 7 días.",
   "mcai.cmd.chart_note": "§8 Hoy: ¥%s",
-
   "mcai.ctx.not_in_world": "§c[AI] Todavía no estás en ningún mundo.",
   "mcai.ctx.header": "[Entorno actual]",
   "mcai.ctx.dimension": "- Dimensión: %s",
@@ -199,15 +181,12 @@
   "mcai.ctx.time": "- Hora del día: %s / 24000",
   "mcai.ctx.health": "- Salud: %s / %s",
   "mcai.ctx.ask_default": "Según mi entorno actual, dime qué debería buscar o hacer a continuación.",
-
   "mcai.read.not_found": "§c[AI] No hay nada legible: mira un cartel o lleva un libro escrito en la mano.",
   "mcai.read.source_sign": "cartel",
   "mcai.read.source_book": "libro escrito",
   "mcai.read.ask": "Traduce a mi idioma el siguiente texto de un %s de Minecraft y, si algo parece importante, añade una nota breve:",
-
   "mcai.death.prompt": "Acabo de morir en Minecraft. Mira esta captura de la pantalla de muerte y dime qué me mató, qué error es probable que cometiera y una cosa concreta que hacer de otra forma la próxima vez. Sé breve.",
   "mcai.death.broadcast": "☠️ %s ha muerto en Minecraft",
-
   "mcai.craft.line": "§f%s §7<- %s",
   "mcai.craft.local_answer": "§b[Receta local]§f",
   "mcai.craft.unknown_ingredients": "ingredientes desconocidos",
@@ -219,7 +198,6 @@
   "mcai.cmd.craft_note": "§8 Respuesta local, no se han usado tokens. Escribe el nombre de un objeto después de !ai para ver su receta.",
   "mcai.cmd.craft_lookup_title": "§b[mcAI] §fRecetas de «%s»:",
   "mcai.cmd.craft_lookup_none": "§8 No se ha encontrado ninguna receta para «%s». Prueba con un nombre más corto o con el nombre exacto del objeto.",
-
   "mcai.task.prompt": "Mira mi inventario de abajo y dame exactamente 3 tareas cortas y concretas que pueda completar ahora mismo usando solo lo que ya tengo. Una tarea por línea, sin numeración y sin comentarios de más.",
   "mcai.task.inventory_header": "[Mi inventario]",
   "mcai.cmd.task_generating": "§7[mcAI] Generando una tarea a partir de tu inventario...",
@@ -252,7 +230,6 @@
   "mcai.cmd.persona_current": "§b[AI] Personalidad actual: §f%s",
   "mcai.cmd.persona_list_title": "§b[mcAI] §fPersonalidades disponibles:",
   "mcai.cmd.persona_usage": "§8 Usa /ai persona <id> para cambiar; /ai persona para ver la actual.",
-
   "mcai.screen.title": "Ajustes de mcAI",
   "mcai.screen.help_link": "¿Qué es una API? ¿Dónde consigo una?",
   "mcai.screen.api_key": "Clave de API",
@@ -274,7 +251,6 @@
   "mcai.screen.saved_empty": "§e[AI] Ajustes guardados, pero la clave de API sigue vacía, así que el mod todavía no se puede usar.",
   "mcai.screen.saved": "§b[AI] Ajustes guardados: §f%s",
   "mcai.screen.saved_hint": "§8 Se ha escrito en config/mcai.json de forma asíncrona; ya puedes preguntar con §f!ai§8.",
-
   "mcai.help.title": "¿Qué es una clave de API?",
   "mcai.help.body1": "Es el «pasaporte» para llamar a un servicio de IA. Este mod envía la clave",
   "mcai.help.body2": "a los servidores del proveedor, que la usan para identificar tu cuenta y facturarla.",
@@ -288,16 +264,13 @@
   "mcai.help.note1": "- Trata la clave como una contraseña: no la compartas ni la muestres en directos o capturas",
   "mcai.help.note2a": "- Tu cuenta necesita saldo positivo; de lo contrario recibirás ",
   "mcai.help.note2b": "402 saldo insuficiente",
-
   "key.mcai.pick": "Captura de una región (visión)",
   "key.mcai.what": "Inspeccionar el punto de mira (¿qué es esto?)",
   "key.mcai.avatar": "Burbuja de uso (widget de la ballena)",
-
   "mcai.pick.title": "Selecciona la región que enviar",
   "mcai.pick.hint": "Arrastra para dibujar un recuadro y pulsa Enter para confirmar (ESC cancela). Solo se envía el área del recuadro, lo que ahorra la mayor parte del coste de la imagen.",
   "mcai.pick.size": "§7Selección: %s x %s px, aproximadamente el %s%% de la pantalla",
   "mcai.pick.close_screen": "§e[AI] Cierra primero la pantalla actual y luego pulsa R para seleccionar una región.",
-
   "mcai.preview.title": "Confirma la captura que se va a enviar",
   "mcai.preview.send": "Enviar",
   "mcai.preview.discard": "Cancelar",
@@ -305,18 +278,14 @@
   "mcai.preview.cost": "§7unos %s tokens de imagen / ¥%s",
   "mcai.preview.cost_unknown": "§7unos %s tokens de imagen (este modelo no tiene tabla de precios)",
   "mcai.preview.no_texture": "No se pudo generar la imagen de vista previa; lo que se envía sigue siendo la captura procesada.",
-
   "mcai.chat.estimate": "§8[estimación] esta solicitud cuesta unos ¥%s",
   "mcai.chat.click_copy_coords": "§7Haz clic para copiar las coordenadas: §f%s",
   "mcai.chat.click_ask_item": "§7Haz clic para ponerlo en el chat: §f%s",
   "mcai.chat.click_copy_reply": "§7Haz clic para copiar toda la respuesta",
   "mcai.chat.cost": " §8[§7real ¥%s§8]",
   "mcai.cache.hit": "§8[caché] Ya lo preguntaste antes: se ha reutilizado la respuesta anterior (sin gastar tokens).",
-
   "mcai.prompt.memories": "Ten siempre en cuenta los siguientes datos sobre el jugador:",
-
   "mcai.danger.prompt": "Mi salud es muy baja y hay criaturas hostiles cerca. Mira esta captura y dime en una o dos frases: ¿debo huir o luchar?, ¿hacia dónde debería retirarme? y ¿hay algo que pueda hacer ahora mismo para sobrevivir?",
-
   "mcai.cmd.budget_warn": "§e[AI] Hoy has gastado ¥%s de un presupuesto de ¥%s (%s%%). Estás cerca del límite: plantéate un modelo más barato o párate aquí.",
   "mcai.cmd.cancel_done": "§b[AI] Solicitud cancelada.",
   "mcai.cmd.cancel_none": "§8[AI] No hay ninguna solicitud en curso.",
@@ -328,30 +297,25 @@
   "mcai.cmd.memories_title": "§b[mcAI] §fCosas que recuerdo:",
   "mcai.cmd.memories_empty": "§8 Todavía no recuerdas nada. Añade algo con §7/ai remember <texto>§8.",
   "mcai.cmd.forget_done": "§b[AI] Olvidado.",
-
   "mcai.cmd.flag_preview": "Vista previa antes de enviar",
   "mcai.cmd.flag_mask": "Máscara de privacidad",
   "mcai.cmd.flag_tts": "Texto a voz",
   "mcai.cmd.flag_danger": "Alerta de peligro",
   "mcai.cmd.flag_cache": "Caché de respuestas",
   "mcai.cmd.flag_env": "Conocimiento de la lista de mods",
-
   "mcai.cmd.flag_avatar": "Compañera ballena",
   "mcai.cmd.provider_invalid": "§cProtocolo de API desconocido: %s (usa auto / openai / gemini / claude)",
   "mcai.cmd.provider_set": "§b[AI] Protocolo de API establecido en §f%s§b; en uso real §f%s",
   "mcai.cmd.retry_off": "§b[AI] Reintento automático desactivado",
   "mcai.cmd.retry_set": "§b[AI] Reintentos en caso de fallo: §f%s",
-
   "mcai.what.block": "El bloque al que apunta mi punto de mira es «%s» (id de registro %s) en X=%s Y=%s Z=%s. ¿Qué es, para qué sirve, cómo lo consigo y de qué debería tener cuidado?",
   "mcai.what.entity": "La entidad a la que apunta mi punto de mira es «%s» (id de registro %s). ¿Qué es y de qué debería tener cuidado?",
   "mcai.what.entity_living": "La criatura a la que apunta mi punto de mira es «%s» (id de registro %s) con %s/%s de salud. ¿Qué es? ¿Es peligrosa? ¿Debería luchar contra ella?",
   "mcai.what.nothing": "§e[AI] Tu punto de mira no apunta a ningún bloque ni entidad.",
-
   "mcai.inv.question": "Estos son los objetos que tengo ahora mismo en el inventario (incluidas la armadura y la mano secundaria, en el mismo orden que al pulsar E):\n%s\nResponde a esto: %s",
   "mcai.inv.default_question": "¿Qué puedo hacer ahora mismo y hay algo que merezca la pena destacar?",
   "mcai.inv.history_note": "(lista del inventario adjunta) %s",
   "mcai.inv.empty": "§e[AI] Tu inventario está vacío.",
-
   "mcai.avatar.line_cost": "§7Hoy: §f¥%s§7 · §f%s§7 tokens",
   "mcai.avatar.line_budget": "§7Presupuesto restante: §f¥%s§7 (%s%% usado)",
   "mcai.avatar.line_budget_off": "§7Presupuesto: §8sin definir",
@@ -364,13 +328,11 @@
   "mcai.avatar.line_balance_loading": "§7Saldo: §8consultando…",
   "mcai.avatar.line_balance_unknown": "§7Saldo: §8no disponible (comprueba la clave o la conexión)",
   "mcai.avatar.line_none": "§8(no hay nada seleccionado que mostrar)",
-
   "mcai.guide.what": "§e V §8-> §7Mira un bloque o una criatura y pregunta qué es",
   "mcai.guide.avatar": "§e B §8-> §7Activa o desactiva la burbuja de uso§8 (§7mueve el widget con §e/ai avatar edit§8)",
   "mcai.guide.inv": "§e /ai inv §7[pregunta] §8-> §7Entrega tu inventario a la IA para que lo analice",
   "mcai.guide.toggles_125": "§e /ai avatar §7on|off §8, §e/ai provider §7<auto|openai|gemini|claude> §8, §e/ai retry §7<número>",
   "mcai.guide.more": "§8  - Lista completa de comandos: §e/ai help",
-
   "mcai.config.group.connection": "Conexión y clave de API",
   "mcai.config.group.model": "Modelo y modo",
   "mcai.config.group.cost": "Coste y presupuesto",
@@ -380,6 +342,13 @@
   "mcai.config.group.sound": "Sonido y voz",
   "mcai.config.group.notify": "Notificaciones e integraciones",
   "mcai.config.group.avatar": "Widget",
+  "mcai.config.group.background": "Fondo de pantalla",
+  "mcai.config.screen_background": "Estilo de fondo",
+  "mcai.config.background.dim": "Oscurecido (vanilla)",
+  "mcai.config.background.dirt": "Tierra",
+  "mcai.config.background.none": "Transparente",
+  "mcai.config.background.custom": "Imagen propia",
+  "mcai.config.background_image": "Ruta de la imagen de fondo",
   "mcai.config.group.misc": "Varios",
   "mcai.config.group.keys": "Asignación de teclas",
   "mcai.config.search": "Buscar en los ajustes",
@@ -431,7 +400,6 @@
   "mcai.config.avatar_image": "Ruta de la imagen de avatar personalizada (vacío = la integrada)",
   "mcai.config.avatar_sound": "Reproducir un sonido al pulsar el widget",
   "mcai.config.avatar_bubble": "Elementos de la burbuja (separa con ;)",
-
   "mcai.avatar.tip_click": "Pulsa B para mostrar u ocultar la burbuja de uso",
   "mcai.avatar.tip_drag": "Usa /ai avatar edit para moverla",
   "mcai.avatar.bubble_empty": "(no hay estadísticas disponibles)",

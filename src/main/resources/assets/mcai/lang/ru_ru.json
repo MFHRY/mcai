@@ -1,18 +1,15 @@
 {
   "_comment": "mcAI — русские строки (ru_ru). Оригинал — en_us.json, китайская версия — zh_cn.json; набор ключей во всех файлах должен совпадать.",
-
   "item.mcai.ai_model_switcher": "Переключатель ИИ-моделей",
   "item.mcai.ai_mode_switcher": "Переключатель режима ИИ",
   "tooltip.mcai.model_switcher.action": "ПКМ: переключить на следующую модель",
   "tooltip.mcai.mode_switcher.action": "ПКМ: переключить на следующий режим",
   "tooltip.mcai.current": "Сейчас: %s",
-
   "category.mcai": "Ассистент mcAI",
   "key.mcai.vision": "Распознавание скриншота (зрение)",
   "key.mcai.build": "Анализ постройки / редстоуна (зрение)",
   "mcai.vision.prompt.build": "Проанализируй постройку или схему из редстоуна в Minecraft на этом скриншоте: объясни, как это работает, а затем предложи конкретные улучшения. Отвечай кратко.",
   "mcai.vision.prompt.describe": "Опиши всё важное на этом экране: HUD, блоки вокруг меня, любых мобов и предметы, а также опасность. Указывай конкретные позиции и направления. Отвечай кратко.",
-
   "mcai.vendor.deepseek": "DeepSeek",
   "mcai.vendor.openai": "OpenAI",
   "mcai.vendor.anthropic": "Anthropic",
@@ -23,22 +20,17 @@
   "mcai.vendor.baidu": "Baidu ERNIE",
   "mcai.vendor.tencent": "Tencent Hunyuan",
   "mcai.vendor.unknown": "Неизвестный поставщик",
-
   "mcai.tier.low": "Низкий",
   "mcai.tier.mid": "Средний",
   "mcai.tier.high": "Высокий",
   "mcai.tier.unknown": "Неизвестный уровень",
-
   "mcai.mode.chat": "Чат",
   "mcai.mode.vision": "Зрение",
   "mcai.mode.unknown": "Неизвестный режим",
   "mcai.value.unknown": "Неизвестно",
-
   "mcai.resolution.original": "Оригинал",
-
   "mcai.source.chat": "чат",
   "mcai.source.vision": "скриншот",
-
   "mcai.http.400": "Неверный запрос",
   "mcai.http.401": "Неверный API-ключ",
   "mcai.http.402": "Недостаточно средств",
@@ -58,15 +50,12 @@
   "mcai.http.server_error": "Ошибка сервера",
   "mcai.http.client_error": "Неверный запрос",
   "mcai.http.unknown_error": "Неизвестная ошибка",
-
   "mcai.reasoning.prefix": "§7[Размышления] §8",
   "mcai.reasoning.truncated": "§8... (скрыто %s из %s символов; задайте reasoning_max_chars = 0 в mcai.json, чтобы видеть всё)",
-
   "mcai.thinking.actionbar": "ИИ думает...",
   "mcai.stream.prefix": "ИИ:",
   "mcai.thinking.chat": "§7[⏳] ИИ думает...",
   "mcai.thinking.elapsed": "§7(%s с)",
-
   "mcai.error.config_load": "§c[AI] Не удалось загрузить конфигурацию, проверьте файл конфигурации.",
   "mcai.error.no_apikey": "§c[AI] apiKey ещё не задан, сначала отредактируйте файл конфигурации.",
   "mcai.error.no_apiurl": "§c[AI] apiUrl ещё не задан, сначала отредактируйте файл конфигурации.",
@@ -76,10 +65,8 @@
   "mcai.error.response": "не удалось обработать ответ: %s",
   "mcai.error.unparsable": "§c[AI] API вернул ответ, который не удалось разобрать.",
   "mcai.reply.empty": "(API не вернул содержимого)",
-
   "mcai.chat.empty": "§e[AI] Введите вопрос, например: !ai Как скрафтить алмазную кирку?",
   "mcai.chat.cooldown": "§e[AI] Не так быстро, подождите ещё %s с.",
-
   "mcai.prompt.system": "Ты игровой ассистент по Minecraft. Отвечай на вопросы игрока кратко, на русском языке.",
   "mcai.persona.default": "по умолчанию",
   "mcai.persona.builder": "Строитель",
@@ -90,7 +77,6 @@
   "mcai.persona.suffix.redstone": "Выступай как инженер по редстоуну. Сначала объясни принцип работы схемы, затем предложи компактную и надёжную конструкцию с точным расположением блоков.",
   "mcai.persona.suffix.survival": "Выступай как гид по режиму выживания. Предпочитай решения для ранней игры с малым расходом ресурсов и предупреждай об обычных опасностях.",
   "mcai.persona.suffix.english": "Выступай как учитель английского. Отвечай простым английским и кратко поясняй сложные слова, которые используешь.",
-
   "mcai.vision.cooldown": "§e[AI] Распознавание скриншотов перезаряжается, подождите ещё %s с.",
   "mcai.vision.no_vision": "§c[AI] Модель %s не поддерживает ввод изображений. С помощью «Переключателя ИИ-моделей» выберите модель со зрением (например, deepseek-flash).",
   "mcai.vision.grab_failed": "§c[AI] Не удалось сделать скриншот: %s",
@@ -100,13 +86,11 @@
   "mcai.vision.failed_network": "§c[AI] Не удалось распознать скриншот (ошибка сети: %s)",
   "mcai.vision.prompt": "Кратко опиши, что ты видишь на этом скриншоте Minecraft.",
   "mcai.vision.local_hint": "§e[AI] Укажите в качестве эндпоинта локальную модель (например, http://localhost:11434/v1), тогда API-ключ не потребуется.",
-
   "mcai.switch.config_not_ready": "§c[AI] Конфигурация ещё не загружена, попробуйте через мгновение.",
   "mcai.switch.no_models": "§c[AI] Список моделей пуст, переключать не на что.",
   "mcai.switch.no_modes": "§c[AI] Список режимов пуст, переключать не на что.",
   "mcai.switch.model_switched": "§b[AI] Модель переключена на §f%s",
   "mcai.switch.mode_switched": "§b[AI] Режим переключён на §f%s",
-
   "mcai.guide.title": "§b§l[mcAI] §r§fВозможности и команды",
   "mcai.guide.config": "§e /ai config §8-> §7Открыть экран настроек и ввести API-ключ",
   "mcai.guide.ask": "§e !ai §7<вопрос> §8-> §7Задать вопрос ИИ в чате§8 (§7задержка 8 с§8)",
@@ -139,7 +123,6 @@
   "mcai.guide.current_mode": "§8  - Текущий режим: §f%s",
   "mcai.guide.current_resolution": "§8  - Разрешение скриншота: §f%s §8(измените vision_resolution в mcai.json)",
   "mcai.guide.no_key": "§c[!] API-ключ не задан — нажмите здесь, чтобы открыть экран настроек",
-
   "mcai.cmd.status_not_ready": "§c[AI] Конфигурация ещё не загружена.",
   "mcai.cmd.status_title": "§b§l[mcAI] §r§fТекущий статус",
   "mcai.cmd.status_model": "§7 - Модель: §f%s",
@@ -188,7 +171,6 @@
   "mcai.cmd.chart_row": "§8 %s  %s §7%s §8токенов  §7¥%s",
   "mcai.cmd.chart_empty": "§8 За последние 7 дней расход не зафиксирован.",
   "mcai.cmd.chart_note": "§8 Сегодня: ¥%s",
-
   "mcai.ctx.not_in_world": "§c[AI] Вы ещё не в мире.",
   "mcai.ctx.header": "[Текущее окружение]",
   "mcai.ctx.dimension": "- Измерение: %s",
@@ -199,15 +181,12 @@
   "mcai.ctx.time": "- Время суток: %s / 24000",
   "mcai.ctx.health": "- Здоровье: %s / %s",
   "mcai.ctx.ask_default": "Исходя из моего текущего окружения, скажи, на что мне обратить внимание или что делать дальше.",
-
   "mcai.read.not_found": "§c[AI] Нечего читать: посмотрите на табличку или возьмите в руку записанную книгу.",
   "mcai.read.source_sign": "таблички",
   "mcai.read.source_book": "записанной книги",
   "mcai.read.ask": "Переведи следующий текст из Minecraft %s на мой язык, а затем добавь одно короткое замечание, если что-то выглядит важным:",
-
   "mcai.death.prompt": "Я только что умер в Minecraft. Посмотри на этот скриншот экрана смерти и скажи, что меня убило, какую ошибку я, скорее всего, совершил и что конкретно стоит сделать иначе в следующий раз. Отвечай кратко.",
   "mcai.death.broadcast": "☠️ %s погиб в Minecraft",
-
   "mcai.craft.line": "§f%s §7<- %s",
   "mcai.craft.local_answer": "§b[Локальный рецепт]§f",
   "mcai.craft.unknown_ingredients": "ингредиенты неизвестны",
@@ -219,7 +198,6 @@
   "mcai.cmd.craft_note": "§8 Ответ дан локально — токены не потрачены. Введите название предмета после !ai, чтобы увидеть его рецепт.",
   "mcai.cmd.craft_lookup_title": "§b[mcAI] §fРецепты для «%s»:",
   "mcai.cmd.craft_lookup_none": "§8 Рецепт для «%s» не найден. Попробуйте более короткое название или укажите точное имя предмета.",
-
   "mcai.task.prompt": "Посмотри на мой инвентарь ниже и дай ровно 3 коротких конкретных задачи, которые я могу выполнить прямо сейчас, используя только то, что у меня уже есть. По одной задаче на строку, без нумерации и лишних комментариев.",
   "mcai.task.inventory_header": "[Мой инвентарь]",
   "mcai.cmd.task_generating": "§7[mcAI] Создаю задачу по вашему инвентарю...",
@@ -252,7 +230,6 @@
   "mcai.cmd.persona_current": "§b[AI] Текущая персона: §f%s",
   "mcai.cmd.persona_list_title": "§b[mcAI] §fДоступные персоны:",
   "mcai.cmd.persona_usage": "§8 Используйте /ai persona <id> для переключения; /ai persona покажет текущую.",
-
   "mcai.screen.title": "Настройки mcAI",
   "mcai.screen.help_link": "Что такое API? Где его взять?",
   "mcai.screen.api_key": "API-ключ",
@@ -274,7 +251,6 @@
   "mcai.screen.saved_empty": "§e[AI] Настройки сохранены, но API-ключ всё ещё пуст, поэтому мод пока использовать нельзя.",
   "mcai.screen.saved": "§b[AI] Настройки сохранены: §f%s",
   "mcai.screen.saved_hint": "§8 Асинхронно записано в config/mcai.json; теперь можно спрашивать через §f!ai§8.",
-
   "mcai.help.title": "Что такое API-ключ?",
   "mcai.help.body1": "Это «паспорт» для обращения к сервису ИИ. Мод отправляет ключ",
   "mcai.help.body2": "на серверы поставщика, где он используется для определения вашего аккаунта и выставления счёта.",
@@ -288,16 +264,13 @@
   "mcai.help.note1": "- Относитесь к ключу как к паролю: не делитесь им и не показывайте его в трансляциях и на скриншотах",
   "mcai.help.note2a": "- На вашем аккаунте должен быть положительный баланс, иначе вы получите ",
   "mcai.help.note2b": "402 недостаточно средств",
-
   "key.mcai.pick": "Скриншот области (зрение)",
   "key.mcai.what": "Осмотреть прицел (что это?)",
   "key.mcai.avatar": "Пузырь статистики (виджет кита)",
-
   "mcai.pick.title": "Выберите область для отправки",
   "mcai.pick.hint": "Потяните мышь, чтобы нарисовать рамку, затем нажмите Enter для подтверждения (ESC — отмена). Отправляется только выделенная область, что сильно экономит расход на изображение.",
   "mcai.pick.size": "§7Выделено: %s x %s пикс., около %s%% экрана",
   "mcai.pick.close_screen": "§e[AI] Сначала закройте текущий экран, затем нажмите R, чтобы выбрать область.",
-
   "mcai.preview.title": "Подтвердите отправляемый скриншот",
   "mcai.preview.send": "Отправить",
   "mcai.preview.discard": "Отмена",
@@ -305,18 +278,14 @@
   "mcai.preview.cost": "§7около %s токенов изображения / ¥%s",
   "mcai.preview.cost_unknown": "§7около %s токенов изображения (для этой модели нет таблицы цен)",
   "mcai.preview.no_texture": "Не удалось построить изображение предпросмотра; отправлен всё равно будет обработанный скриншот.",
-
   "mcai.chat.estimate": "§8[оценка] этот запрос стоит около ¥%s",
   "mcai.chat.click_copy_coords": "§7Нажмите, чтобы скопировать координаты: §f%s",
   "mcai.chat.click_ask_item": "§7Нажмите, чтобы подставить это в чат: §f%s",
   "mcai.chat.click_copy_reply": "§7Нажмите, чтобы скопировать весь ответ",
   "mcai.chat.cost": " §8[§7фактически ¥%s§8]",
   "mcai.cache.hit": "§8[кэш] Вы уже спрашивали это — использован прежний ответ (токены не потрачены).",
-
   "mcai.prompt.memories": "Всегда учитывай следующие факты об игроке:",
-
   "mcai.danger.prompt": "У меня очень мало здоровья, а рядом враждебные мобы. Посмотри на этот скриншот и скажи в одном-двух предложениях: бежать мне или драться, в какую сторону отступать и могу ли я что-то сделать прямо сейчас, чтобы выжить?",
-
   "mcai.cmd.budget_warn": "§e[AI] Сегодня израсходовано ¥%s из бюджета ¥%s (%s%%). Уже близко — подумайте о более дешёвой модели или остановитесь.",
   "mcai.cmd.cancel_done": "§b[AI] Запрос отменён.",
   "mcai.cmd.cancel_none": "§8[AI] Сейчас нет активных запросов.",
@@ -328,30 +297,25 @@
   "mcai.cmd.memories_title": "§b[mcAI] §fЧто я помню:",
   "mcai.cmd.memories_empty": "§8 Пока ничего не запомнено. Добавьте через §7/ai remember <текст>§8.",
   "mcai.cmd.forget_done": "§b[AI] Забыто.",
-
   "mcai.cmd.flag_preview": "Предпросмотр отправки",
   "mcai.cmd.flag_mask": "Маска приватности",
   "mcai.cmd.flag_tts": "Синтез речи",
   "mcai.cmd.flag_danger": "Предупреждение об опасности",
   "mcai.cmd.flag_cache": "Кэш ответов",
   "mcai.cmd.flag_env": "Учёт списка модов",
-
   "mcai.cmd.flag_avatar": "Кит-компаньон",
   "mcai.cmd.provider_invalid": "§cНеизвестный протокол API: %s (используйте auto / openai / gemini / claude)",
   "mcai.cmd.provider_set": "§b[AI] Протокол API задан: §f%s§b; фактически используется §f%s",
   "mcai.cmd.retry_off": "§b[AI] Автоматические повторы отключены",
   "mcai.cmd.retry_set": "§b[AI] Попыток повтора при сбое: §f%s",
-
   "mcai.what.block": "Блок под моим прицелом — «%s» (идентификатор %s) в X=%s Y=%s Z=%s. Что это, для чего нужно, как его получить и на что обратить внимание?",
   "mcai.what.entity": "Сущность под моим прицелом — «%s» (идентификатор %s). Что это и на что обратить внимание?",
   "mcai.what.entity_living": "Моб под моим прицелом — «%s» (идентификатор %s) со здоровьем %s/%s. Что это? Он опасен? Стоит ли с ним драться?",
   "mcai.what.nothing": "§e[AI] Ваш прицел не наведён ни на блок, ни на сущность.",
-
   "mcai.inv.question": "Это предметы в моём инвентаре прямо сейчас (включая броню и левую руку, в том же порядке, что при нажатии E):\n%s\nОтветь на это: %s",
   "mcai.inv.default_question": "Что я могу сделать прямо сейчас и есть ли что-то, на что стоит обратить внимание?",
   "mcai.inv.history_note": "(список инвентаря приложен) %s",
   "mcai.inv.empty": "§e[AI] Ваш инвентарь пуст.",
-
   "mcai.avatar.line_cost": "§7Сегодня: §f¥%s§7 · §f%s§7 токенов",
   "mcai.avatar.line_budget": "§7Остаток бюджета: §f¥%s§7 (использовано %s%%)",
   "mcai.avatar.line_budget_off": "§7Бюджет: §8не задан",
@@ -364,13 +328,11 @@
   "mcai.avatar.line_balance_loading": "§7Баланс: §8проверка…",
   "mcai.avatar.line_balance_unknown": "§7Баланс: §8недоступен (проверьте ключ или сеть)",
   "mcai.avatar.line_none": "§8(ничего не выбрано для показа)",
-
   "mcai.guide.what": "§e V §8-> §7Навести прицел на блок или моба и спросить, что это",
   "mcai.guide.avatar": "§e B §8-> §7Включить или скрыть пузырь статистики§8 (§7переместить виджет: §e/ai avatar edit§8)",
   "mcai.guide.inv": "§e /ai inv §7[вопрос] §8-> §7Передать инвентарь ИИ на анализ",
   "mcai.guide.toggles_125": "§e /ai avatar §7on|off §8, §e/ai provider §7<auto|openai|gemini|claude> §8, §e/ai retry §7<count>",
   "mcai.guide.more": "§8  - Полный список команд: §e/ai help",
-
   "mcai.config.group.connection": "Соединение и API-ключ",
   "mcai.config.group.model": "Модель и режим",
   "mcai.config.group.cost": "Расходы и бюджет",
@@ -380,6 +342,13 @@
   "mcai.config.group.sound": "Звук и речь",
   "mcai.config.group.notify": "Уведомления и интеграции",
   "mcai.config.group.avatar": "Виджет",
+  "mcai.config.group.background": "Фон экрана",
+  "mcai.config.screen_background": "Стиль фона",
+  "mcai.config.background.dim": "Затемнение (ваниль)",
+  "mcai.config.background.dirt": "Земля",
+  "mcai.config.background.none": "Прозрачный",
+  "mcai.config.background.custom": "Своё изображение",
+  "mcai.config.background_image": "Путь к изображению фона",
   "mcai.config.group.misc": "Прочее",
   "mcai.config.group.keys": "Назначения клавиш",
   "mcai.config.search": "Поиск настроек",
@@ -431,7 +400,6 @@
   "mcai.config.avatar_image": "Путь к своему изображению аватара (пусто = встроенное)",
   "mcai.config.avatar_sound": "Проигрывать звук при нажатии на виджет",
   "mcai.config.avatar_bubble": "Элементы пузыря (разделяйте ;)",
-
   "mcai.avatar.tip_click": "Нажмите B, чтобы включить или скрыть пузырь статистики",
   "mcai.avatar.tip_drag": "Используйте /ai avatar edit, чтобы переместить его",
   "mcai.avatar.bubble_empty": "(нет доступной статистики)",

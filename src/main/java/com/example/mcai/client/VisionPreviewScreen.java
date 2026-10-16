@@ -53,10 +53,16 @@ public class VisionPreviewScreen extends Screen {
         return false;
     }
 
-    /** 默认实现会铺一层暗色，把预览图压暗 —— 这里不要它。 */
+    /**
+     * 背景走全局设置。
+     *
+     * <p>这里的默认值原本是"故意什么都不画"（怕暗色把预览图压暗）。现在改成
+     * 跟随 {@code screen_background}：默认仍是 {@code dim}，而预览图本身是画在
+     * 背景之上的独立控件，压暗的只是底下的游戏画面，不影响预览图本身。
+     */
     @Override
     public void renderBackground(GuiGraphics context) {
-        // 故意什么都不做
+        ScreenBackgrounds.render(this, context);
     }
 
     @Override
