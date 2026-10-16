@@ -58,20 +58,20 @@ public final class AvatarEditScreen extends Screen {
 
     @Override
     protected void init() {
-        addDrawableChild(Button.builder(Lang.text("mcai.avatar.edit_done"), button -> close())
-                .dimensions(this.width / 2 - 60, this.height - 28, 120, 20)
+        addRenderableWidget(Button.builder(Lang.text("mcai.avatar.edit_done"), button -> onClose())
+                .bounds(this.width / 2 - 60, this.height - 28, 120, 20)
                 .build());
     }
 
     /** 故意留空：要能看见游戏画面，才判断得出挂件有没有挡住该避开的 HUD 元素。 */
     @Override
-    public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphics context) {
         // no-op
     }
 
     /** 不暂停游戏：这是调 UI 位置，不是弹窗，暂停反而会让画面（含 HUD）停在半截状态。 */
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
@@ -84,7 +84,7 @@ public final class AvatarEditScreen extends Screen {
         }
 
         // HUD 渲染回调在界面开着时不会跑，纹理不会自己加载，必须在这里主动催一下
-        AvatarWidget.prepare(client, config);
+        AvatarWidget.prepare(minecraft, config);
 
         int[] size = AvatarWidget.widgetSize(config);
         w = Math.max(1, size[0]);
@@ -102,17 +102,17 @@ public final class AvatarEditScreen extends Screen {
             y = Mth.clamp((int) Math.round(mouseY - grabDy), 0, Math.max(0, height - h));
         }
 
-        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFFFF);
-        context.drawCenteredTextWithShadow(textRenderer, Lang.text("mcai.avatar.edit_hint"),
+        context.drawCenteredString(font, title, width / 2, 10, 0xFFFFFFFF);
+        context.drawCenteredString(font, Lang.text("mcai.avatar.edit_hint"),
                 width / 2, 24, 0xFFAAAAAA);
 
         if (!AvatarWidget.isTextureReady()) {
-            context.drawCenteredTextWithShadow(textRenderer, Lang.text("mcai.avatar.edit_failed"),
+            context.drawCenteredString(font, Lang.text("mcai.avatar.edit_failed"),
                     width / 2, height / 2, 0xFFFF5555);
         } else {
             // 选中框暗示"这块可以拖"；拖动中换成暖色，给一点反馈
             context.renderOutline(x - 1, y - 1, w + 2, h + 2, dragging ? 0xFFFFD040 : 0x8055FFFF);
-            AvatarWidget.renderWidget(context, textRenderer, x, y, w, h, width, height);
+            AvatarWidget.renderWidget(context, font, x, y, w, h, width, height);
         }
 
         super.render(context, mouseX, mouseY, delta);
@@ -159,11 +159,11 @@ public final class AvatarEditScreen extends Screen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         // 拖到一半直接按 ESC 也要落盘，否则玩家以为摆好了、其实位置没存
         if (placed) {
             AvatarWidget.savePosition(x, y, w, h, width, height);
         }
-        client.setScreen(parent);
+        minecraft.setScreen(parent);
     }
 }

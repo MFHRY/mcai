@@ -67,7 +67,7 @@ public final class ClickableText {
         }
         MutableComponent out = Component.literal("");
         if (clipboard != null && !clipboard.isEmpty()) {
-            out.styled(style -> style
+            out.withStyle(style -> style
                     .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, clipboard))
                     .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                             Lang.text("mcai.chat.click_copy_reply"))));
@@ -95,9 +95,9 @@ public final class ClickableText {
             String y = matcher.group(1) != null ? matcher.group(2) : matcher.group(5);
             String z = matcher.group(1) != null ? matcher.group(3) : matcher.group(6);
             String clipboard = x + " " + y + " " + z;
-            return Component.literal(shown).styled(style ->
+            return Component.literal(shown).withStyle(style ->
                     style.withColor(COORD_COLOR)
-                            .withUnderline(true)
+                            .withUnderlined(true)
                             .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, clipboard))
                             .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                                     Lang.text("mcai.chat.click_copy_coords", clipboard))));
@@ -108,9 +108,9 @@ public final class ClickableText {
         if (item != null) {
             String prefix = chatPrefix();
             String suggested = prefix + " " + item;
-            return Component.literal(shown).styled(style ->
+            return Component.literal(shown).withStyle(style ->
                     style.withColor(ITEM_COLOR)
-                            .withUnderline(true)
+                            .withUnderlined(true)
                             .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, suggested))
                             .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                                     Lang.text("mcai.chat.click_ask_item", suggested))));

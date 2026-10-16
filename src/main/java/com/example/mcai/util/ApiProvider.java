@@ -491,7 +491,7 @@ public enum ApiProvider {
         if (prompt >= 0 || completion >= 0) {
             usage.addProperty("total_tokens", Math.max(0, prompt) + Math.max(0, completion));
         }
-        if (!usage.isEmpty()) {
+        if (usage.size() != 0) {
             root.add("usage", usage);
         }
         return root;
@@ -506,14 +506,14 @@ public enum ApiProvider {
         if (reasoning != null && !reasoning.isEmpty()) {
             delta.addProperty("reasoning_content", reasoning);
         }
-        if (!delta.isEmpty()) {
+        if (delta.size() != 0) {
             JsonArray choices = new JsonArray();
             JsonObject choice = new JsonObject();
             choice.add("delta", delta);
             choices.add(choice);
             root.add("choices", choices);
         }
-        if (usage != null && !usage.isEmpty()) {
+        if (usage != null && usage.size() != 0) {
             root.add("usage", usage);
         }
         return root;
@@ -552,7 +552,7 @@ public enum ApiProvider {
             usage.addProperty("total_tokens",
                     total >= 0 ? total : Math.max(0, prompt) + Math.max(0, completion));
         }
-        return usage.isEmpty() ? null : usage;
+        return usage.size() == 0 ? null : usage;
     }
 
     private static int pickInt(JsonObject object, String first, String second) {

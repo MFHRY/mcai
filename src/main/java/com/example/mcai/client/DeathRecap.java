@@ -53,7 +53,7 @@ public final class DeathRecap {
             return;
         }
 
-        boolean dead = client.player.isDead() || client.player.getHealth() <= 0.0f;
+        boolean dead = client.player.isDeadOrDying() || client.player.getHealth() <= 0.0f;
         long now = System.currentTimeMillis();
 
         if (!dead) {

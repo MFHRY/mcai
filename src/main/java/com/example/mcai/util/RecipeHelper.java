@@ -7,7 +7,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.Recipe;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -53,9 +53,9 @@ public final class RecipeHelper {
             Map<String, Craftable> unique = new LinkedHashMap<>();
             int scanned = 0;
             int crafting = 0;
-            for (RecipeHolder<?> entry : world.getRecipeManager().values()) {
+            for (Recipe<?> entry : world.getRecipeManager().getRecipes()) {
                 scanned++;
-                Recipe<?> recipe = entry.value();
+                Recipe<?> recipe = entry;
                 if (!(recipe instanceof CraftingRecipe)) {
                     continue;
                 }
@@ -112,8 +112,8 @@ public final class RecipeHelper {
         Map<net.minecraft.world.item.Item, Integer> available = new LinkedHashMap<>();
         try {
             var inventory = player.getInventory();
-            for (int slot = 0; slot < inventory.size(); slot++) {
-                ItemStack stack = inventory.getStack(slot);
+            for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+                ItemStack stack = inventory.getItem(slot);
                 if (stack != null && !stack.isEmpty()) {
                     available.merge(stack.getItem(), stack.getCount(), Integer::sum);
                 }
@@ -142,7 +142,7 @@ public final class RecipeHelper {
         java.util.Set<net.minecraft.world.item.Item> allItems = new java.util.HashSet<>();
         for (Ingredient ingredient : required) {
             java.util.Set<net.minecraft.world.item.Item> opts = new java.util.HashSet<>();
-            for (ItemStack option : ingredient.getMatchingStacks()) {
+            for (ItemStack option : ingredient.getItems()) {
                 if (option == null || option.isEmpty()) {
                     continue;
                 }
@@ -213,7 +213,7 @@ public final class RecipeHelper {
     /** 取配方的产物图标（只用于拿名字和数量）。 */
     private static ItemStack iconOf(Recipe<?> recipe) {
         try {
-            return recipe.createIcon();
+            return recipe.getToastSymbol();
         } catch (Throwable t) {
             return null;
         }
@@ -230,7 +230,7 @@ public final class RecipeHelper {
                 if (ingredient == null || ingredient.isEmpty()) {
                     continue;
                 }
-                ItemStack[] stacks = ingredient.getMatchingStacks();
+                ItemStack[] stacks = ingredient.getItems();
                 if (stacks.length == 0) {
                     continue;
                 }
@@ -250,8 +250,8 @@ public final class RecipeHelper {
      * 按名字找配方（给 {@code !ai 怎么做钻石镐} 这类提问用）。
      * 匹配产物显示名包含查询词的配方；找不到返回空列表。
      */
-    public static List<RecipeHolder<?>> findByName(String query) {
-        List<RecipeHolder<?>> out = new ArrayList<>();
+    public static List<Recipe<?>> findByName(String query) {
+        List<Recipe<?>> out = new ArrayList<>();
         Minecraft client = Minecraft.getInstance();
         ClientLevel world = client.level;
         if (world == null || query == null || query.isBlank()) {
@@ -262,8 +262,8 @@ public final class RecipeHelper {
             return out;
         }
         try {
-            for (RecipeHolder<?> entry : world.getRecipeManager().values()) {
-                Recipe<?> recipe = entry.value();
+            for (Recipe<?> entry : world.getRecipeManager().getRecipes()) {
+                Recipe<?> recipe = entry;
                 if (!(recipe instanceof CraftingRecipe)) {
                     continue;
                 }
@@ -286,8 +286,8 @@ public final class RecipeHelper {
     }
 
     /** 把一条配方渲染成人话（产物 + 材料）。 */
-    public static String describe(RecipeHolder<?> entry) {
-        Recipe<?> recipe = entry.value();
+    public static String describe(Recipe<?> entry) {
+        Recipe<?> recipe = entry;
         ItemStack icon = iconOf(recipe);
         String output = icon == null ? Lang.tr("mcai.value.unknown") : icon.getHoverName().getString();
         List<String> lines = describeIngredients(recipe);
@@ -336,11 +336,11 @@ public final class RecipeHelper {
             return null;
         }
 
-        RecipeHolder<?> best = null;
+        Recipe<?> best = null;
         int bestLength = 1; // 至少 2 个字才算匹配，避免单字误命中
         try {
-            for (RecipeHolder<?> entry : world.getRecipeManager().values()) {
-                Recipe<?> recipe = entry.value();
+            for (Recipe<?> entry : world.getRecipeManager().getRecipes()) {
+                Recipe<?> recipe = entry;
                 if (!(recipe instanceof CraftingRecipe)) {
                     continue;
                 }

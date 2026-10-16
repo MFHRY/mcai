@@ -131,7 +131,7 @@ public final class StartupGuide {
         // 指向本机推理服务（Ollama / LM Studio）时不需要 key，别把人吓着去办 key。
         if (config != null && LocalProvider.requiresApiKey(config.apiUrl, config.apiKey)) {
             ClientChat.send(Component.literal(Lang.tr("mcai.guide.no_key"))
-                    .styled(style -> style.withClickEvent(new ClickEvent(
+                    .withStyle(style -> style.withClickEvent(new ClickEvent(
                             ClickEvent.Action.SUGGEST_COMMAND, "/ai config"))));
         }
     }

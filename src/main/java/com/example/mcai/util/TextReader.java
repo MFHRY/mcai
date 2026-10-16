@@ -10,6 +10,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
@@ -57,7 +60,7 @@ public final class TextReader {
             return null;
         }
 
-        HitResult hit = client.crosshairTarget;
+        HitResult hit = client.hitResult;
         if (!(hit instanceof BlockHitResult blockHit) || hit.getType() != HitResult.Type.BLOCK) {
             return null;
         }
@@ -117,7 +120,7 @@ public final class TextReader {
             return null;
         }
         Found main = bookOf(player.getMainHandItem());
-        return main != null ? main : bookOf(player.getOffHandStack());
+        return main != null ? main : bookOf(player.getOffhandItem());
     }
 
     private static Found bookOf(ItemStack stack) {
@@ -125,25 +128,29 @@ public final class TextReader {
             return null;
         }
         try {
-            var content = stack.get(net.minecraft.component.DataComponentTypes.WRITTEN_BOOK_CONTENT);
-            if (content == null) {
+            // 1.20.1 还没有数据组件 —— 那是 1.20.5+ 才引入的体系。成书的内容此时
+            // 仍然存在 NBT 里：title 是一个普通字符串，pages 是「JSON 文本」组成的
+            // 字符串列表。所以这里不能照抄 1.21.1 的 DataComponentTypes 写法。
+            CompoundTag tag = stack.getTag();
+            if (tag == null || !tag.contains("pages", Tag.TAG_LIST)) {
                 return null;
             }
             List<String> lines = new ArrayList<>();
-            // title 字段是 Filterable<String>
-            String title = content.title() == null ? "" : content.title().raw();
-            if (!title.isBlank()) {
+            String title = tag.getString("title");
+            if (title != null && !title.isBlank()) {
                 lines.add(title.trim());
             }
-            for (var page : content.pages()) {
-                if (page == null) {
+            ListTag pages = tag.getList("pages", Tag.TAG_STRING);
+            for (int i = 0; i < pages.size(); i++) {
+                String raw = pages.getString(i);
+                if (raw == null || raw.isBlank()) {
                     continue;
                 }
-                // pages 的元素是 Filterable<Component>，要再取一次字符串
-                Component pageText = page.raw();
-                String raw = pageText == null ? null : pageText.getString();
-                if (raw != null && !raw.isBlank()) {
-                    lines.add(raw.trim());
+                // 每一页是 JSON 形式的文本组件，要先反序列化再取纯文本
+                Component pageText = Component.Serializer.fromJson(raw);
+                String text = pageText == null ? null : pageText.getString();
+                if (text != null && !text.isBlank()) {
+                    lines.add(text.trim());
                 }
             }
             String text = String.join("\n", lines).trim();

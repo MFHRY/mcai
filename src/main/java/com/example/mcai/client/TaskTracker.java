@@ -89,8 +89,8 @@ public final class TaskTracker {
         java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
         try {
             var inventory = player.getInventory();
-            for (int slot = 0; slot < inventory.size(); slot++) {
-                net.minecraft.world.item.ItemStack stack = inventory.getStack(slot);
+            for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+                net.minecraft.world.item.ItemStack stack = inventory.getItem(slot);
                 if (stack == null || stack.isEmpty()) {
                     continue;
                 }

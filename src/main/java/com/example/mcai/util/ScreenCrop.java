@@ -41,8 +41,8 @@ public final class ScreenCrop {
             return null;
         }
 
-        int scaledWidth = client.getWindow().getScaledWidth();
-        int scaledHeight = client.getWindow().getScaledHeight();
+        int scaledWidth = client.getWindow().getGuiScaledWidth();
+        int scaledHeight = client.getWindow().getGuiScaledHeight();
         if (scaledWidth <= 0 || scaledHeight <= 0) {
             return null;
         }

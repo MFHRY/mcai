@@ -30,19 +30,19 @@ public final class WorldContext {
             return null;
         }
 
-        BlockPos pos = player.getBlockPos();
+        BlockPos pos = player.blockPosition();
         StringBuilder sb = new StringBuilder();
         sb.append(Lang.tr("mcai.ctx.header")).append('\n');
         sb.append(Lang.tr("mcai.ctx.dimension",
-                world.getRegistryKey().getValue().toString())).append('\n');
+                world.dimension().location().toString())).append('\n');
         sb.append(Lang.tr("mcai.ctx.coords",
                 pos.getX(), pos.getY(), pos.getZ())).append('\n');
 
         // 群系：1.21.1 的 getBiome 返回 Holder<Biome>
         try {
             Holder<Biome> biome = world.getBiome(pos);
-            String biomeName = biome.getKey()
-                    .map(key -> key.getValue().getPath())
+            String biomeName = biome.unwrapKey()
+                    .map(key -> key.location().getPath())
                     .orElse(Lang.tr("mcai.value.unknown"));
             sb.append(Lang.tr("mcai.ctx.biome", biomeName)).append('\n');
         } catch (Throwable ignored) {
@@ -50,11 +50,11 @@ public final class WorldContext {
         }
 
         sb.append(Lang.tr("mcai.ctx.light",
-                world.getLightLevel(pos))).append('\n');
+                world.getMaxLocalRawBrightness(pos))).append('\n');
         sb.append(Lang.tr("mcai.ctx.y_level",
                 player.getY(), world.getSeaLevel())).append('\n');
         sb.append(Lang.tr("mcai.ctx.time",
-                world.getTimeOfDay() % 24000L)).append('\n');
+                world.getDayTime() % 24000L)).append('\n');
         sb.append(Lang.tr("mcai.ctx.health",
                 Math.round(player.getHealth()), Math.round(player.getMaxHealth())));
 

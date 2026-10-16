@@ -21,7 +21,7 @@ import java.util.List;
  */
 public class AiModelSwitcherItem extends Item {
 
-    public AiModelSwitcherItem(Settings settings) {
+    public AiModelSwitcherItem(Item.Properties settings) {
         super(settings);
     }
 

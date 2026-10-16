@@ -49,13 +49,13 @@ public class VisionPreviewScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     /** 默认实现会铺一层暗色，把预览图压暗 —— 这里不要它。 */
     @Override
-    public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphics context) {
         // 故意什么都不做
     }
 
@@ -66,7 +66,7 @@ public class VisionPreviewScreen extends Screen {
         // 把预览图上传成纹理。它不会被修改，所以不需要每帧 upload()。
         try {
             texture = new DynamicTexture(preview);
-            this.client.getTextureManager().registerTexture(TEXTURE_ID, texture);
+            this.minecraft.getTextureManager().register(TEXTURE_ID, texture);
         } catch (Throwable t) {
             texture = null;
         }
@@ -78,10 +78,10 @@ public class VisionPreviewScreen extends Screen {
         int startX = (this.width - totalWidth) / 2;
         int y = this.height - 40;
 
-        addDrawableChild(Button.builder(Lang.text("mcai.preview.send"), button -> send())
-                .dimensions(startX, y, buttonWidth, buttonHeight).build());
-        addDrawableChild(Button.builder(Lang.text("mcai.preview.discard"), button -> close())
-                .dimensions(startX + buttonWidth + gap, y, buttonWidth, buttonHeight).build());
+        addRenderableWidget(Button.builder(Lang.text("mcai.preview.send"), button -> send())
+                .bounds(startX, y, buttonWidth, buttonHeight).build());
+        addRenderableWidget(Button.builder(Lang.text("mcai.preview.discard"), button -> onClose())
+                .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight).build());
     }
 
     @Override
@@ -121,8 +121,8 @@ public class VisionPreviewScreen extends Screen {
     private void send() {
         NativeImage picked = this.original;
         this.handedOff = true;
-        // super.close() → client.setScreen(null) → removed() → 释放纹理（连带预览图）
-        super.close();
+        // super.close() → minecraft.setScreen(null) → removed() → 释放纹理（连带预览图）
+        super.onClose();
         VisionHandler.sendPicked(picked, region, promptOverride);
     }
 
@@ -133,7 +133,7 @@ public class VisionPreviewScreen extends Screen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         if (!handedOff) {
             // 放弃：原始截图是堆外内存，必须释放
             try {
@@ -142,7 +142,7 @@ public class VisionPreviewScreen extends Screen {
                 // 已经关过就算了
             }
         }
-        super.close();
+        super.onClose();
     }
 
     private void releaseTexture() {
@@ -156,8 +156,8 @@ public class VisionPreviewScreen extends Screen {
             texture = null;
         }
         try {
-            if (this.client != null && this.client.getTextureManager() != null) {
-                this.client.getTextureManager().destroyTexture(TEXTURE_ID);
+            if (this.minecraft != null && this.minecraft.getTextureManager() != null) {
+                this.minecraft.getTextureManager().release(TEXTURE_ID);
             }
         } catch (Throwable ignored) {
             // 纹理本来就不存在时 destroyTexture 可能抛，忽略

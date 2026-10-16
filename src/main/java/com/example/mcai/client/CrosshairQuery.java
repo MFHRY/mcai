@@ -34,7 +34,7 @@ public final class CrosshairQuery {
             return;
         }
 
-        HitResult hit = client.crosshairTarget;
+        HitResult hit = client.hitResult;
         if (hit == null || hit.getType() == HitResult.Type.MISS) {
             ClientChat.sendLiteral(Lang.tr("mcai.what.nothing"));
             return;
@@ -45,7 +45,7 @@ public final class CrosshairQuery {
             BlockState state = client.level.getBlockState(pos);
             Block block = state.getBlock();
             String name = block.getName().getString();
-            String id = Registries.BLOCK.getId(block).toString();
+            String id = BuiltInRegistries.BLOCK.getKey(block).toString();
             ChatHandler.ask(Lang.tr("mcai.what.block", name, id,
                     pos.getX(), pos.getY(), pos.getZ()));
             return;
@@ -54,7 +54,7 @@ public final class CrosshairQuery {
         if (hit instanceof EntityHitResult entityHit) {
             Entity entity = entityHit.getEntity();
             String name = entity.getName().getString();
-            String id = Registries.ENTITY_TYPE.getId(entity.getType()).toString();
+            String id = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
             // 生物多带一个血量：问"要不要打"的时候，这是最关键的判断依据
             if (entity instanceof LivingEntity living) {
                 ChatHandler.ask(Lang.tr("mcai.what.entity_living", name, id,

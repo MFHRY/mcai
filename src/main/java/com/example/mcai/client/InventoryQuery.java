@@ -29,8 +29,8 @@ public final class InventoryQuery {
         Inventory inventory = client.player.getInventory();
         StringBuilder items = new StringBuilder();
         int kinds = 0;
-        for (int slot = 0; slot < inventory.size(); slot++) {
-            ItemStack stack = inventory.getStack(slot);
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
             if (stack.isEmpty()) {
                 continue;
             }

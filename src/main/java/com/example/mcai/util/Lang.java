@@ -53,6 +53,6 @@ public final class Lang {
 
     /** 当前语言里是否真的有这条键。诊断用。 */
     public static boolean has(String key) {
-        return net.minecraft.util.Language.getInstance().hasTranslation(key);
+        return net.minecraft.locale.Language.getInstance().has(key);
     }
 }

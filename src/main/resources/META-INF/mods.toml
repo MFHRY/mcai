@@ -11,7 +11,12 @@ authors="mfhry"
 description='''
 Chat with an AI from the Minecraft chat bar via the '!ai' prefix, press H to send a screenshot to a multimodal model, press R to send only the region you select, press G to analyse a build or redstone circuit, and press V to ask what the block or mob under your crosshair is. Works with OpenAI-compatible endpoints, Google Gemini and Anthropic Claude, and with local models (Ollama / LM Studio) that need no API key. Includes multi-turn context, an answer cache, cost tracking with a daily budget cap, long-term memory, inventory analysis, translation, and 8 languages.
 '''
-logoFile="mcai_icon.png"
+# Path is resolved from the JAR ROOT, so it must match where the file actually
+# lives in the built jar - not a name invented here. The icon ships as
+# src/main/resources/assets/mcai/icon.png, so this is assets/mcai/icon.png.
+# (It was "mcai_icon.png" at first, a file that exists nowhere: Forge would
+# have quietly shown the mod with no logo.)
+logoFile="assets/mcai/icon.png"
 
 [[dependencies.mcai]]
     modId="forge"

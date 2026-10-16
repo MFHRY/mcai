@@ -5,7 +5,7 @@ import com.example.mcai.util.Lang;
 import com.example.mcai.vision.VisionHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.phys.AABB;
 
 /**
@@ -73,7 +73,7 @@ public final class DangerWatch {
     private static boolean hasNearbyHostile(Minecraft client, LocalPlayer player, double radius) {
         try {
             AABB box = player.getBoundingBox().inflate(Math.max(1.0, radius));
-            return !client.level.getEntitiesByClass(Enemy.class, box, entity -> entity.isAlive()).isEmpty();
+            return !client.level.getEntitiesOfClass(Monster.class, box, entity -> entity.isAlive()).isEmpty();
         } catch (Throwable t) {
             // 任何异常都当作"没有危险"，宁可漏报也不要因为报错把游戏搞崩
             return false;

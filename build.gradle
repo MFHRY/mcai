@@ -28,7 +28,28 @@ base {
     archivesName = project.archives_base_name
 }
 
+// Minecraft 1.20.1 is Java 17, so the output must be Java 17 bytecode - a jar
+// built for 21 fails to load with UnsupportedClassVersionError.
+//
+// The toolchain line is not optional even though a newer JDK could emit 17
+// bytecode: ForgeGradle ITSELF compiles the binpatched Forge artifact with a
+// Java 17 toolchain, and without one it fails inside
+// MinecraftUserRepo.findBinpatched. The foojay resolver in settings.gradle
+// downloads that JDK automatically, so the project still builds on a machine
+// that has no JDK 17 installed.
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    // Belt and braces: restrict the API surface to Java 17 as well, so using a
+    // 21-only type is a compile error rather than a crash on the player's side.
+    options.release = 17
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
 
 minecraft {
     // Official (Mojang) mappings - see the header note.
@@ -68,10 +89,6 @@ dependencies {
     minecraft "net.minecraftforge:forge:${project.forge_version}"
 }
 
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-}
-
 processResources {
     inputs.property "version", project.version
     filesMatching("META-INF/mods.toml") {
@@ -93,4 +110,11 @@ jar {
     from("LICENSE") {
         rename { "${it}_${project.base.archivesName.get()}" }
     }
+}
+
+// Sources jar, so the release carries the code the compiled jar was built from.
+// The Fabric edition publishes one, and there is no reason the Forge build
+// should be the one release where you cannot read the source.
+java {
+    withSourcesJar()
 }

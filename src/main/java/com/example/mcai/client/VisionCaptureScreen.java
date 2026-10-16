@@ -63,7 +63,7 @@ public class VisionCaptureScreen extends Screen {
 
     /** 不要把世界暂停：多人游戏里框选时世界应该继续跑。 */
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
@@ -155,12 +155,12 @@ public class VisionCaptureScreen extends Screen {
         NativeImage picked = this.image;
         this.handedOff = true;
         // super.close() 让 Screen 自己关掉界面；截图所有权已经移交给 VisionHandler
-        super.close();
+        super.onClose();
         VisionHandler.onRegionPicked(picked, region, promptOverride);
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         if (!handedOff) {
             // 取消：这张截图是堆外内存，必须自己释放，否则真的会泄漏
             try {
@@ -169,7 +169,7 @@ public class VisionCaptureScreen extends Screen {
                 // 已经关过就算了
             }
         }
-        super.close();
+        super.onClose();
     }
 
     private static double clamp(double value) {

@@ -223,8 +223,9 @@ public final class AvatarWidget {
             return;
         }
         // F3 打开时让位给调试信息
-        DebugScreenOverlay debugHud = client.getDebugHud();
-        if (debugHud != null && debugHud.shouldShowDebugHud()) {
+        // 1.20.1 has no getDebugHud()/shouldShowDebugHud(); the flag that
+        // says "the F3 overlay is up" is a plain field on Minecraft.
+        if (client.options.renderDebug) {
             return;
         }
 
@@ -240,8 +241,8 @@ public final class AvatarWidget {
         float deltaTicks = Math.max(0.001F, Math.min(1.0F, partialTick));
         updateQState(client, config, deltaTicks);
 
-        int screenW = context.getScaledWindowWidth();
-        int screenH = context.getScaledWindowHeight();
+        int screenW = context.guiWidth();
+        int screenH = context.guiHeight();
 
         int[] size = computeDrawSize(config);
         int drawW = size[0];
@@ -287,8 +288,8 @@ public final class AvatarWidget {
         float sy = squash;
         float sx = 2.0F - squash;
 
-        PoseStack matrices = context.getMatrices();
-        matrices.push();
+        PoseStack matrices = context.pose();
+        matrices.pushPose();
         try {
             matrices.translate(x + w / 2.0F, y + h / 2.0F, 0.0F);
             matrices.scale(sx, sy, 1.0F);
@@ -296,7 +297,7 @@ public final class AvatarWidget {
             context.blit(TEXTURE_ID, 0, 0, 0.0F, 0.0F, w, h, w, h);
         } finally {
             // 万一 drawTexture 抛了，也不能把矩阵栈留脏
-            matrices.pop();
+            matrices.popPose();
         }
     }
 
@@ -310,10 +311,10 @@ public final class AvatarWidget {
         }
 
         int pad = 4;
-        int lineHeight = textRenderer.fontHeight + 1;
+        int lineHeight = textRenderer.lineHeight + 1;
         int textWidth = 0;
         for (String line : lines) {
-            textWidth = Math.max(textWidth, textRenderer.getWidth(line));
+            textWidth = Math.max(textWidth, textRenderer.width(line));
         }
         int w = textWidth + pad * 2;
         int h = lines.size() * lineHeight + pad * 2 - 1;
@@ -354,8 +355,8 @@ public final class AvatarWidget {
         String line2 = Lang.tr("mcai.avatar.tip_drag");
 
         int pad = 4;
-        int w = Math.max(textRenderer.getWidth(line1), textRenderer.getWidth(line2)) + pad * 2;
-        int h = (textRenderer.fontHeight + 1) * 2 + pad * 2 - 1;
+        int w = Math.max(textRenderer.width(line1), textRenderer.width(line2)) + pad * 2;
+        int h = (textRenderer.lineHeight + 1) * 2 + pad * 2 - 1;
 
         int x = Mth.clamp(avatarX, 2, Math.max(2, screenW - w - 2));
         int y = avatarY + avatarH + 4;
@@ -367,7 +368,7 @@ public final class AvatarWidget {
         context.fill(x, y, x + w, y + h, 0xB0101018);
         context.renderOutline(x, y, w, h, 0xFF55FFFF);
         context.drawString(textRenderer, line1, x + pad, y + pad, 0xFFFFFFFF);
-        context.drawString(textRenderer, line2, x + pad, y + pad + textRenderer.fontHeight + 1,
+        context.drawString(textRenderer, line2, x + pad, y + pad + textRenderer.lineHeight + 1,
                 0xFFAAAAAA);
     }
 
@@ -451,12 +452,12 @@ public final class AvatarWidget {
      * 下面这段代码保留着，是为了将来若真的引入 mixin，可以直接接上而不用重写。
      */
     private static boolean interactionEnabled(Minecraft client) {
-        return client.screen == null && !client.mouse.isCursorLocked();
+        return client.screen == null && !client.mouseHandler.isMouseGrabbed();
     }
 
     private static void handleMouse(Minecraft client, ConfigManager.ConfigData config,
                                     int x, int y, int w, int h, int screenW, int screenH) {
-        long handle = client.getWindow().getHandle();
+        long handle = client.getWindow().getWindow();
         boolean down;
         try {
             down = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
@@ -467,8 +468,8 @@ public final class AvatarWidget {
         // Mouse 里是窗口像素；换算公式抄自原版 Mouse.onMouseButton
         int winW = Math.max(1, client.getWindow().getWidth());
         int winH = Math.max(1, client.getWindow().getHeight());
-        double mouseX = client.mouse.getX() * screenW / (double) winW;
-        double mouseY = client.mouse.getY() * screenH / (double) winH;
+        double mouseX = client.mouseHandler.xpos() * screenW / (double) winW;
+        double mouseY = client.mouseHandler.ypos() * screenH / (double) winH;
 
         boolean inside = mouseX >= x && mouseX < x + (double) w
                 && mouseY >= y && mouseY < y + (double) h;
@@ -666,7 +667,7 @@ public final class AvatarWidget {
                                      float deltaTicks) {
         boolean down;
         try {
-            down = InputConstants.isKeyDown(client.getWindow().getHandle(), GLFW.GLFW_KEY_Q);
+            down = InputConstants.isKeyDown(client.getWindow().getWindow(), GLFW.GLFW_KEY_Q);
         } catch (Throwable t) {
             down = false;
         }
@@ -695,7 +696,7 @@ public final class AvatarWidget {
             // SoundEvents.UI_BUTTON_CLICK 是 Holder.Reference<SoundEvent>，
             // 走的是 master(Holder<SoundEvent>, float) 这个重载。
             client.getSoundManager().play(
-                    SimpleSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
         } catch (Throwable t) {
             LOGGER.debug("[mcAI] avatar click sound failed", t);
         }
@@ -748,7 +749,7 @@ public final class AvatarWidget {
             texHeight = Math.max(1, image.getHeight());
             DynamicTexture texture = new DynamicTexture(image);
             image = null; // 所有权交给纹理，失败路径里不要再 close 一次
-            client.getTextureManager().registerTexture(TEXTURE_ID, texture);
+            client.getTextureManager().register(TEXTURE_ID, texture);
             textureReady = true;
             textureFailed = false;
         } catch (Throwable t) {
@@ -797,7 +798,7 @@ public final class AvatarWidget {
             return;
         }
         try {
-            client.getTextureManager().destroyTexture(TEXTURE_ID);
+            client.getTextureManager().release(TEXTURE_ID);
         } catch (Throwable t) {
             LOGGER.debug("[mcAI] failed to release avatar texture", t);
         }

@@ -11,5 +11,19 @@ pluginManagement {
 	}
 }
 
+plugins {
+	// Lets Gradle DOWNLOAD a JDK when a task asks for one that is not installed.
+	//
+	// This is not a nicety here, it is required: ForgeGradle internally compiles
+	// the binpatched Forge artifact with a Java 17 toolchain
+	// (see MinecraftUserRepo.findBinpatched), and without a toolchain resolver
+	// that fails with "No locally installed toolchains match and toolchain
+	// download repositories have not been configured".
+	//
+	// Declaring it means a clone of this repo builds on any machine that has
+	// *some* JDK - Gradle fetches the right one itself.
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
 // Should match your modid
 rootProject.name = 'mcai'

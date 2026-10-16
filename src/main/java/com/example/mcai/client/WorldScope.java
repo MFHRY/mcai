@@ -43,12 +43,12 @@ public final class WorldScope {
             return "unknown";
         }
         try {
-            ServerData server = client.getCurrentServerEntry();
-            if (server != null && server.address != null && !server.address.isBlank()) {
-                return "server:" + server.address.toLowerCase(Locale.ROOT);
+            ServerData server = client.getCurrentServer();
+            if (server != null && server.ip != null && !server.ip.isBlank()) {
+                return "server:" + server.ip.toLowerCase(Locale.ROOT);
             }
-            if (client.getServer() != null) {
-                return "local:" + System.identityHashCode(client.getServer());
+            if (client.getSingleplayerServer() != null) {
+                return "local:" + System.identityHashCode(client.getSingleplayerServer());
             }
         } catch (Throwable ignored) {
             // 拿不到就不区分，退化成原来的全局行为，不影响可用性

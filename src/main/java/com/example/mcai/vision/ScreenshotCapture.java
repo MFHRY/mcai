@@ -30,7 +30,7 @@ import java.util.Iterator;
  *       所以<b>绝不能再翻一次</b>，否则截图上下颠倒。</li>
  *   <li>{@code NativeImage} 占<b>堆外内存</b>，不 close 会真泄漏 —— vanilla 的保存路径
  *       也是在 finally 里 close 的。这是整个流程里唯一真正的泄漏风险。</li>
- *   <li>{@code NativeImage.getColor(x, y)} 返回 <b>ARGB</b>（我构造真实 NativeImage 实测过
+ *   <li>{@code NativeImage.getPixelRGBA(x, y)} 返回 <b>ARGB</b>（我构造真实 NativeImage 实测过
  *       4 个像素的往返），可以直接喂给 {@code BufferedImage.setRGB}。</li>
  * </ul>
  *
@@ -61,7 +61,7 @@ public final class ScreenshotCapture {
      */
     public static NativeImage grab() {
         Minecraft client = Minecraft.getInstance();
-        RenderTarget framebuffer = client.getFramebuffer();
+        RenderTarget framebuffer = client.getMainRenderTarget();
         if (framebuffer == null) {
             return null;
         }
@@ -221,7 +221,7 @@ public final class ScreenshotCapture {
             for (int y = 0; y < targetHeight; y++) {
                 for (int x = 0; x < targetWidth; x++) {
                     // getRGB 返回 ARGB，NativeImage.setColor 也接受 ARGB，可以直接搬
-                    out.setColor(x, y, scaled.getRGB(x, y));
+                    out.setPixelRGBA(x, y, scaled.getRGB(x, y));
                 }
             }
             scaled.flush();
@@ -323,7 +323,7 @@ public final class ScreenshotCapture {
             int rowOffset = y * width;
             for (int x = 0; x < width; x++) {
                 // getColor 已经是 ARGB，与 TYPE_INT_ARGB 完全对应
-                pixels[rowOffset + x] = image.getColor(x, y);
+                pixels[rowOffset + x] = image.getPixelRGBA(x, y);
             }
         }
         BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);

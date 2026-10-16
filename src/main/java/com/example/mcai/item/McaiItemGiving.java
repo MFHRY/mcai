@@ -2,6 +2,7 @@ package com.example.mcai.item;
 
 import com.example.mcai.McaiMod;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.MinecraftForge;
@@ -39,10 +40,15 @@ public final class McaiItemGiving {
     }
 
     private static void giveIfMissing(ServerPlayer player, Item item) {
-        if (player.getInventory().contains(stack -> stack.is(item))) {
-            return;
+        // 1.20.1 的 Inventory.contains 只接受 ItemStack 或 TagKey，没有 Yarn 那种
+        // 「传个谓词」的重载，所以这里自己扫一遍（覆盖主背包 + 护甲 + 副手）。
+        Inventory inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            if (inventory.getItem(slot).is(item)) {
+                return;
+            }
         }
-        player.getInventory().add(new ItemStack(item));
+        inventory.add(new ItemStack(item));
         McaiMod.LOGGER.info("mcAI gave the switcher items to {}",
                 player.getName() == null ? "?" : player.getName().getString());
     }
