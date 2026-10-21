@@ -1,7 +1,20 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
+# Build the mod and verify the jar is actually complete.
+#
+# Two things this workflow is specifically here to prevent:
+#
+#   1. Publishing a jar that compiles but is missing files. mcAI Forge 1.0.0
+#      shipped without pack.mcmeta, so Forge dropped the whole resource pack:
+#      item textures rendered as the missing-texture checkerboard and the chat
+#      showed raw keys like mcai.cmd.status. `./gradlew build` was green the
+#      whole time. tools/check_jar.py closes that gap.
+#
+#   2. Committing code that passes javac but breaks an invariant - unbalanced
+#      braces (which javac reports as a cascade of misleading errors) or
+#      language files that drift out of sync across the 8 locales.
+#
+# The two editions need different JDKs, so the version is keyed off the branch:
+# Minecraft 1.21.1 / Fabric Loom needs 21, while the Forge 1.20.1 branch needs 17
+# (ForgeGradle compiles its binpatched artifact with a Java 17 toolchain).
 
 name: build
 on: [pull_request, push]
@@ -12,21 +25,39 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
+
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
+
       - name: setup jdk
         uses: actions/setup-java@v5
         with:
-          # Minecraft 1.21.1 / Fabric Loom 1.7.x / Gradle 8.8 all need JDK 21.
-          # JDK 25 does NOT work here: Gradle 8.8 refuses to run on it and the
-          # compiler rejects the class file version
-          # ("Unsupported class file major version 69").
-          java-version: '21'
+          # forge-1.20.1 -> 17, everything else (the Fabric branch) -> 21
+          java-version: ${{ github.ref_name == 'forge-1.20.1' && '17' || '21' }}
           distribution: 'microsoft'
+
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
+
+      # These run before the build: they are seconds, and a failure here is
+      # much easier to read than the same problem surfacing inside javac output.
+
+      - name: check brace balance
+        run: python3 tools/check_braces.py
+
+      - name: check translations are in sync
+        run: python3 tools/check_lang.py
+
+      - name: check every referenced lang key exists
+        run: python3 tools/check_lang_usage.py
+
       - name: build
         run: ./gradlew build --no-daemon
+
+      # The important one: compiled successfully is not the same as complete.
+      - name: verify jar contents
+        run: python3 tools/check_jar.py
+
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
