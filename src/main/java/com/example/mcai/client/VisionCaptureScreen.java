@@ -3,7 +3,7 @@ package com.example.mcai.client;
 import com.example.mcai.util.Lang;
 import com.example.mcai.util.ScreenCrop;
 import com.example.mcai.vision.VisionHandler;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.network.chat.Component;
@@ -70,12 +70,12 @@ public class VisionCaptureScreen extends Screen {
 
     /** 界面背景跟随 {@code screen_background} 设置（默认仍是原版的暗色渐变）。 */
     @Override
-    public void renderBackground(GuiGraphics context) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         ScreenBackgrounds.render(this, context);
     }
 
     @Override
-    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         int left = (int) Math.round(x0 * this.width);
         int top = (int) Math.round(y0 * this.height);
         int right = (int) Math.round(x1 * this.width);
@@ -87,11 +87,11 @@ public class VisionCaptureScreen extends Screen {
         context.fill(0, top, left, bottom, DIM);
         context.fill(right, top, this.width, bottom, DIM);
 
-        context.renderOutline(left, top, Math.max(1, right - left), Math.max(1, bottom - top), BORDER);
+        context.outline(left, top, Math.max(1, right - left), Math.max(1, bottom - top), BORDER);
 
-        context.drawString(this.font, Lang.text("mcai.pick.hint"), 8, 8, 0xFFFFFF);
+        context.text(this.font, Lang.text("mcai.pick.hint"), 8, 8, 0xFFFFFF);
         int percent = (int) Math.round(100.0 * (x1 - x0) * (y1 - y0));
-        context.drawString(this.font,
+        context.text(this.font,
                 Lang.text("mcai.pick.size", Math.max(1, right - left), Math.max(1, bottom - top), percent),
                 8, 20, 0xFFAAAAAA);
 
@@ -100,8 +100,10 @@ public class VisionCaptureScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (event.button() == 0) {
             anchorX = clamp(mouseX / this.width);
             anchorY = clamp(mouseY / this.height);
             x0 = x1 = anchorX;
@@ -109,12 +111,14 @@ public class VisionCaptureScreen extends Screen {
             dragging = true;
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-        if (dragging && button == 0) {
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double deltaX, double deltaY) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (dragging && event.button() == 0) {
             double currentX = clamp(mouseX / this.width);
             double currentY = clamp(mouseY / this.height);
             // 用「起点 + 当前点」取包围盒，这样往任意方向拖都成立，不会像直接交换端点那样越拖越乱
@@ -124,12 +128,12 @@ public class VisionCaptureScreen extends Screen {
             y1 = Math.max(anchorY, currentY);
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(event, deltaX, deltaY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0 && dragging) {
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        if (event.button() == 0 && dragging) {
             dragging = false;
             // 只是点了一下没拖（或拖得太小）→ 退回默认的中间 60%，别让玩家卡在一个选不中的状态
             if (x1 - x0 < 0.03 || y1 - y0 < 0.03) {
@@ -140,11 +144,12 @@ public class VisionCaptureScreen extends Screen {
             }
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             confirm();
             return true;
@@ -154,7 +159,7 @@ public class VisionCaptureScreen extends Screen {
             confirm();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     private void confirm() {

@@ -50,7 +50,8 @@ public final class RequestCancelKey {
 
         boolean down;
         try {
-            down = InputConstants.isKeyDown(client.getWindow().getWindow(), GLFW.GLFW_KEY_ESCAPE);
+            // 26.1 的 isKeyDown 收 Window 对象，不再是 GLFW 的 long 句柄
+            down = InputConstants.isKeyDown(client.getWindow(), GLFW.GLFW_KEY_ESCAPE);
         } catch (Throwable t) {
             return;
         }

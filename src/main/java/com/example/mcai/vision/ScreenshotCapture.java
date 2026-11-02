@@ -57,15 +57,28 @@ public final class ScreenshotCapture {
     /**
      * 步骤 1：抓取当前画面。<b>必须在客户端渲染线程调用。</b>
      *
-     * @return 截图；失败返回 null。拿到后必须交给 {@link #encode} 处理（由它负责释放）。
+     * <p><b>26.1 是异步的。</b>1.20.1 的 {@code Screenshot.takeScreenshot(RenderTarget)} 直接
+     * 返回一张 NativeImage；26.1 改成把「把纹理拷到缓冲区」这条 GPU 命令排进队列，
+     * 拷完（下一帧 flush 时）才回调给调用方。所以这里也改成回调式：
+     * {@code callback} 一定会被调用一次，失败时传 null。
+     *
+     * <p>注意回调<b>不是在渲染线程上"立刻"</b>执行的，但仍在渲染线程上一个安全的位置，
+     * 因此里面可以放心地 {@code client.setScreen(...)}。
+     *
+     * @param callback 拿到截图（或 null）；拿到后必须交给 {@link #encode} 处理（由它负责释放）
      */
-    public static NativeImage grab() {
+    public static void grabAsync(java.util.function.Consumer<NativeImage> callback) {
         Minecraft client = Minecraft.getInstance();
         RenderTarget framebuffer = client.getMainRenderTarget();
         if (framebuffer == null) {
-            return null;
+            callback.accept(null);
+            return;
         }
-        return Screenshot.takeScreenshot(framebuffer);
+        try {
+            Screenshot.takeScreenshot(framebuffer, 1, callback);
+        } catch (Throwable t) {
+            callback.accept(null);
+        }
     }
 
     /**
@@ -220,8 +233,11 @@ public final class ScreenshotCapture {
             NativeImage out = new NativeImage(targetWidth, targetHeight, false);
             for (int y = 0; y < targetHeight; y++) {
                 for (int x = 0; x < targetWidth; x++) {
-                    // getRGB 返回 ARGB，NativeImage.setColor 也接受 ARGB，可以直接搬
-                    out.setPixelRGBA(x, y, scaled.getRGB(x, y));
+                    // getRGB 返回 ARGB；NativeImage 只收 ABGR，所以 R/B 要换位
+                    int argb = scaled.getRGB(x, y);
+                    out.setPixel(x, y, (argb & 0xFF00FF00)
+                            | ((argb & 0xFF) << 16)
+                            | ((argb >> 16) & 0xFF));
                 }
             }
             scaled.flush();
@@ -322,8 +338,12 @@ public final class ScreenshotCapture {
         for (int y = 0; y < height; y++) {
             int rowOffset = y * width;
             for (int x = 0; x < width; x++) {
-                // getColor 已经是 ARGB，与 TYPE_INT_ARGB 完全对应
-                pixels[rowOffset + x] = image.getPixelRGBA(x, y);
+                // 26.1 的 NativeImage 只有 getPixel/setPixel，字节序是 ABGR（不是旧的 RGBA）。
+                // TYPE_INT_ARGB 要的是 A-R-G-B，所以这里把 R 与 B 对调。
+                int abgr = image.getPixel(x, y);
+                pixels[rowOffset + x] = (abgr & 0xFF00FF00)
+                        | ((abgr & 0xFF) << 16)
+                        | ((abgr >> 16) & 0xFF);
             }
         }
         BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);

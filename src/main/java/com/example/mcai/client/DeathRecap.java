@@ -92,42 +92,37 @@ public final class DeathRecap {
             return;
         }
 
-        NativeImage image;
-        try {
-            // 渲染线程上抓图
-            image = ScreenshotCapture.grab();
-        } catch (Throwable t) {
-            return;
-        }
-        if (image == null) {
-            return;
-        }
-
         final boolean sendAi = wantAi;
         final String playerName = client.player == null ? "?" : client.player.getName().getString();
         // 世界环境在渲染线程上取好，避免后台线程访问客户端状态
         final String context = WorldContext.snapshot();
 
-        WORKER.execute(() -> {
-            try {
-                ScreenshotCapture.EncodedImage encoded =
-                        ScreenshotCapture.encode(image, config.visionResolution, null);
-
-                if (wantDiscord) {
-                    DiscordWebhook.sendAsync(config.discordWebhook,
-                            Lang.tr("mcai.death.broadcast", playerName),
-                            encoded.jpeg(), "death.jpg");
-                }
-
-                if (sendAi) {
-                    String prompt = Lang.tr("mcai.death.prompt")
-                            + (context == null ? "" : "\n\n" + context);
-                    // 复用截图识别那条链路：token 统计、超时、错误提示都是现成的
-                    VisionHandler.sendEncoded(config, encoded.base64(), prompt, prompt);
-                }
-            } catch (Throwable t) {
-                System.err.println("[mcAI] Death recap failed: " + t.getMessage());
+        // 26.1 的截图是回调式的：GPU 拷贝排队，下一帧才拿到图，所以后续处理全放进回调
+        ScreenshotCapture.grabAsync(image -> {
+            if (image == null) {
+                return;
             }
+            WORKER.execute(() -> {
+                try {
+                    ScreenshotCapture.EncodedImage encoded =
+                            ScreenshotCapture.encode(image, config.visionResolution, null);
+
+                    if (wantDiscord) {
+                        DiscordWebhook.sendAsync(config.discordWebhook,
+                                Lang.tr("mcai.death.broadcast", playerName),
+                                encoded.jpeg(), "death.jpg");
+                    }
+
+                    if (sendAi) {
+                        String prompt = Lang.tr("mcai.death.prompt")
+                                + (context == null ? "" : "\n\n" + context);
+                        // 复用截图识别那条链路：token 统计、超时、错误提示都是现成的
+                        VisionHandler.sendEncoded(config, encoded.base64(), prompt, prompt);
+                    }
+                } catch (Throwable t) {
+                    System.err.println("[mcAI] Death recap failed: " + t.getMessage());
+                }
+            });
         });
     }
 }

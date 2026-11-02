@@ -7,7 +7,7 @@ import com.example.mcai.util.Lang;
 import com.example.mcai.util.VisionResolution;
 import com.example.mcai.vision.VisionHandler;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -166,14 +166,15 @@ public class ConfigScreen extends Screen {
     // ------------------------------------------------------------ 交互
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double verticalAmount) {
-        if (super.mouseScrolled(mouseX, mouseY, verticalAmount)) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        // 26.1 的签名多了一个横向滚动量（scrollX），纵向仍然是我们用的那个
+        if (super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
             return true;
         }
         if (maxScroll <= 0 || mouseY < contentTop || mouseY > contentBottom) {
             return false;
         }
-        int next = (int) Math.round(scroll - verticalAmount * ROW_HEIGHT);
+        int next = (int) Math.round(scroll - scrollY * ROW_HEIGHT);
         next = Math.max(0, Math.min(maxScroll, next));
         if (next == scroll) {
             return true;
@@ -188,7 +189,10 @@ public class ConfigScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         if (capturing != null) {
             // 点到别处就放弃改键，避免一直停在「等待按键」
             capturing.cancelCapture();
@@ -211,11 +215,12 @@ public class ConfigScreen extends Screen {
                 }
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
         if (capturing != null) {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 capturing.cancelCapture();
@@ -232,7 +237,7 @@ public class ConfigScreen extends Screen {
             relayout();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     private boolean isInContent(double mouseX, double mouseY) {
@@ -327,15 +332,15 @@ public class ConfigScreen extends Screen {
 
     /** 界面背景跟随 {@code screen_background} 设置（默认仍是原版的暗色渐变）。 */
     @Override
-    public void renderBackground(GuiGraphics context) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         ScreenBackgrounds.render(this, context);
     }
 
     @Override
-    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
 
-        context.drawCenteredString(font, this.title, this.width / 2, 6, 0xFFFFFF);
+        context.centeredText(font, this.title, this.width / 2, 6, 0xFFFFFF);
 
         if (contentBottom > contentTop) {
             context.fill(contentLeft - 6, contentTop - 2, contentRight + 6, contentBottom + 2, 0x55000000);
@@ -349,7 +354,7 @@ public class ConfigScreen extends Screen {
                 }
             }
             if (contentHeight == 0) {
-                context.drawCenteredString(font,
+                context.centeredText(font,
                         Lang.text("mcai.config.no_result").withStyle(ChatFormatting.GRAY),
                         (contentLeft + contentRight) / 2, (contentTop + contentBottom) / 2 - 4, 0xFFFFFF);
             }
@@ -359,24 +364,25 @@ public class ConfigScreen extends Screen {
         renderScrollbar(context);
 
         // ---- 底部：提示 + 帮助链接 + 保存/取消 ----
-        context.drawCenteredString(font,
+        context.centeredText(font,
                 Lang.text("mcai.screen.hint").withStyle(ChatFormatting.DARK_GRAY),
                 this.width / 2, footerTop + 2, 0xFFFFFF);
         this.helpWidth = font.width(HELP_LINK);
         this.helpX = contentLeft;
         this.helpY = footerTop + 18;
-        context.drawString(font, HELP_LINK, helpX, helpY, 0xFFFFFF);
+        context.text(font, HELP_LINK, helpX, helpY, 0xFFFFFF);
 
-        searchField.render(context, mouseX, mouseY, delta);
-        saveButton.render(context, mouseX, mouseY, delta);
-        cancelButton.render(context, mouseX, mouseY, delta);
+        searchField.extractRenderState(context, mouseX, mouseY, delta);
+        saveButton.extractRenderState(context, mouseX, mouseY, delta);
+        cancelButton.extractRenderState(context, mouseX, mouseY, delta);
 
         if (isHoveringHelp(mouseX, mouseY)) {
-            context.renderTooltip(font, helpTooltip(), Optional.empty(), mouseX, mouseY);
+            // 26.1 把 renderTooltip 系列并入 setTooltipForNextFrame（参数顺序不变）
+            context.setTooltipForNextFrame(font, helpTooltip(), Optional.empty(), mouseX, mouseY);
         }
     }
 
-    private void renderGroupHeaders(GuiGraphics context, int mouseX, int mouseY) {
+    private void renderGroupHeaders(GuiGraphicsExtractor context, int mouseX, int mouseY) {
         for (Group group : groups) {
             if (!group.headerVisible) {
                 continue;
@@ -390,15 +396,15 @@ public class ConfigScreen extends Screen {
             context.fill(contentLeft, y, contentRight, y + GROUP_HEADER_HEIGHT - 2,
                     hovered ? 0x44FFFFFF : 0x33000000);
             String arrow = group.isExpanded(query) ? "\u25bc " : "\u25b6 ";
-            context.drawString(font, Component.literal(arrow).withStyle(ChatFormatting.AQUA),
+            context.text(font, Component.literal(arrow).withStyle(ChatFormatting.AQUA),
                     contentLeft + 6, y + 6, 0xFFFFFF);
-            context.drawString(font,
+            context.text(font,
                     Lang.text(group.titleKey).withStyle(ChatFormatting.BOLD),
                     contentLeft + 6 + font.width(arrow), y + 6, 0xFFFFFF);
         }
     }
 
-    private void renderScrollbar(GuiGraphics context) {
+    private void renderScrollbar(GuiGraphicsExtractor context) {
         if (maxScroll <= 0 || contentBottom <= contentTop) {
             return;
         }
@@ -792,7 +798,7 @@ public class ConfigScreen extends Screen {
             return haystack.contains(q);
         }
 
-        void renderLabel(GuiGraphics context, int mouseX, int mouseY, float delta) {
+        void renderLabel(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
             drawTruncated(context, Lang.tr(labelKey), labelX, labelY, labelMaxWidth, 0xA0A0A0);
         }
 
@@ -841,10 +847,11 @@ public class ConfigScreen extends Screen {
             }
         }
 
-        final void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
+        final void render(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
             renderLabel(context, mouseX, mouseY, delta);
             for (Control control : controls) {
-                control.widget.render(context, mouseX, mouseY, delta);
+                // 26.1：控件渲染入口统一叫 extractRenderState（Renderable 接口改名）
+                control.widget.extractRenderState(context, mouseX, mouseY, delta);
             }
         }
     }
@@ -898,6 +905,8 @@ public class ConfigScreen extends Screen {
     /** API Key：默认打码，右边一个「显示 / 隐藏」。 */
     private class SecretRow extends TextRow {
         private Button revealButton;
+        /** 已经装过打码格式化器的输入框；换框（重排时可能重建）才重新装。 */
+        private EditBox maskedField;
 
         SecretRow(String id, String labelKey, int maxLength, String placeholder,
                   Function<ConfigManager.ConfigData, String> getter,
@@ -918,9 +927,19 @@ public class ConfigScreen extends Screen {
             addControl(revealButton, REVEAL_WIDTH);
         }
 
-        /** API Key 默认打码，避免直播 / 截图时泄露。 */
+        /** API Key 默认打码，避免直播 / 截图时泄露。
+         *
+         * <p><b>26.1：{@code setFormatter} 变成了 {@code addFormatter}</b> ——
+         * 它往一个列表里<b>追加</b>，不是替换。所以这里记住"已经装过的是哪个输入框"，
+         * 避免每次重排都叠一层格式化器（叠 N 层的结果是把已经打过码的文本再打一次码）。
+         * 格式化器在渲染时求值，读的是当前的 {@code revealKey}，因此切换显示不需要重装。
+         */
         private void applyMask() {
-            field.setFormatter((text, firstCharacterIndex) -> {
+            if (field == null || maskedField == field) {
+                return;
+            }
+            maskedField = field;
+            field.addFormatter((text, firstCharacterIndex) -> {
                 String shown = revealKey ? text : "*".repeat(text.length());
                 return FormattedCharSequence.forward(shown, Style.EMPTY);
             });
@@ -1185,13 +1204,13 @@ public class ConfigScreen extends Screen {
         }
 
         @Override
-        void renderLabel(GuiGraphics context, int mouseX, int mouseY, float delta) {
+        void renderLabel(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
             super.renderLabel(context, mouseX, mouseY, delta);
             String keyName = currentKeyName();
             int width = font.width(keyName);
             int x = controlLeft - 8 - width;
             if (x > labelX + 30) {
-                context.drawString(font,
+                context.text(font,
                         Component.literal(keyName).withStyle(ChatFormatting.YELLOW), x, labelY, 0xFFFFFF);
             }
         }
@@ -1239,9 +1258,9 @@ public class ConfigScreen extends Screen {
 
     // ------------------------------------------------------------ 小工具
 
-    private void drawTruncated(GuiGraphics context, String text, int x, int y, int maxWidth, int color) {
+    private void drawTruncated(GuiGraphicsExtractor context, String text, int x, int y, int maxWidth, int color) {
         String shown = maxWidth <= 0 ? text : font.plainSubstrByWidth(text, maxWidth);
-        context.drawString(font, Component.literal(shown), x, y, color);
+        context.text(font, Component.literal(shown), x, y, color);
     }
 
     private static ConfigManager.ConfigData safeConfig() {

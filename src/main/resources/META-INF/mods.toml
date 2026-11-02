@@ -1,5 +1,5 @@
 modLoader="javafml"
-loaderVersion="[47,)"
+loaderVersion="[64,)"
 license="CC0-1.0"
 issueTrackerURL="https://github.com/MFHRY/mcai/issues"
 
@@ -21,13 +21,13 @@ logoFile="assets/mcai/icon.png"
 [[dependencies.mcai]]
     modId="forge"
     mandatory=true
-    versionRange="[47,)"
+    versionRange="[64,)"
     ordering="NONE"
     side="BOTH"
 
 [[dependencies.mcai]]
     modId="minecraft"
     mandatory=true
-    versionRange="[1.20.1,1.21)"
+    versionRange="[26.1,26.2)"
     ordering="NONE"
     side="BOTH"

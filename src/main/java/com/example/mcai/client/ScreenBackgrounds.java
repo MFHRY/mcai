@@ -4,10 +4,11 @@ import com.example.mcai.ConfigManager;
 import com.example.mcai.McaiMod;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -25,19 +26,23 @@ import java.util.List;
  *   <li>{@code custom} —— 用 {@code screen_background_image} 指定的 PNG 平铺。</li>
  * </ul>
  *
- * <h2>1.20.1 为什么没有「模糊」这个选项</h2>
+ * <h2>26.1 改写说明（为什么不再调用 Screen 自己的方法）</h2>
  *
- * <p>不是没做，是<b>做不到</b>：菜单模糊（{@code Screen.applyBlur} →
- * {@code GameRenderer.renderBlur}）是 <b>1.21 才加入的 API</b>，1.20.1 的
- * {@code Screen} 里根本不存在这两个方法，{@code Options} 里也没有
- * {@code menuBackgroundBlurriness}。所以在 1.20.1 上，ESC 暂停菜单自己都不模糊，
- * 这里自然也无从模仿。
+ * <p>1.20.1 这里直接调 {@code screen.renderBackground(...)} / {@code screen.renderDirtBackground(...)}
+ * 复用原版画法。26.1 那边对应的方法搬进了 {@code extractBackground(...)} 家族，而且
+ * {@code extractMenuBackground} 变成了 <b>protected</b> —— 从一个外部工具类里根本调不到。
+ * 更麻烦的是：我们自己的界面就在 {@code extractBackground} 里调用本类，再去调
+ * {@code screen.extractBackground(...)} 就是无限递归。
  *
- * <h2>为什么要防止路径穿越</h2>
- *
- * <p>自定义背景是玩家自己填的本地路径，读的是自己机器上的文件，本身没有越权问题；
- * 但仍然只接受图片扩展名，并在失败时静默回退到 {@code dim}，
- * 避免一个坏路径把整个界面画成黑屏。
+ * <p>所以这四种背景改成本类<b>自己画</b>，语义保持：
+ * <ul>
+ *   <li>{@code dim}：一层由深到浅的黑色渐变（与游戏内界面的观感一致）；</li>
+ *   <li>{@code dirt}：原版 {@link Screen#MENU_BACKGROUND} 那张泥土图，铺满整屏；</li>
+ *   <li>{@code none}：什么都不画；</li>
+ *   <li>{@code custom}：玩家指定的图片，铺满整屏。</li>
+ * </ul>
+ * 差别只在 {@code dirt} 是拉伸而不是逐格平铺 —— 为了不依赖那张图的原始像素尺寸，
+ * 这是唯一不需要写死 16x16 的做法。
  */
 public final class ScreenBackgrounds {
 
@@ -52,8 +57,12 @@ public final class ScreenBackgrounds {
     private static final String[] IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"};
 
     /** 自定义背景的纹理 id。用固定 id，换图时先释放再注册。 */
-    private static final ResourceLocation CUSTOM_ID =
-            new ResourceLocation(McaiMod.MOD_ID, "screen_background");
+    private static final Identifier CUSTOM_ID =
+            Identifier.fromNamespaceAndPath(McaiMod.MOD_ID, "screen_background");
+
+    /** dim 模式的两端颜色：上浅下深，和原版游戏内界面同向。 */
+    private static final int DIM_TOP = 0xC0101010;
+    private static final int DIM_BOTTOM = 0xD0101010;
 
     private static String loadedPath;
     private static boolean customReady;
@@ -72,36 +81,34 @@ public final class ScreenBackgrounds {
     }
 
     /**
-     * 画背景。在 {@code Screen.renderBackground(GuiGraphics)} 里调用。
-     *
-     * <p>注意 {@code dim} 走的是原版 {@link Screen#renderBackground(GuiGraphics)}，
-     * 所以选它时观感与改动前完全一致 —— 这个功能的默认行为没有变。
+     * 画背景。在各个界面的 {@code extractBackground(GuiGraphicsExtractor, int, int, float)}
+     * 里调用。
      */
-    public static void render(Screen screen, GuiGraphics context) {
+    public static void render(Screen screen, GuiGraphicsExtractor context) {
+        int width = screen.width;
+        int height = screen.height;
         switch (currentMode()) {
-            case DIRT -> screen.renderDirtBackground(context);
+            // MENU_BACKGROUND 是"纹理路径"而不是"精灵 id"，所以走 blit 而不是 blitSprite
+            case DIRT -> context.blit(Screen.MENU_BACKGROUND, 0, 0, width, height,
+                    0.0F, 1.0F, 0.0F, 1.0F);
             case NONE -> { /* 什么都不画，游戏画面直接透出来 */ }
             case CUSTOM -> {
-                if (renderCustom(context)) {
-                    return;
+                if (!renderCustom(context, width, height)) {
+                    // 图没准备好（还在加载 / 路径错）就先退回暗色渐变，
+                    // 否则界面会有一瞬间完全没有背景、看着像坏掉
+                    context.fillGradient(0, 0, width, height, DIM_TOP, DIM_BOTTOM);
                 }
-                // 图没准备好（还在加载 / 路径错）就先退回暗色渐变，
-                // 否则界面会有一瞬间完全没有背景、看着像坏掉
-                screen.renderBackground(context);
             }
-            default -> screen.renderBackground(context);
+            default -> context.fillGradient(0, 0, width, height, DIM_TOP, DIM_BOTTOM);
         }
     }
 
-    private static boolean renderCustom(GuiGraphics context) {
+    private static boolean renderCustom(GuiGraphicsExtractor context, int width, int height) {
         if (!ensureCustomTexture()) {
             return false;
         }
-        Minecraft client = Minecraft.getInstance();
-        int width = client.getWindow().getGuiScaledWidth();
-        int height = client.getWindow().getGuiScaledHeight();
-        // 平铺：界面通常比原图大，拉伸会糊，直接铺满
-        context.blit(CUSTOM_ID, 0, 0, 0.0F, 0.0F, width, height, width, height);
+        // 铺满整屏：界面通常比原图大，按原始 uv 拉伸比逐格平铺实现简单且不会露出边
+        context.blit(CUSTOM_ID, 0, 0, width, height, 0.0F, 1.0F, 0.0F, 1.0F);
         return true;
     }
 
@@ -150,7 +157,8 @@ public final class ScreenBackgrounds {
             }
 
             Minecraft client = Minecraft.getInstance();
-            DynamicTexture texture = new DynamicTexture(image);
+            // 26.1 的 DynamicTexture 第一个参数改成"标签"的 Supplier（调试/导出用）
+            DynamicTexture texture = new DynamicTexture(() -> "mcai:screen_background", image);
             // 换图时先放掉上一张，否则反复换图会一直堆积显存
             client.getTextureManager().release(CUSTOM_ID);
             client.getTextureManager().register(CUSTOM_ID, texture);

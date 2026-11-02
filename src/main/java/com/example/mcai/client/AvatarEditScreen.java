@@ -2,9 +2,10 @@ package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
 import com.example.mcai.util.Lang;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
@@ -24,10 +25,21 @@ import net.minecraft.util.Mth;
  *   <li><b>调位置</b> → 本界面，{@code /ai avatar edit} 打开。</li>
  * </ul>
  *
+ * <h2>26.1 的界面 API 变化（本文件据此改写）</h2>
+ *
+ * <ul>
+ *   <li>{@code render(...)} 改名为 {@code extractRenderState(...)}；背景从
+ *       {@code renderBackground(g)} 变成 {@code extractBackground(g, mx, my, delta)}。
+ *       这是 1.21.9 之后的分层绘制：界面只"描述"要画什么，不直接下 GL 指令。</li>
+ *   <li>鼠标/键盘回调改成<b>事件对象</b>：{@code mouseClicked(MouseButtonEvent, boolean)}、
+ *       {@code mouseReleased(MouseButtonEvent)}、{@code mouseDragged(MouseButtonEvent, dx, dy)}。</li>
+ *   <li>{@code drawCenteredString} → {@code centeredText}，{@code renderOutline} → {@code outline}。</li>
+ * </ul>
+ *
  * <h2>两个刻意的做法</h2>
  *
  * <p><b>1. 背景不涂黑。</b>调位置的意义就是"别挡住血条、快捷栏、聊天栏"，
- * 把背景涂黑就看不见要避开的东西了。所以 {@link #renderBackground} 是空的。
+ * 把背景涂黑就看不见要避开的东西了。所以 {@link #extractBackground} 是空的。
  *
  * <p><b>2. 和 HUD 用同一套绘制代码</b>（{@link AvatarWidget#renderWidget}）。
  * 各画各的话迟早会出现"在这里摆好了，实际显示却偏几像素"这种很难排查的问题。
@@ -65,7 +77,7 @@ public final class AvatarEditScreen extends Screen {
 
     /** 故意留空：要能看见游戏画面，才判断得出挂件有没有挡住该避开的 HUD 元素。 */
     @Override
-    public void renderBackground(GuiGraphics context) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         // no-op
     }
 
@@ -76,10 +88,10 @@ public final class AvatarEditScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null) {
-            super.render(context, mouseX, mouseY, delta);
+            super.extractRenderState(context, mouseX, mouseY, delta);
             return;
         }
 
@@ -102,25 +114,27 @@ public final class AvatarEditScreen extends Screen {
             y = Mth.clamp((int) Math.round(mouseY - grabDy), 0, Math.max(0, height - h));
         }
 
-        context.drawCenteredString(font, title, width / 2, 10, 0xFFFFFFFF);
-        context.drawCenteredString(font, Lang.text("mcai.avatar.edit_hint"),
+        context.centeredText(font, title, width / 2, 10, 0xFFFFFFFF);
+        context.centeredText(font, Lang.text("mcai.avatar.edit_hint"),
                 width / 2, 24, 0xFFAAAAAA);
 
         if (!AvatarWidget.isTextureReady()) {
-            context.drawCenteredString(font, Lang.text("mcai.avatar.edit_failed"),
+            context.centeredText(font, Lang.text("mcai.avatar.edit_failed"),
                     width / 2, height / 2, 0xFFFF5555);
         } else {
             // 选中框暗示"这块可以拖"；拖动中换成暖色，给一点反馈
-            context.renderOutline(x - 1, y - 1, w + 2, h + 2, dragging ? 0xFFFFD040 : 0x8055FFFF);
+            context.outline(x - 1, y - 1, w + 2, h + 2, dragging ? 0xFFFFD040 : 0x8055FFFF);
             AvatarWidget.renderWidget(context, font, x, y, w, h, width, height);
         }
 
-        super.render(context, mouseX, mouseY, delta);
+        super.extractRenderState(context, mouseX, mouseY, delta);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && placed && AvatarWidget.isTextureReady()
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (event.button() == 0 && placed && AvatarWidget.isTextureReady()
                 && mouseX >= x && mouseX < x + (double) w
                 && mouseY >= y && mouseY < y + (double) h) {
             dragging = true;
@@ -130,21 +144,23 @@ public final class AvatarEditScreen extends Screen {
             pressY = mouseY;
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
-    /** 位置在 {@link #render} 里跟鼠标走，这里只需要把事件吃掉，别让它传到下面的控件。 */
+    /** 位置在 {@link #extractRenderState} 里跟鼠标走，这里只需要把事件吃掉，别让它传到下面的控件。 */
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+    public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
         if (dragging) {
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(event, deltaX, deltaY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0 && dragging) {
+    public boolean mouseReleased(MouseButtonEvent event) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (event.button() == 0 && dragging) {
             dragging = false;
             // 位移很小 → 玩家其实是想点一下看看气泡，不是在摆位置
             double moved = Math.hypot(mouseX - pressX, mouseY - pressY);
@@ -155,7 +171,7 @@ public final class AvatarEditScreen extends Screen {
             }
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     @Override

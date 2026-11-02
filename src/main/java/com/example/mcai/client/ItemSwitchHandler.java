@@ -35,27 +35,37 @@ public final class ItemSwitchHandler {
 
     private ItemSwitchHandler() {}
 
-    public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+    /**
+     * 右键监听器。
+     *
+     * <p><b>EB7 的取消方式变了：</b>可取消总线接受的是 {@code Predicate<T>}，
+     * <b>返回值 true 就是"取消"</b>（1.20.1 是 {@code event.setCanceled(true)}）。
+     * 而被取消之后原版还要知道"这次使用算成功还是失败"，那仍然靠
+     * {@code setCancellationResult(...)} 写在事件对象上——两者缺一不可。
+     *
+     * @return true 表示吃掉这次右键
+     */
+    public static boolean onRightClickItem(PlayerInteractEvent.RightClickItem event) {
         ItemStack stack = event.getItemStack();
-        boolean isModelSwitcher = stack.is(McaiItems.AI_MODEL_SWITCHER.get());
-        boolean isModeSwitcher = stack.is(McaiItems.AI_MODE_SWITCHER.get());
+        // 1.21.2+ 没有 is(Item)，直接比物品实例
+        boolean isModelSwitcher = stack.getItem() == McaiItems.AI_MODEL_SWITCHER.get();
+        boolean isModeSwitcher = stack.getItem() == McaiItems.AI_MODE_SWITCHER.get();
 
         if (!isModelSwitcher && !isModeSwitcher) {
-            return;
+            return false;
         }
 
         if (!event.getLevel().isClientSide()) {
             // 同一次右键的服务端侧（单人游戏）：接受但不动手，避免双端各切一次
             event.setCancellationResult(InteractionResult.SUCCESS);
-            event.setCanceled(true);
-            return;
+            return true;
         }
 
         switchOnClient(stack, isModelSwitcher);
 
         // 客户端处理完就吃掉这个事件：不要让原版的"使用物品"再跑一遍
         event.setCancellationResult(InteractionResult.SUCCESS);
-        event.setCanceled(true);
+        return true;
     }
 
     private static void switchOnClient(ItemStack stack, boolean isModelSwitcher) {

@@ -68,8 +68,8 @@ public final class ClickableText {
         MutableComponent out = Component.literal("");
         if (clipboard != null && !clipboard.isEmpty()) {
             out.withStyle(style -> style
-                    .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, clipboard))
-                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                    .withClickEvent(new ClickEvent.CopyToClipboard(clipboard))
+                    .withHoverEvent(new HoverEvent.ShowText(
                             Lang.text("mcai.chat.click_copy_reply"))));
         }
         Matcher matcher = PATTERN.matcher(raw);
@@ -98,8 +98,8 @@ public final class ClickableText {
             return Component.literal(shown).withStyle(style ->
                     style.withColor(COORD_COLOR)
                             .withUnderlined(true)
-                            .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, clipboard))
-                            .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            .withClickEvent(new ClickEvent.CopyToClipboard(clipboard))
+                            .withHoverEvent(new HoverEvent.ShowText(
                                     Lang.text("mcai.chat.click_copy_coords", clipboard))));
         }
 
@@ -111,8 +111,8 @@ public final class ClickableText {
             return Component.literal(shown).withStyle(style ->
                     style.withColor(ITEM_COLOR)
                             .withUnderlined(true)
-                            .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, suggested))
-                            .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            .withClickEvent(new ClickEvent.SuggestCommand(suggested))
+                            .withHoverEvent(new HoverEvent.ShowText(
                                     Lang.text("mcai.chat.click_ask_item", suggested))));
         }
 

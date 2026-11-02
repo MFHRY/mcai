@@ -10,9 +10,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.network.Filterable;
+import net.minecraft.world.item.component.WritableBookContent;
+import net.minecraft.world.item.component.WrittenBookContent;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
@@ -128,31 +129,38 @@ public final class TextReader {
             return null;
         }
         try {
-            // 1.20.1 还没有数据组件 —— 那是 1.20.5+ 才引入的体系。成书的内容此时
-            // 仍然存在 NBT 里：title 是一个普通字符串，pages 是「JSON 文本」组成的
-            // 字符串列表。所以这里不能照抄 1.21.1 的 DataComponentTypes 写法。
-            CompoundTag tag = stack.getTag();
-            if (tag == null || !tag.contains("pages", Tag.TAG_LIST)) {
-                return null;
-            }
+            // 1.20.5+ 起物品内容不再存在 NBT 里（没有 stack.getTag() 了），
+            // 而是"数据组件"。成书读 WRITTEN_BOOK_CONTENT，书与笔读 WRITABLE_BOOK_CONTENT。
             List<String> lines = new ArrayList<>();
-            String title = tag.getString("title");
-            if (title != null && !title.isBlank()) {
-                lines.add(title.trim());
-            }
-            ListTag pages = tag.getList("pages", Tag.TAG_STRING);
-            for (int i = 0; i < pages.size(); i++) {
-                String raw = pages.getString(i);
-                if (raw == null || raw.isBlank()) {
-                    continue;
+
+            WrittenBookContent written = stack.get(DataComponents.WRITTEN_BOOK_CONTENT);
+            if (written != null) {
+                String title = written.title().get(false);
+                if (title != null && !title.isBlank()) {
+                    lines.add(title.trim());
                 }
-                // 每一页是 JSON 形式的文本组件，要先反序列化再取纯文本
-                Component pageText = Component.Serializer.fromJson(raw);
-                String text = pageText == null ? null : pageText.getString();
-                if (text != null && !text.isBlank()) {
-                    lines.add(text.trim());
+                for (Filterable<Component> page : written.pages()) {
+                    Component pageText = page.get(false);
+                    String text = pageText == null ? null : pageText.getString();
+                    if (text != null && !text.isBlank()) {
+                        lines.add(text.trim());
+                    }
+                }
+            } else {
+                WritableBookContent writable = stack.get(DataComponents.WRITABLE_BOOK_CONTENT);
+                if (writable == null) {
+                    return null;
+                }
+                for (Filterable<String> page : writable.pages()) {
+                    String text = page.get(false);
+                    if (text == null || text.isBlank()) {
+                        continue;
+                    }
+                    // 书与笔里存的是纯文本，可能带着 § 颜色码，去掉再发
+                    lines.add(Component.literal(text).getString().trim());
                 }
             }
+
             String text = String.join("\n", lines).trim();
             return text.isEmpty() ? null : new Found(Lang.tr("mcai.read.source_book"), text);
         } catch (Throwable t) {

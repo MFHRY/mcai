@@ -321,7 +321,7 @@ public final class ChatHandler {
         Component text = ClickableText.build("§f[AI] " + flat + suffix, flat);
         mc.execute(() -> {
             if (mc.gui != null) {
-                mc.gui.getChat().addMessage(text);
+                mc.gui.getChat().addClientSystemMessage(text);
             }
         });
         // TTS 默认关闭；开了就顺带念一遍（无障碍用途）
@@ -553,7 +553,7 @@ public final class ChatHandler {
     private static void sendLocalMessage(Minecraft mc, String text) {
         mc.execute(() -> {
             if (mc.gui != null) {
-                mc.gui.getChat().addMessage(Component.literal(text));
+                mc.gui.getChat().addClientSystemMessage(Component.literal(text));
             }
         });
     }

@@ -1,25 +1,34 @@
 // ---------------------------------------------------------------------------
-//  mcAI - Forge 1.20.1
+//  mcAI - Forge 26.1 (Minecraft 26.1.2)
 //
-//  This is the FORGE port of mcAI. The Fabric version lives on the `main`
-//  branch; this branch is deliberately standalone rather than a multiloader
-//  setup, so that a mistake here can never break the published Fabric jar.
+//  This is the third build of mcAI: `main` is Fabric 1.21.1, `forge-1.20.1` is
+//  the first Forge port, and this branch targets the 2026 versioning line.
 //
-//  Two things differ from the Fabric build and are worth knowing:
+//  What actually changed in the toolchain (all of it verified against Forge's
+//  own 26.1.2 MDK, not guessed):
 //
-//  1. MAPPINGS. Fabric uses Yarn (Text, Identifier, DrawContext, MinecraftClient);
-//     Forge uses Mojang official mappings (Component, ResourceLocation,
-//     GuiGraphics, Minecraft). Every Minecraft API call in this tree is spelled
-//     the Mojang way. Do not "revert" a name back to the Yarn spelling.
+//  1. ForgeGradle 7 (7.0.17+). The `mappings channel:` block is GONE. Mappings
+//     now come with the Forge artifact itself through the mavenizer
+//     (`minecraft.mavenizer(it)` + `minecraft.dependency(...)`).
+//  2. Gradle 9.5 and a Java 25 toolchain - Mojang ships Java 25 to players in
+//     26.1+, so the class files must be 25 or players get
+//     UnsupportedClassVersionError.
+//  3. `net.minecraftforge:forge:<mc>-<forge>` is addressed through
+//     minecraft.dependency(), and the Forge repositories have to be declared
+//     with minecraft.mavenizer()/fg.forgeMaven.
 //
-//  2. JAVA LEVEL. Minecraft 1.20.1 runs on Java 17, not 21.
+//  EVENTBUS 7: Forge 26.x runs EventBus 7, where every event has its own bus
+//  (`SomeEvent.BUS.addListener(...)`) instead of one global EVENT_BUS. The
+//  `eventbus-validator` annotation processor below is what catches a listener
+//  registered on a bus it can never receive.
 // ---------------------------------------------------------------------------
 
 plugins {
-    id 'eclipse'
+    id 'java'
     id 'idea'
+    id 'eclipse'
     id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'net.minecraftforge.gradle' version '[7.0.17,8)'
 }
 
 version = project.mod_version
@@ -28,66 +37,48 @@ base {
     archivesName = project.archives_base_name
 }
 
-// Minecraft 1.20.1 is Java 17, so the output must be Java 17 bytecode - a jar
-// built for 21 fails to load with UnsupportedClassVersionError.
-//
-// The toolchain line is not optional even though a newer JDK could emit 17
-// bytecode: ForgeGradle ITSELF compiles the binpatched Forge artifact with a
-// Java 17 toolchain, and without one it fails inside
-// MinecraftUserRepo.findBinpatched. The foojay resolver in settings.gradle
-// downloads that JDK automatically, so the project still builds on a machine
-// that has no JDK 17 installed.
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+// Minecraft 26.1 ships Java 25 to end users.
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    // Belt and braces: restrict the API surface to Java 17 as well, so using a
-    // 21-only type is a compile error rather than a crash on the player's side.
-    options.release = 17
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    // The toolchain alone does not stop a 25-only API from sneaking in; pin the
+    // bytecode level explicitly so the jar loads on a stock 26.1 client.
+    options.release = 25
 }
 
 minecraft {
-    // Official (Mojang) mappings - see the header note.
-    mappings channel: 'official', version: '1.20.1'
-
     runs {
-        client {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'info'
-            mods {
-                mcai {
-                    source sourceSets.main
-                }
-            }
+        configureEach {
+            workingDir = layout.projectDirectory.dir('run')
+
+            systemProperty 'eventbus.api.strictRuntimeChecks', 'true'
+            systemProperty 'forge.enabledGameTestNamespaces', 'mcai'
         }
-        server {
-            workingDirectory project.file('run-server')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'info'
-            mods {
-                mcai {
-                    source sourceSets.main
-                }
-            }
+
+        register('client')
+
+        register('server') {
+            args '--nogui'
         }
     }
 }
 
 repositories {
-    // No extra mavens needed: the Forge port has no Mod Menu equivalent, and its
-    // config screen is reached from Forge's own mod list.
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
     mavenCentral()
 }
 
 dependencies {
-    minecraft "net.minecraftforge:forge:${project.forge_version}"
+    implementation minecraft.dependency("net.minecraftforge:forge:${project.minecraft_version}-${project.forge_loader_version}")
+    // EventBus 7 validation at compile time (see header).
+    annotationProcessor 'net.minecraftforge:eventbus-validator:7.0.5'
 }
+
+// Include generated resources (data generation output), same as the MDK.
+sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 processResources {
     inputs.property "version", project.version
@@ -113,8 +104,6 @@ jar {
 }
 
 // Sources jar, so the release carries the code the compiled jar was built from.
-// The Fabric edition publishes one, and there is no reason the Forge build
-// should be the one release where you cannot read the source.
 java {
     withSourcesJar()
 }

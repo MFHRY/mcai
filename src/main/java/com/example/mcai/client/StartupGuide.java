@@ -129,10 +129,12 @@ public final class StartupGuide {
 
         // 还没填 Key 时给一条醒目、可点击的提示。
         // 指向本机推理服务（Ollama / LM Studio）时不需要 key，别把人吓着去办 key。
+        // 26.1 的 ClickEvent 是 sealed record 家族，不能再 new ClickEvent(Action, value)，
+        // 而是直接构造对应子类型：SuggestCommand / RunCommand / CopyToClipboard / OpenUrl
         if (config != null && LocalProvider.requiresApiKey(config.apiUrl, config.apiKey)) {
             ClientChat.send(Component.literal(Lang.tr("mcai.guide.no_key"))
-                    .withStyle(style -> style.withClickEvent(new ClickEvent(
-                            ClickEvent.Action.SUGGEST_COMMAND, "/ai config"))));
+                    .withStyle(style -> style.withClickEvent(
+                            new ClickEvent.SuggestCommand("/ai config"))));
         }
     }
 }

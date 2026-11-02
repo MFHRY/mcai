@@ -626,7 +626,8 @@ public final class AiCommand {
 
     /** 按名字查配方（不需要背包里有材料）。 */
     private static int craftLookup(CommandSourceStack source, String query) {
-        java.util.List<net.minecraft.world.item.crafting.Recipe<?>> found = RecipeHelper.findByName(query);
+        // 26.1：客户端拿不到 Recipe 对象了，改成 RecipeHelper.Match（产物 + 材料文字）
+        java.util.List<RecipeHelper.Match> found = RecipeHelper.findByName(query);
         com.example.mcai.McaiMod.LOGGER.info("mcAI /ai craft {}: {} recipe(s) matched",
                 query, found.size());
         if (found.isEmpty()) {
@@ -634,7 +635,7 @@ public final class AiCommand {
             return 1;
         }
         feedback(source, Component.literal(Lang.tr("mcai.cmd.craft_lookup_title", query)));
-        for (net.minecraft.world.item.crafting.Recipe<?> entry : found) {
+        for (RecipeHelper.Match entry : found) {
             feedback(source, Component.literal("§7 " + RecipeHelper.describe(entry)));
         }
         feedback(source, Component.literal(Lang.tr("mcai.cmd.craft_note")));

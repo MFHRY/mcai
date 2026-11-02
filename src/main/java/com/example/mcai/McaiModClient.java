@@ -12,65 +12,56 @@ import com.example.mcai.client.ThinkingIndicator;
 import com.example.mcai.client.WorldScope;
 import com.example.mcai.vision.VisionHandler;
 import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
+import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
+import net.minecraftforge.client.event.ClientChatEvent;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.eventbus.api.bus.BusGroup;
 
 /**
- * 客户端模块装配（Forge 版）。
+ * 客户端模块装配（Forge 26.1 / EventBus 7）。
  *
- * <h2>与 Fabric 版最大的结构差异</h2>
+ * <h2>与 1.20.1 Forge 版最大的结构差异：没有"两条总线"了</h2>
  *
- * <p>Fabric 那边每个模块自己在 {@code register()} 里挂一个监听器，于是有
- * <b>8 个独立的</b>{@code END_CLIENT_TICK} 回调。Forge 这边改成
- * <b>一个</b> {@link TickEvent.ClientTickEvent} 监听器里顺序分发——
- * 回调数量少了一个数量级，执行顺序也变成显式可读的，而不是取决于注册先后。
+ * <p>1.20.1 要区分 mod 总线和 Forge 主总线，挂错了会静默失效。EB7 把这件事
+ * 变成了类型系统：<b>每个事件类自带 BUS</b>，监听器直接挂到那个字段上，
+ * 挂错编译不过。所以这里的每个注册都是 {@code XxxEvent.BUS.addListener(...)}。
  *
- * <h2>两条总线的区别（最容易搞错的地方）</h2>
+ * <p>第二处差异：{@code TickEvent} 从"一个事件 + phase 字段"拆成了
+ * {@code ClientTickEvent.Pre} / {@code .Post} 两个 <b>record</b>。
+ * 原来那句 {@code if (event.phase != END) return;} 没有了——
+ * 挂在 {@code Post.BUS} 上，就只会收到 END。
  *
- * <ul>
- *   <li><b>mod 事件总线</b>（{@code modBus}）：只在初始化阶段触发一次的事件，
- *       例如 {@link RegisterKeyMappingsEvent}。用 {@code modBus.addListener}。</li>
- *   <li><b>Forge 总线</b>（{@link MinecraftForge#EVENT_BUS}）：运行时事件，
- *       例如 tick、渲染、聊天、进服。用 {@code EVENT_BUS.addListener}。</li>
- * </ul>
- *
- * <p>按键注册挂错总线是最常见的错误：挂在 Forge 总线上会静默不生效
- * （按键永远不出现在设置里），而且没有任何报错。
+ * <p>第三处：HUD 不再有 {@code RenderGuiEvent}（1.20.5 就删了，改走原版的
+ * 分层绘制）。26.1 的入口是 {@link AddGuiOverlayLayersEvent}，
+ * 图层接口是 {@code ForgeLayer#extract(GuiGraphicsExtractor, DeltaTracker)}。
  */
 public final class McaiModClient {
 
     private McaiModClient() {}
 
-    /** 由 {@code McaiMod} 经 {@code DistExecutor} 调用，只在物理客户端上执行。 */
-    public static void register(IEventBus modBus) {
-        // 每个环节都打一行日志。这个移植没有在开发环境跑过，所以"客户端模块到底有没有
-        // 装上"必须能从日志里直接读出来，而不是靠猜。上一版一行都没打，出了问题只能
-        // 从症状倒推，代价很大。
+    /** 由 {@code McaiMod} 调用，只在物理客户端上执行。 */
+    public static void register(BusGroup modBus) {
         McaiMod.LOGGER.info("mcAI client modules: registering event listeners");
 
-        // ---- mod 总线：初始化期一次性事件 ----
-        modBus.addListener(McaiModClient::onRegisterKeyMappings);
+        // ---- 初始化期一次性事件（SelfDestructing / IModBusEvent）----
+        RegisterKeyMappingsEvent.BUS.addListener(McaiModClient::onRegisterKeyMappings);
+        AddGuiOverlayLayersEvent.BUS.addListener(McaiModClient::onAddGuiOverlayLayers);
 
-        // ---- Forge 总线：运行时事件 ----
-        MinecraftForge.EVENT_BUS.addListener(McaiModClient::onClientTick);
-        MinecraftForge.EVENT_BUS.addListener(McaiModClient::onRegisterClientCommands);
-        MinecraftForge.EVENT_BUS.addListener(McaiModClient::onRenderGuiPost);
-        MinecraftForge.EVENT_BUS.addListener(McaiModClient::onClientChat);
-        MinecraftForge.EVENT_BUS.addListener(McaiModClient::onLoggedIn);
-        MinecraftForge.EVENT_BUS.addListener(McaiModClient::onLoggedOut);
-        MinecraftForge.EVENT_BUS.addListener(ItemSwitchHandler::onRightClickItem);
+        // ---- 运行期事件 ----
+        TickEvent.ClientTickEvent.Post.BUS.addListener(McaiModClient::onClientTick);
+        RegisterClientCommandsEvent.BUS.addListener(McaiModClient::onRegisterClientCommands);
+        ClientChatEvent.BUS.addListener(McaiModClient::onClientChat);
+        ClientPlayerNetworkEvent.LoggingIn.BUS.addListener(McaiModClient::onLoggedIn);
+        ClientPlayerNetworkEvent.LoggingOut.BUS.addListener(McaiModClient::onLoggedOut);
+        PlayerInteractEvent.RightClickItem.BUS.addListener(ItemSwitchHandler::onRightClickItem);
 
         McaiMod.LOGGER.info("mcAI client modules: 8 listeners registered "
-                + "(tick, commands, hud, chat, join, leave, item-use)");
-
-        // ---- 不需要额外接线的模块 ----
-        // ChatHandler / StartupGuide / WorldScope / AvatarWidget / VisionHandler /
-        // ItemSwitchHandler / AiCommand 的状态都在上面的回调里驱动，这里不再各自注册。
+                + "(tick, commands, hud-layer, chat, join, leave, item-use)");
     }
 
     // ---------------------------------------------------------------- 初始化期
@@ -78,16 +69,28 @@ public final class McaiModClient {
     /**
      * 注册快捷键。
      *
-     * <p><b>必须挂 mod 总线。</b>Forge 只在初始化期间触发一次这个事件，
-     * 而 {@code KeyMapping} 必须在这时通过 {@code event.register(...)} 登记，
+     * <p>{@code RegisterKeyMappingsEvent} 只在初始化期间触发一次，
+     * {@code KeyMapping} 必须在这时通过 {@code event.register(...)} 登记，
      * 否则不会出现在「选项 → 控制」里，玩家也就无法改键。
      */
     private static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         VisionHandler.registerKeyMappings(event);
         AvatarWidget.registerKeyMappings(event);
-        // 这行是"按键到底有没有登记上"的唯一证据。挂错事件总线时这里根本不会执行，
-        // 而且游戏不会有任何报错，只是按键不出现在「选项 → 控制」里。
         McaiMod.LOGGER.info("mcAI key mappings registered: H, G, R, V (screenshots) and B (widget bubble)");
+    }
+
+    /**
+     * 把鲸鱼娘挂件插进 HUD 分层绘制。
+     *
+     * <p>插在 {@code CHAT_OVERLAY} 之后：原版的聊天栏是最容易被玩家看到的，
+     * 挂件压在它上面才不会被聊天顶掉——1.20.1 那边是"Post 事件最后画"，
+     * 语义等价。
+     */
+    private static void onAddGuiOverlayLayers(AddGuiOverlayLayersEvent event) {
+        event.getLayeredDraw().add(
+                Identifier.fromNamespaceAndPath(McaiMod.MOD_ID, "avatar_widget"),
+                (graphics, deltaTracker) ->
+                        AvatarWidget.onRenderGui(graphics, deltaTracker.getGameTimeDeltaPartialTick(true)));
     }
 
     // ------------------------------------------------------------------ 每 tick
@@ -95,13 +98,10 @@ public final class McaiModClient {
     /**
      * 唯一的客户端 tick 分发器。
      *
-     * <p>只处理 {@code Phase.END}：Forge 每个 tick 会触发 START 和 END 两次，
-     * 不判断就会把所有逻辑跑两遍（冷却减半、动画速度翻倍，且很难看出原因）。
+     * <p>挂在 {@code ClientTickEvent.Post} 上，所以每个 tick 只会跑一次
+     * （1.20.1 需要自己判断 phase，不判断就会把所有逻辑跑两遍）。
      */
-    private static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) {
-            return;
-        }
+    private static void onClientTick(TickEvent.ClientTickEvent.Post event) {
         Minecraft client = Minecraft.getInstance();
 
         // 顺序有讲究：先让"待打开的界面"生效，再跑可能触发新请求的逻辑
@@ -117,34 +117,22 @@ public final class McaiModClient {
 
     // -------------------------------------------------------------- 运行期事件
 
-    /**
-     * 注册 {@code /ai} 客户端指令。
-     *
-     * <p>Forge 1.20.1 原生带 {@code RegisterClientCommandsEvent}，所以这套指令
-     * <b>不需要 mixin</b>，也就保住了"纯客户端、任意服务器可用"这一点。
-     */
+    /** 注册 {@code /ai} 客户端指令（纯客户端，任意服务器可用）。 */
     private static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
         AiCommand.onRegisterCommands(event.getDispatcher());
-        // 指令注册成功与否同样只能从日志确认：注册失败时游戏不报错，
-        // 只是输入 /ai 会得到"未知指令"。
         McaiMod.LOGGER.info("mcAI registered the /ai client command tree");
-    }
-
-    /** HUD 渲染（鲸鱼娘挂件）。 */
-    private static void onRenderGuiPost(RenderGuiEvent.Post event) {
-        AvatarWidget.onRenderGui(event.getGuiGraphics(), event.getPartialTick());
     }
 
     /**
      * 聊天拦截：以 {@code !ai} 开头的消息在客户端就被吃掉，永远不发给服务器。
      *
-     * <p>Fabric 那边是"返回 false 表示拦截"，Forge 这边是"取消事件"，
-     * 所以 {@link ChatHandler#onChatMessage} 的返回值语义是"是否允许放行"。
+     * <p><b>EB7 的取消语义：</b>可取消总线的监听器本身就是一个
+     * {@code Predicate}——返回 {@code true} 表示"取消"。Forge 那边收到取消后
+     * 会把消息置空、不发出去（{@code ForgeHooksClient#onClientSendMessage}）。
+     * 所以这里的返回值是"是否拦截"，和 1.20.1 的 {@code setCanceled(true)} 等价。
      */
-    private static void onClientChat(net.minecraftforge.client.event.ClientChatEvent event) {
-        if (!ChatHandler.getInstance().onChatMessage(event.getMessage())) {
-            event.setCanceled(true);
-        }
+    private static boolean onClientChat(ClientChatEvent event) {
+        return !ChatHandler.getInstance().onChatMessage(event.getMessage());
     }
 
     /** 进入世界：切上下文作用域 + 准备打印进服清单。 */

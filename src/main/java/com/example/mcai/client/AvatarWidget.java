@@ -1,11 +1,12 @@
 package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
+import com.example.mcai.McaiMod;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.Lang;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.DebugScreenOverlay;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
@@ -14,7 +15,7 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
@@ -42,7 +43,7 @@ import java.util.concurrent.Executors;
  * {@code registerTexture} 上传。<b>只在首次、或配置里的图片路径变了时</b>才会重新加载；
  * 失败一次就永久沉默（记一条 debug 日志），不会每帧重试刷屏。
  *
- * <p><b>2. 纹理用 {@code TextureManager.registerTexture} 动态注册</b>，ResourceLocation 是
+ * <p><b>2. 纹理用 {@code TextureManager.registerTexture} 动态注册</b>，Identifier 是
  * {@code mcai:avatar_widget}——故意不带 {@code textures/} 前缀，避免和资源包里同名的
  * 静态贴图抢 ID。这也是 {@code VisionPreviewScreen} 已经在用的同一套写法。
  *
@@ -60,7 +61,7 @@ public final class AvatarWidget {
     private static final Logger LOGGER = LoggerFactory.getLogger("mcai-avatar");
 
     /** 动态纹理 ID。不带 textures/ 前缀是故意的，见类注释。 */
-    private static final ResourceLocation TEXTURE_ID = new ResourceLocation("mcai", "avatar_widget");
+    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath(McaiMod.MOD_ID, "avatar_widget");
 
     /** avatarScale == 1.0 时头像长边的 GUI 像素数。 */
     private static final int BASE_SIZE = 64;
@@ -141,8 +142,9 @@ public final class AvatarWidget {
      * Fabric 的 {@code KeyBindingHelper} 是一步到位，所以这里是结构差异。
      */
     public static void createKeyMappings() {
+        // 26.1：分类是 KeyMapping.Category，不是字符串，而且要和截图那几个键共用同一份
         bubbleKey = new KeyMapping(
-                "key.mcai.avatar", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "category.mcai");
+                "key.mcai.avatar", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, KeyCategories.MCAI);
     }
 
     /** 在 mod 事件总线上登记；不登记的话这个键不会出现在「选项 → 控制」里。 */
@@ -208,7 +210,7 @@ public final class AvatarWidget {
      * <p>夹到 {@code [0.001, 1]} 是给 Q 弹弹簧用的：partialTick 在极端情况下可能为 0
      * （同一帧内被调用多次），而弹簧的积分步长一旦是 0 就会除以零。
      */
-    public static void onRenderGui(GuiGraphics context, float partialTick) {
+    public static void onRenderGui(GuiGraphicsExtractor context, float partialTick) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
@@ -222,10 +224,10 @@ public final class AvatarWidget {
         if (client.player == null || client.level == null) {
             return;
         }
-        // F3 打开时让位给调试信息
-        // 1.20.1 has no getDebugHud()/shouldShowDebugHud(); the flag that
-        // says "the F3 overlay is up" is a plain field on Minecraft.
-        if (client.options.renderDebug) {
+        // F3 打开时让位给调试信息。
+        // 26.1：{@code options.renderDebug} 这个字段没了，改成问调试层自己
+        // （"到底显示没显示" 的判断也归 DebugScreenOverlay 管了）。
+        if (client.getDebugOverlay().showDebugScreen()) {
             return;
         }
 
@@ -281,28 +283,34 @@ public final class AvatarWidget {
 
     /**
      * 画头像。纵向压扁靠 {@code squash} 做非等比缩放——必须走矩阵，
-     * 因为 {@code drawTexture} 的宽高是 int，塞不下 0.62 这种小数。
+     * 因为 blit 的宽高是整数，塞不下 0.62 这种小数。
+     *
+     * <p><b>26.1 的矩阵换了类型：</b>{@code context.pose()} 现在返回
+     * {@code org.joml.Matrix3x2fStack}（二维仿射），不再是 {@code PoseStack}。
+     * 所以 {@code pushPose/popPose} 变成 {@code pushMatrix/popMatrix}，
+     * 平移与缩放也只剩两个分量（z 轴在这个管线里没有意义）。
      */
-    private static void drawAvatar(GuiGraphics context, int x, int y, int w, int h) {
+    private static void drawAvatar(GuiGraphicsExtractor context, int x, int y, int w, int h) {
         // 体积守恒的挤压：纵向 sy，横向补 2 - sy
         float sy = squash;
         float sx = 2.0F - squash;
 
-        PoseStack matrices = context.pose();
-        matrices.pushPose();
+        org.joml.Matrix3x2fStack matrices = context.pose();
+        matrices.pushMatrix();
         try {
-            matrices.translate(x + w / 2.0F, y + h / 2.0F, 0.0F);
-            matrices.scale(sx, sy, 1.0F);
-            matrices.translate(-w / 2.0F, -h / 2.0F, 0.0F);
-            context.blit(TEXTURE_ID, 0, 0, 0.0F, 0.0F, w, h, w, h);
+            matrices.translate(x + w / 2.0F, y + h / 2.0F);
+            matrices.scale(sx, sy);
+            matrices.translate(-w / 2.0F, -h / 2.0F);
+            // 新签名：目标矩形 x0,y0,x1,y1 + 归一化 uv
+            context.blit(TEXTURE_ID, 0, 0, w, h, 0.0F, 1.0F, 0.0F, 1.0F);
         } finally {
-            // 万一 drawTexture 抛了，也不能把矩阵栈留脏
-            matrices.popPose();
+            // 万一 blit 抛了，也不能把矩阵栈留脏
+            matrices.popMatrix();
         }
     }
 
     /** 点击头像弹出的气泡：半透明底 + 边框 + 逐行文字。 */
-    private static void drawBubble(GuiGraphics context, Font textRenderer,
+    private static void drawBubble(GuiGraphicsExtractor context, Font textRenderer,
                                    int avatarX, int avatarY, int avatarW, int avatarH,
                                    int screenW, int screenH) {
         List<String> lines = bubbleLines;
@@ -331,7 +339,7 @@ public final class AvatarWidget {
         int y = Mth.clamp(avatarY, 2, Math.max(2, screenH - h - 2));
 
         context.fill(x, y, x + w, y + h, 0xC0101018);
-        context.renderOutline(x, y, w, h, 0xFF55FFFF);
+        context.outline(x, y, w, h, 0xFF55FFFF);
 
         int textX = x + pad;
         int textY = y + pad;
@@ -339,7 +347,7 @@ public final class AvatarWidget {
         try {
             for (String line : lines) {
                 // 行文本自带 § 颜色码，这里的 0xFFFFFFFF 只是兜底基色
-                context.drawString(textRenderer, line, textX, textY, 0xFFFFFFFF);
+                context.text(textRenderer, line, textX, textY, 0xFFFFFFFF);
                 textY += lineHeight;
             }
         } finally {
@@ -348,7 +356,7 @@ public final class AvatarWidget {
     }
 
     /** 悬浮提示：一小段说明，放头像下方，下面放不下就翻到上方。 */
-    private static void drawTooltip(GuiGraphics context, Font textRenderer,
+    private static void drawTooltip(GuiGraphicsExtractor context, Font textRenderer,
                                     int avatarX, int avatarY, int avatarH,
                                     int screenW, int screenH) {
         String line1 = Lang.tr("mcai.avatar.tip_click");
@@ -366,9 +374,9 @@ public final class AvatarWidget {
         y = Mth.clamp(y, 2, Math.max(2, screenH - h - 2));
 
         context.fill(x, y, x + w, y + h, 0xB0101018);
-        context.renderOutline(x, y, w, h, 0xFF55FFFF);
-        context.drawString(textRenderer, line1, x + pad, y + pad, 0xFFFFFFFF);
-        context.drawString(textRenderer, line2, x + pad, y + pad + textRenderer.lineHeight + 1,
+        context.outline(x, y, w, h, 0xFF55FFFF);
+        context.text(textRenderer, line1, x + pad, y + pad, 0xFFFFFFFF);
+        context.text(textRenderer, line2, x + pad, y + pad + textRenderer.lineHeight + 1,
                 0xFFAAAAAA);
     }
 
@@ -457,7 +465,7 @@ public final class AvatarWidget {
 
     private static void handleMouse(Minecraft client, ConfigManager.ConfigData config,
                                     int x, int y, int w, int h, int screenW, int screenH) {
-        long handle = client.getWindow().getWindow();
+        long handle = client.getWindow().handle();
         boolean down;
         try {
             down = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
@@ -642,7 +650,7 @@ public final class AvatarWidget {
      * <p>编辑界面走的是<b>同一个</b>绘制方法，这样"编辑时看到的"和"实际显示的"
      * 一定一致；各画各的话迟早会出现"摆好了但实际偏几像素"这种没法排查的问题。
      */
-    public static void renderWidget(GuiGraphics context, Font textRenderer,
+    public static void renderWidget(GuiGraphicsExtractor context, Font textRenderer,
                                     int x, int y, int w, int h, int screenW, int screenH) {
         drawAvatar(context, x, y, w, h);
         if (bubbleOpen) {
@@ -667,7 +675,7 @@ public final class AvatarWidget {
                                      float deltaTicks) {
         boolean down;
         try {
-            down = InputConstants.isKeyDown(client.getWindow().getWindow(), GLFW.GLFW_KEY_Q);
+            down = InputConstants.isKeyDown(client.getWindow(), GLFW.GLFW_KEY_Q);
         } catch (Throwable t) {
             down = false;
         }
@@ -747,7 +755,7 @@ public final class AvatarWidget {
             image = NativeImage.read(bytes);
             texWidth = Math.max(1, image.getWidth());
             texHeight = Math.max(1, image.getHeight());
-            DynamicTexture texture = new DynamicTexture(image);
+            DynamicTexture texture = new DynamicTexture(() -> "mcai:avatar_widget", image);
             image = null; // 所有权交给纹理，失败路径里不要再 close 一次
             client.getTextureManager().register(TEXTURE_ID, texture);
             textureReady = true;

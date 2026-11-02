@@ -1,15 +1,16 @@
 package com.example.mcai.client;
 
+import com.example.mcai.McaiMod;
 import com.example.mcai.util.Lang;
 import com.example.mcai.util.ScreenCrop;
 import com.example.mcai.vision.VisionHandler;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.Button;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * 发送前预览（1.24 新增）：在把图发到第三方之前，先让你亲眼确认一次。
@@ -27,7 +28,7 @@ import net.minecraft.resources.ResourceLocation;
  */
 public class VisionPreviewScreen extends Screen {
 
-    private static final ResourceLocation TEXTURE_ID = new ResourceLocation("mcai", "vision_preview");
+    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath(McaiMod.MOD_ID, "vision_preview");
 
     private final NativeImage original;
     private final NativeImage preview;
@@ -61,7 +62,7 @@ public class VisionPreviewScreen extends Screen {
      * 背景之上的独立控件，压暗的只是底下的游戏画面，不影响预览图本身。
      */
     @Override
-    public void renderBackground(GuiGraphics context) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         ScreenBackgrounds.render(this, context);
     }
 
@@ -71,7 +72,8 @@ public class VisionPreviewScreen extends Screen {
 
         // 把预览图上传成纹理。它不会被修改，所以不需要每帧 upload()。
         try {
-            texture = new DynamicTexture(preview);
+            // 26.1 的 DynamicTexture 第一个参数改成"标签"（Supplier<String>）
+            texture = new DynamicTexture(() -> "mcai:vision_preview", preview);
             this.minecraft.getTextureManager().register(TEXTURE_ID, texture);
         } catch (Throwable t) {
             texture = null;
@@ -91,7 +93,7 @@ public class VisionPreviewScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, this.width, this.height, 0xE0101010);
 
         if (texture != null && preview != null) {
@@ -109,19 +111,20 @@ public class VisionPreviewScreen extends Screen {
             int x = (this.width - drawWidth) / 2;
             int y = Math.max(34, (this.height - drawHeight) / 2 - 10);
 
-            context.blit(TEXTURE_ID, x, y, 0.0f, 0.0f,
-                    drawWidth, drawHeight, drawWidth, drawHeight);
-            context.renderOutline(x - 1, y - 1, drawWidth + 2, drawHeight + 2, 0xFF55FFFF);
+            // 26.1 的 blit 改成"目标矩形 + 归一化 uv"：x0,y0,x1,y1 + u0,u1,v0,v1
+            context.blit(TEXTURE_ID, x, y, x + drawWidth, y + drawHeight,
+                    0.0F, 1.0F, 0.0F, 1.0F);
+            context.outline(x - 1, y - 1, drawWidth + 2, drawHeight + 2, 0xFF55FFFF);
         } else {
-            context.drawString(this.font, Lang.text("mcai.preview.no_texture"),
+            context.text(this.font, Lang.text("mcai.preview.no_texture"),
                     8, 40, 0xFFFF5555);
         }
 
-        context.drawString(this.font, this.title, 8, 8, 0xFFFFFF);
-        context.drawString(this.font, Lang.text(infoLine), 8, 20, 0xFFAAAAAA);
+        context.text(this.font, this.title, 8, 8, 0xFFFFFF);
+        context.text(this.font, Lang.text(infoLine), 8, 20, 0xFFAAAAAA);
 
         // 只有在这里调用父类：它渲染按钮，而 renderBackground 已经被我们改成空实现
-        super.render(context, mouseX, mouseY, delta);
+        super.extractRenderState(context, mouseX, mouseY, delta);
     }
 
     private void send() {

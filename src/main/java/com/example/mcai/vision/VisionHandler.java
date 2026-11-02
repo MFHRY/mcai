@@ -59,7 +59,12 @@ public final class VisionHandler {
     private static final String KEY_BUILD_TRANSLATION = "key.mcai.build";
     private static final String KEY_PICK_TRANSLATION = "key.mcai.pick";
     private static final String KEY_WHAT_TRANSLATION = "key.mcai.what";
-    private static final String KEY_CATEGORY = "category.mcai";
+    /**
+     * 快捷键分类（与挂件用的那一份相同，见 {@link com.example.mcai.client.KeyCategories}）。
+     *
+     * <p>26.1 起 {@code KeyMapping} 的分类不再是字符串，而是 {@link KeyMapping.Category}。
+     */
+    private static final KeyMapping.Category KEY_CATEGORY = com.example.mcai.client.KeyCategories.MCAI;
 
     private static final long COOLDOWN_MILLIS = 3000L;
     private static final long MIN_INTERVAL_MS = 300L;
@@ -186,32 +191,30 @@ public final class VisionHandler {
             return;
         }
 
-        NativeImage image;
-        try {
-            image = ScreenshotCapture.grab();
-        } catch (Throwable t) {
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
-            return;
-        }
-        if (image == null) {
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_null"));
-            return;
-        }
-
-        lastTriggerAt = now;
-        nextAllowedTime.set(now + COOLDOWN_MILLIS);
-
-        try {
-            client.setScreen(new com.example.mcai.client.VisionCaptureScreen(image, promptOverride));
-        } catch (Throwable t) {
-            // 界面没打开就必须自己把这张堆外内存放掉
-            try {
-                image.close();
-            } catch (Throwable ignored) {
-                // 忽略
+        // 26.1 的截图是异步的：这里只是把 GPU 拷贝命令排队，回调在下一帧 flush 时到达。
+        // 顺序仍然是"先抓这一帧、后开界面"，所以框选时参考的依旧是要发出去的那一帧。
+        final long triggerAt = now;
+        ScreenshotCapture.grabAsync(image -> {
+            if (image == null) {
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_null"));
+                return;
             }
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
-        }
+
+            lastTriggerAt = triggerAt;
+            nextAllowedTime.set(triggerAt + COOLDOWN_MILLIS);
+
+            try {
+                client.setScreen(new com.example.mcai.client.VisionCaptureScreen(image, promptOverride));
+            } catch (Throwable t) {
+                // 界面没打开就必须自己把这张堆外内存放掉
+                try {
+                    image.close();
+                } catch (Throwable ignored) {
+                    // 忽略
+                }
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
+            }
+        });
     }
 
     /** 框选界面点了确认：按配置决定是先预览，还是直接发。 */
@@ -402,22 +405,15 @@ public final class VisionHandler {
         com.example.mcai.util.ScreenCrop.Region crop =
                 com.example.mcai.util.ScreenCrop.forCurrentScreen();
 
-        NativeImage image;
-        try {
-            // 必须在渲染线程抓取（END_CLIENT_TICK 就在渲染线程上）
-            image = ScreenshotCapture.grab();
-        } catch (Throwable t) {
-            thinking.finish();
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
-            return;
-        }
-        if (image == null) {
-            thinking.finish();
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_null"));
-            return;
-        }
-
-        processAsync(config, image, thinking, promptOverride, crop, masksFromConfig(config));
+        // 26.1：截图回调式，编码/上传仍然在下面的后台线程里做
+        ScreenshotCapture.grabAsync(image -> {
+            if (image == null) {
+                thinking.finish();
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_null"));
+                return;
+            }
+            processAsync(config, image, thinking, promptOverride, crop, masksFromConfig(config));
+        });
     }
 
     /** 像素转换 / 裁剪 / 缩放 / JPEG / HTTP 全部在后台线程完成，绝不占用渲染线程。 */

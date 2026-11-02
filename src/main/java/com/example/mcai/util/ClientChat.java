@@ -24,7 +24,7 @@ public final class ClientChat {
         }
         client.execute(() -> {
             if (client.gui != null) {
-                client.gui.getChat().addMessage(text);
+                client.gui.getChat().addClientSystemMessage(text);
             }
         });
     }

@@ -34,7 +34,7 @@ public final class WorldContext {
         StringBuilder sb = new StringBuilder();
         sb.append(Lang.tr("mcai.ctx.header")).append('\n');
         sb.append(Lang.tr("mcai.ctx.dimension",
-                world.dimension().location().toString())).append('\n');
+                world.dimension().identifier().toString())).append('\n');
         sb.append(Lang.tr("mcai.ctx.coords",
                 pos.getX(), pos.getY(), pos.getZ())).append('\n');
 
@@ -42,7 +42,7 @@ public final class WorldContext {
         try {
             Holder<Biome> biome = world.getBiome(pos);
             String biomeName = biome.unwrapKey()
-                    .map(key -> key.location().getPath())
+                    .map(key -> key.identifier().getPath())
                     .orElse(Lang.tr("mcai.value.unknown"));
             sb.append(Lang.tr("mcai.ctx.biome", biomeName)).append('\n');
         } catch (Throwable ignored) {
@@ -54,7 +54,7 @@ public final class WorldContext {
         sb.append(Lang.tr("mcai.ctx.y_level",
                 player.getY(), world.getSeaLevel())).append('\n');
         sb.append(Lang.tr("mcai.ctx.time",
-                world.getDayTime() % 24000L)).append('\n');
+                world.getOverworldClockTime() % 24000L)).append('\n');
         sb.append(Lang.tr("mcai.ctx.health",
                 Math.round(player.getHealth()), Math.round(player.getMaxHealth())));
 

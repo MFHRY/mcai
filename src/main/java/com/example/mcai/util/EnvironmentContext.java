@@ -52,7 +52,7 @@ public final class EnvironmentContext {
     private static String compute(int maxMods) {
         StringBuilder sb = new StringBuilder();
         try {
-            String version = SharedConstants.getCurrentVersion().getName();
+            String version = SharedConstants.getCurrentVersion().name();
             if (version != null && !version.isBlank()) {
                 sb.append("Target Minecraft version: ").append(version).append(". ");
             }
@@ -62,7 +62,7 @@ public final class EnvironmentContext {
 
         try {
             List<String> names = new ArrayList<>();
-            for (IModInfo mod : ModList.get().getMods()) {
+            for (IModInfo mod : ModList.getMods()) {
                 String name = mod.getDisplayName();
                 if (name == null || name.isBlank()) {
                     name = mod.getModId();
