@@ -87,6 +87,16 @@ processResources {
     }
 }
 
+// merge-source-sets makes compileJava and processResources write into the SAME
+// directory (build/sourceSets/main), and Gradle's stale-output cleanup then
+// removes the other task's files. Observed symptom: `./gradlew clean build`
+// reported BUILD SUCCESSFUL and produced a jar with the resources but ZERO
+// classes. Running the copy first and compiling second keeps both, because the
+// cleanup happens before the classes are written.
+tasks.named('compileJava') {
+    mustRunAfter tasks.named('processResources')
+}
+
 jar {
     manifest {
         attributes([
