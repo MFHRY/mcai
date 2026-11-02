@@ -116,8 +116,19 @@ def check_forge(zf, names, report: Report) -> None:
         pack = meta.get("pack")
         if not isinstance(pack, dict):
             report.fail('pack.mcmeta has no "pack" object')
+        elif "min_format" in pack or "max_format" in pack:
+            # 26.1+ : pack_format is deprecated above 64 (64 for resources, 81 for
+            # data). A file that declares a newer format MUST carry both bounds,
+            # and declaring only one of them is rejected outright, so check both.
+            if "min_format" not in pack or "max_format" not in pack:
+                report.fail('pack.mcmeta declares only one of "min_format"/"max_format" '
+                            "(26.1+ requires both)")
+            else:
+                report.note(f"pack.mcmeta min_format={pack['min_format']} "
+                            f"max_format={pack['max_format']}")
         elif "pack_format" not in pack:
-            report.fail('pack.mcmeta has no "pack.pack_format"')
+            report.fail('pack.mcmeta has no "pack.pack_format" '
+                        '(or "min_format"/"max_format" on 26.1+)')
         else:
             report.note(f"pack.mcmeta pack_format={pack['pack_format']}")
 

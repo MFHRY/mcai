@@ -2,7 +2,11 @@
 
 在 Minecraft 里和 AI 聊天，还能按键让它**看你屏幕**。
 
-一个面向 **Minecraft 1.21.1 / Fabric** 的客户端模组：在聊天栏用 `!ai` 提问、按 `H` 截取当前画面交给多模态模型识别，并附带思考过程显示、耗时统计和 Token 用量记录。
+一个面向 **Minecraft 26.1.2 / Forge 64.1.5** 的客户端模组：在聊天栏用 `!ai` 提问、按 `H` 截取当前画面交给多模态模型识别，并附带思考过程显示、耗时统计和 Token 用量记录。
+
+> **本分支是 Forge 26.1 版**（`main` 是 Fabric 1.21.1，`forge-1.20.1` 是旧的 Forge 版）。
+> 26.1 的 API 迁移清单、EventBus 7 的写法、以及开发环境必须打开的
+> `merge-source-sets` 开关，都记在 [PORTING-26.1.md](PORTING-26.1.md) 里。
 
 > **1.20 起，不花钱也能用**：把接口地址指向本机模型（Ollama / LM Studio）就不需要 API Key，完全离线。
 > 另有 `/ai craft` 这类**零 token** 的本地功能——它读服务器已经同步给你的配方表，不联网、不花钱。
@@ -334,28 +338,26 @@ time,model,source,tokens,cost
 
 ## 构建
 
-**必须使用 JDK 21。**
+**必须使用 JDK 25。**
 
 ```bash
 ./gradlew clean build
 ```
 
-产物在 `build/libs/mcai-1.25.1.jar`。
+产物在 `build/libs/mcai-forge-26.1-1.0.0.jar`。
 
 ### ⚠️ 关于 JDK 版本
 
-Minecraft 1.21.1、Fabric Loom 1.7.x、Gradle 8.8 **都要求 JDK 21**。用 JDK 25 会失败：
+Minecraft 26.1 起 Mojang 直接把 **Java 25** 发给玩家，所以这个分支的
+toolchain 和 `options.release` 都是 25 —— 用 JDK 21 会编译不过，用 25 编译出
+21 字节码则会在客户端里 `UnsupportedClassVersionError`。
 
-```
-Unsupported class file major version 69
-```
-
-如果你的 `java` 不是 JDK 21，请在**本机级**（不要提交进仓库）指定：
+如果你的 `java` 不是 JDK 25，请在**本机级**（不要提交进仓库）指定：
 
 ```properties
 # %USERPROFILE%\.gradle\gradle.properties   (Windows)
 # ~/.gradle/gradle.properties               (Linux / macOS)
-org.gradle.java.home=C:/path/to/your/jdk-21
+org.gradle.java.home=C:/path/to/your/jdk-25
 ```
 
 > 本项目刻意**没有**把 `org.gradle.java.home` 写进仓库的 `gradle.properties`：
@@ -367,11 +369,20 @@ org.gradle.java.home=C:/path/to/your/jdk-21
 ./gradlew runClient
 ```
 
+> `gradle.properties` 里的 `net.minecraftforge.gradle.merge-source-sets=true`
+> **不能删**。ForgeGradle 7 默认还是旧的输出目录布局，而 Slime 启动器只把
+> `build/resources/main`（只有资源、没有 class）交给 FML 扫描，游戏会在启动时
+> 直接崩在 `constructed 0 mods` —— 而 `./gradlew build` 一路绿灯，很难查。
+
 ---
 
 ## 实现札记
 
 开发过程中踩到的一批 **1.21.1 特有的 API 陷阱**，记录下来供后来者参考 —— 这些用新版教程的写法**全都编译不过**：
+
+> 下面这张表是 `main`（Fabric 1.21.1）的经验，很多条目在 26.1 里反过来又变了
+> （比如 `KeyBinding` 又叫回 `KeyMapping`、并且真的有了 `Category`）。
+> 本分支对应的清单在 [PORTING-26.1.md](PORTING-26.1.md)。
 
 | 常见写法 | 1.21.1 的真实情况 |
 | --- | --- |

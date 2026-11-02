@@ -12,9 +12,11 @@
 #      braces (which javac reports as a cascade of misleading errors) or
 #      language files that drift out of sync across the 8 locales.
 #
-# The two editions need different JDKs, so the version is keyed off the branch:
-# Minecraft 1.21.1 / Fabric Loom needs 21, while the Forge 1.20.1 branch needs 17
-# (ForgeGradle compiles its binpatched artifact with a Java 17 toolchain).
+# Each edition needs a different JDK, so the version is keyed off the branch:
+# Minecraft 1.21.1 / Fabric Loom needs 21, the Forge 1.20.1 branch needs 17
+# (ForgeGradle compiles its binpatched artifact with a Java 17 toolchain), and
+# the Forge 26.1 branch needs 25 because Mojang ships Java 25 to players from
+# 26.1 on and the mod's class files are released at 25.
 
 name: build
 on: [pull_request, push]
@@ -32,8 +34,8 @@ jobs:
       - name: setup jdk
         uses: actions/setup-java@v5
         with:
-          # forge-1.20.1 -> 17, everything else (the Fabric branch) -> 21
-          java-version: ${{ github.ref_name == 'forge-1.20.1' && '17' || '21' }}
+          # forge-1.20.1 -> 17, forge-26.1 -> 25, everything else (Fabric) -> 21
+          java-version: ${{ github.ref_name == 'forge-1.20.1' && '17' || (github.ref_name == 'forge-26.1' && '25' || '21') }}
           distribution: 'microsoft'
 
       - name: make gradle wrapper executable
