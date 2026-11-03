@@ -188,7 +188,10 @@ public class ConfigScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (capturing != null) {
             // 点到别处就放弃改键，避免一直停在「等待按键」
             capturing.cancelCapture();
@@ -211,11 +214,12 @@ public class ConfigScreen extends Screen {
                 }
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyInput input) {
+        int keyCode = input.key();
         if (capturing != null) {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 capturing.cancelCapture();
@@ -232,7 +236,7 @@ public class ConfigScreen extends Screen {
             relayout();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     private boolean isInContent(double mouseX, double mouseY) {
@@ -897,7 +901,7 @@ public class ConfigScreen extends Screen {
 
         /** API Key 默认打码，避免直播 / 截图时泄露。 */
         private void applyMask() {
-            field.setRenderTextProvider((text, firstCharacterIndex) -> {
+            field.addFormatter((text, firstCharacterIndex) -> {
                 String shown = revealKey ? text : "*".repeat(text.length());
                 return OrderedText.styledForwardsVisitedString(shown, Style.EMPTY);
             });

@@ -159,6 +159,75 @@ def check_fabric(zf, names, report: Report) -> None:
     if "META-INF/mods.toml" in names:
         report.fail("Fabric jar contains META-INF/mods.toml - wrong branch or stale resource")
 
+    check_item_models(zf, names, report)
+
+
+def check_item_models(zf, names, report: Report) -> None:
+    """1.21.4+ needs an `items/<id>.json` definition on top of the old model.
+
+    Without it the client never asks for `models/item/<id>.json` at all and the
+    stack renders as the purple/black missing texture - the exact regression
+    reported on 1.21.11. The two file trees are easy to desync because the old
+    model still looks perfectly valid on its own, so assert the pairing.
+    """
+    item_dir = "assets/mcai/items/"
+    model_dir = "assets/mcai/models/item/"
+    tex_dir = "assets/mcai/textures/item/"
+
+    item_defs = sorted(n for n in names if n.startswith(item_dir) and n.endswith(".json"))
+    models = sorted(n for n in names if n.startswith(model_dir) and n.endswith(".json"))
+
+    if not models:
+        report.fail(f"no item models under {model_dir}")
+        return
+    if not item_defs:
+        report.fail(f"no item definitions under {item_dir} - Minecraft 1.21.4+ will render "
+                    "these items as the purple/black missing texture")
+        return
+
+    model_ids = {n[len("assets/mcai/"):-len(".json")] for n in models}
+    for entry in item_defs:
+        try:
+            data = json.loads(zf.read(entry).decode("utf-8"))
+        except json.JSONDecodeError as error:
+            report.fail(f"{entry} is not valid JSON: {error}")
+            continue
+        model = data.get("model")
+        if not isinstance(model, dict):
+            report.fail(f'{entry} has no "model" object')
+            continue
+        target = model.get("model")
+        if not isinstance(target, str):
+            report.fail(f'{entry} has no "model.model" reference')
+            continue
+        namespace, _, path = target.partition(":")
+        if namespace != "mcai":
+            continue
+        if f"models/{path}" not in model_ids:
+            report.fail(f"{entry} points at {target}, which is not in the jar")
+
+    # 每个模型引用的贴图也必须在包里，否则照样是紫黑格
+    for model_entry in models:
+        try:
+            data = json.loads(zf.read(model_entry).decode("utf-8"))
+        except json.JSONDecodeError as error:
+            report.fail(f"{model_entry} is not valid JSON: {error}")
+            continue
+        for slot, ref in (data.get("textures") or {}).items():
+            if not isinstance(ref, str) or ref.startswith("#"):
+                continue
+            namespace, _, path = ref.partition(":")
+            if namespace != "mcai":
+                continue
+            if f"{tex_dir}{path.rsplit('/', 1)[-1]}.png" not in names:
+                report.fail(f"{model_entry} references missing texture {ref}")
+
+    if len(item_defs) != len(models):
+        report.fail(f"{len(models)} item model(s) but {len(item_defs)} item definition(s) - "
+                     "every model needs a matching items/<id>.json")
+    else:
+        report.note(f"{len(item_defs)} item definitions, each with a model and texture")
+
 
 def check_one(jar: str) -> bool:
     report = Report(jar)

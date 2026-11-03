@@ -54,7 +54,7 @@ public final class RequestCancelKey {
 
         boolean down;
         try {
-            down = InputUtil.isKeyPressed(client.getWindow().getHandle(), GLFW.GLFW_KEY_ESCAPE);
+            down = InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_ESCAPE);
         } catch (Throwable t) {
             return;
         }

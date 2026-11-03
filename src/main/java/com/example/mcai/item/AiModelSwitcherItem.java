@@ -24,11 +24,13 @@ public class AiModelSwitcherItem extends Item {
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, Item.TooltipContext context, List<Text> tooltip, TooltipType type) {
+    public void appendTooltip(ItemStack stack, Item.TooltipContext context,
+                              net.minecraft.component.type.TooltipDisplayComponent display,
+                              java.util.function.Consumer<Text> tooltip, TooltipType type) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         String model = (config == null) ? null : config.model;
 
-        tooltip.add(Text.translatable("tooltip.mcai.model_switcher.action").formatted(Formatting.GRAY));
-        tooltip.add(Text.translatable("tooltip.mcai.current", ModelCatalog.describe(model)).formatted(Formatting.AQUA));
+        tooltip.accept(Text.translatable("tooltip.mcai.model_switcher.action").formatted(Formatting.GRAY));
+        tooltip.accept(Text.translatable("tooltip.mcai.current", ModelCatalog.describe(model)).formatted(Formatting.AQUA));
     }
 }

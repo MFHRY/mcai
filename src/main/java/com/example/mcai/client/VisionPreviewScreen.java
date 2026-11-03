@@ -65,7 +65,7 @@ public class VisionPreviewScreen extends Screen {
 
         // 把预览图上传成纹理。它不会被修改，所以不需要每帧 upload()。
         try {
-            texture = new NativeImageBackedTexture(preview);
+            texture = new NativeImageBackedTexture(() -> "mcai-preview", preview);
             this.client.getTextureManager().registerTexture(TEXTURE_ID, texture);
         } catch (Throwable t) {
             texture = null;
@@ -103,9 +103,10 @@ public class VisionPreviewScreen extends Screen {
             int x = (this.width - drawWidth) / 2;
             int y = Math.max(34, (this.height - drawHeight) / 2 - 10);
 
-            context.drawTexture(TEXTURE_ID, x, y, 0.0f, 0.0f,
+            context.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED,
+                    TEXTURE_ID, x, y, 0.0f, 0.0f,
                     drawWidth, drawHeight, drawWidth, drawHeight);
-            context.drawBorder(x - 1, y - 1, drawWidth + 2, drawHeight + 2, 0xFF55FFFF);
+            context.drawStrokedRectangle(x - 1, y - 1, drawWidth + 2, drawHeight + 2, 0xFF55FFFF);
         } else {
             context.drawTextWithShadow(this.textRenderer, Lang.text("mcai.preview.no_texture"),
                     8, 40, 0xFFFF5555);

@@ -3,6 +3,8 @@ package com.example.mcai.item;
 import com.example.mcai.McaiMod;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
 
@@ -15,11 +17,15 @@ public final class McaiItems {
 
     /** 模型切换器 */
     public static final Item AI_MODEL_SWITCHER =
-            new AiModelSwitcherItem(new Item.Settings().maxCount(1));
+            new AiModelSwitcherItem(new Item.Settings().maxCount(1)
+                    .registryKey(RegistryKey.of(RegistryKeys.ITEM,
+                            Identifier.of(McaiMod.MOD_ID, "ai_model_switcher"))));
 
     /** 模式切换器 */
     public static final Item AI_MODE_SWITCHER =
-            new AiModeSwitcherItem(new Item.Settings().maxCount(1));
+            new AiModeSwitcherItem(new Item.Settings().maxCount(1)
+                    .registryKey(RegistryKey.of(RegistryKeys.ITEM,
+                            Identifier.of(McaiMod.MOD_ID, "ai_mode_switcher"))));
 
     private McaiItems() {}
 

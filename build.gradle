@@ -1,7 +1,7 @@
 plugins {
     // Pinned to a real release instead of '1.7-SNAPSHOT' so that a clone of this
     // repository always builds with exactly the same Loom version.
-    id 'fabric-loom' version '1.7.4'
+    id 'fabric-loom' version '1.19.3'
     id 'maven-publish'
 }
 

@@ -8,6 +8,7 @@
   "tooltip.mcai.current": "Current: %s",
 
   "category.mcai": "mcAI Assistant",
+  "key.categories.mcai.hud": "mcAI Assistant",
   "key.mcai.vision": "Screenshot Recognition (Vision)",
   "key.mcai.build": "Analyze Build / Redstone (Vision)",
   "mcai.vision.prompt.build": "Analyze the Minecraft build or redstone circuit in this screenshot: explain how it works, then suggest concrete improvements. Keep it short.",

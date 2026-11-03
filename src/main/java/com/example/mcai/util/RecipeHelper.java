@@ -1,13 +1,15 @@
 package com.example.mcai.util;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.recipebook.RecipeResultCollection;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.recipebook.ClientRecipeBook;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.item.ItemStack;
-import net.minecraft.recipe.CraftingRecipe;
 import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.Recipe;
-import net.minecraft.recipe.RecipeEntry;
+import net.minecraft.recipe.RecipeDisplayEntry;
+import net.minecraft.recipe.display.SlotDisplayContexts;
+import net.minecraft.util.context.ContextParameterMap;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -22,11 +24,14 @@ import java.util.Map;
  * Minecraft 客户端拿到的是<b>服务器同步过来的配方表</b>，可以正向判定
  * 「这份材料能不能满足这个配方」，但反向"从一句自然语言找出配方"
  * 需要自己做一整套名字索引与模糊匹配，又慢又容易误判。
- * 而"背包里这些东西现在能合成什么"只要遍历配方 + 调 {@code matches()}，
+ * 而"背包里这些东西现在能合成什么"只要遍历配方 + 数材料，
  * 既准确又<b>完全不花钱</b>（零 token、不用联网）。
  *
- * <p>配方表来自 {@code client.world.getRecipeManager()}，是玩家当前所在服务器
- * 真实生效的配方（包括数据包/模组新增的），不是硬编码的。
+ * <p><b>1.21.11 的取数方式：</b>这一版把配方表从 {@code world.getRecipeManager()}
+ * 挪到了客户端的 {@link ClientRecipeBook}（{@code player.getRecipeBook()}）。
+ * 配方本身以 {@link RecipeDisplayEntry} 的形式下发，材料在
+ * {@code craftingRequirements()} 里，产物用 {@code getStacks(参数表)} 取。
+ * 这样单人/多人服都能用，也不依赖服务端。
  */
 public final class RecipeHelper {
 
@@ -34,6 +39,9 @@ public final class RecipeHelper {
 
     /** 一条"能合成的东西"：产物 + 需要的材料。 */
     public record Craftable(String output, int count, List<String> ingredients) {}
+
+    /** 一条按名字找到的配方（产物 + 材料），给 {@code ?craft} 类提问用。 */
+    public record Match(String output, List<String> ingredients) {}
 
     /**
      * 列出玩家背包里当前材料就能合成的东西（只算工作台那类合成配方）。
@@ -53,23 +61,26 @@ public final class RecipeHelper {
             Map<String, Craftable> unique = new LinkedHashMap<>();
             int scanned = 0;
             int crafting = 0;
-            for (RecipeEntry<?> entry : world.getRecipeManager().values()) {
-                scanned++;
-                Recipe<?> recipe = entry.value();
-                if (!(recipe instanceof CraftingRecipe)) {
-                    continue;
+            for (RecipeResultCollection collection : clientRecipes(player)) {
+                for (RecipeDisplayEntry entry : collection.getAllRecipes()) {
+                    scanned++;
+                    List<Ingredient> required = entry.craftingRequirements().orElse(null);
+                    if (required == null || required.isEmpty()) {
+                        // 熔炉 / 切石机这类没有"合成格材料"，不在本次回答范围内
+                        continue;
+                    }
+                    crafting++;
+                    if (!canCraftFromInventory(required, player)) {
+                        continue;
+                    }
+                    ItemStack result = outputOf(entry, world);
+                    if (result == null || result.isEmpty()) {
+                        continue;
+                    }
+                    String name = result.getName().getString();
+                    unique.putIfAbsent(name, new Craftable(
+                            name, result.getCount(), describeIngredients(required)));
                 }
-                crafting++;
-                if (!canCraftFromInventory(recipe, player)) {
-                    continue;
-                }
-                ItemStack result = iconOf(recipe);
-                if (result == null || result.isEmpty()) {
-                    continue;
-                }
-                String name = result.getName().getString();
-                unique.putIfAbsent(name, new Craftable(
-                        name, result.getCount(), describeIngredients(recipe)));
             }
             // 诊断：扫了多少、其中合成配方多少、最后命中多少。
             // 结果为空时靠这条日志就能区分"配方表拿不到"和"材料确实不够"。
@@ -84,27 +95,48 @@ public final class RecipeHelper {
         return out;
     }
 
+    /** 客户端配方书里的全部配方分组；拿不到就返回空表。 */
+    private static List<RecipeResultCollection> clientRecipes(ClientPlayerEntity player) {
+        ClientRecipeBook book = player.getRecipeBook();
+        if (book == null) {
+            return List.of();
+        }
+        List<RecipeResultCollection> results = book.getOrderedResults();
+        return results == null ? List.of() : results;
+    }
+
+    /** 取配方的产物（只用于拿名字和数量）。 */
+    private static ItemStack outputOf(RecipeDisplayEntry entry, ClientWorld world) {
+        try {
+            ContextParameterMap params = SlotDisplayContexts.createParameters(world);
+            List<ItemStack> stacks = entry.getStacks(params);
+            if (stacks == null || stacks.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            return stacks.get(0);
+        } catch (Throwable t) {
+            return ItemStack.EMPTY;
+        }
+    }
+
     /**
      * 判断背包里的材料够不够做这条配方。
      *
-     * <p><b>为什么不用 {@code recipe.matches(...)}：</b>那个方法要的是
-     * {@code CraftingRecipeInput}（一个真实的 3x3 合成格），而玩家平时并没有开着
-     * 合成界面，背包里也没有格子布局。我们真正想回答的是"这些材料够不够"，
-     * 所以直接统计材料数量即可，而且这样做对有序/无序配方都成立。
+     * <p>玩家平时并没有开着合成界面，背包里也没有格子布局，所以这里不跑
+     * {@code matches(...)}，而是直接统计材料数量——对有序/无序配方都成立。
      *
      * <p>材料之间可能互相替代（比如任意木板），这里把「配方槽位」和「背包物品」建成一张
      * 二分图跑最大匹配（Kuhn 算法）：只有当每个槽位都能分到一份不同的背包物品时才判定为
-     * 可合成。这也修正了早期贪心匹配的<b>漏报</b>——贪心会先把某一种替代材料用掉，把另一
-     * 种更稀缺的材料提前耗尽，从而把「其实能合成」判成不能。
+     * 可合成。这也修正了早期贪心匹配的<b>漏报</b>。
      */
-    private static boolean canCraftFromInventory(Recipe<?> recipe, ClientPlayerEntity player) {
-        List<Ingredient> required = new ArrayList<>();
-        for (Ingredient ingredient : recipe.getIngredients()) {
+    private static boolean canCraftFromInventory(List<Ingredient> required, ClientPlayerEntity player) {
+        List<Ingredient> needed = new ArrayList<>();
+        for (Ingredient ingredient : required) {
             if (ingredient != null && !ingredient.isEmpty()) {
-                required.add(ingredient);
+                needed.add(ingredient);
             }
         }
-        if (required.isEmpty()) {
+        if (needed.isEmpty()) {
             return false;
         }
 
@@ -122,9 +154,7 @@ public final class RecipeHelper {
             return false;
         }
 
-        // 见类注释：材料之间可能互相替代，用二分图最大匹配判断是否每个槽位都能
-        // 分到一份不同的背包物品，比贪心更准。
-        return maxMatchingSatisfies(required, available);
+        return maxMatchingSatisfies(needed, available);
     }
 
     /**
@@ -142,15 +172,15 @@ public final class RecipeHelper {
         java.util.Set<net.minecraft.item.Item> allItems = new java.util.HashSet<>();
         for (Ingredient ingredient : required) {
             java.util.Set<net.minecraft.item.Item> opts = new java.util.HashSet<>();
-            for (ItemStack option : ingredient.getMatchingStacks()) {
-                if (option == null || option.isEmpty()) {
-                    continue;
+            ingredient.getMatchingItems().forEach(entry -> {
+                if (entry == null) {
+                    return;
                 }
-                net.minecraft.item.Item item = option.getItem();
-                if (available.containsKey(item)) {
+                net.minecraft.item.Item item = entry.value();
+                if (item != null && available.containsKey(item)) {
                     opts.add(item);
                 }
-            }
+            });
             if (opts.isEmpty()) {
                 return false; // 该槽位没有任何一种可用的替代材料
             }
@@ -210,31 +240,20 @@ public final class RecipeHelper {
         return false;
     }
 
-    /** 取配方的产物图标（只用于拿名字和数量）。 */
-    private static ItemStack iconOf(Recipe<?> recipe) {
-        try {
-            return recipe.createIcon();
-        } catch (Throwable t) {
-            return null;
-        }
-    }
-
     /** 把配方需要的材料列成文字。 */
-    private static List<String> describeIngredients(Recipe<?> recipe) {
+    private static List<String> describeIngredients(List<Ingredient> ingredients) {
         List<String> lines = new ArrayList<>();
         try {
-            List<Ingredient> ingredients = recipe.getIngredients();
             // 空槽位（Ingredient.EMPTY）跳过，否则会列出一堆"空"
             Map<String, Integer> counts = new LinkedHashMap<>();
             for (Ingredient ingredient : ingredients) {
                 if (ingredient == null || ingredient.isEmpty()) {
                     continue;
                 }
-                ItemStack[] stacks = ingredient.getMatchingStacks();
-                if (stacks.length == 0) {
+                String name = firstItemName(ingredient);
+                if (name == null) {
                     continue;
                 }
-                String name = stacks[0].getName().getString();
                 counts.merge(name, 1, Integer::sum);
             }
             for (Map.Entry<String, Integer> e : counts.entrySet()) {
@@ -246,15 +265,34 @@ public final class RecipeHelper {
         return lines;
     }
 
+    /** 取一个材料槽位里第一种物品的显示名。 */
+    private static String firstItemName(Ingredient ingredient) {
+        try {
+            List<ItemStack> stacks = new ArrayList<>();
+            ingredient.getMatchingItems().limit(1).forEach(entry -> {
+                if (entry != null && entry.value() != null) {
+                    stacks.add(new ItemStack(entry.value()));
+                }
+            });
+            if (stacks.isEmpty()) {
+                return null;
+            }
+            return stacks.get(0).getName().getString();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     /**
      * 按名字找配方（给 {@code !ai 怎么做钻石镐} 这类提问用）。
      * 匹配产物显示名包含查询词的配方；找不到返回空列表。
      */
-    public static List<RecipeEntry<?>> findByName(String query) {
-        List<RecipeEntry<?>> out = new ArrayList<>();
+    public static List<Match> findByName(String query) {
+        List<Match> out = new ArrayList<>();
         MinecraftClient client = MinecraftClient.getInstance();
+        ClientPlayerEntity player = client.player;
         ClientWorld world = client.world;
-        if (world == null || query == null || query.isBlank()) {
+        if (player == null || world == null || query == null || query.isBlank()) {
             return out;
         }
         String needle = query.trim().toLowerCase(Locale.ROOT);
@@ -262,18 +300,23 @@ public final class RecipeHelper {
             return out;
         }
         try {
-            for (RecipeEntry<?> entry : world.getRecipeManager().values()) {
-                Recipe<?> recipe = entry.value();
-                if (!(recipe instanceof CraftingRecipe)) {
-                    continue;
-                }
-                ItemStack icon = iconOf(recipe);
-                if (icon == null || icon.isEmpty()) {
-                    continue;
-                }
-                String name = icon.getName().getString().toLowerCase(Locale.ROOT);
-                if (name.contains(needle) || needle.contains(name)) {
-                    out.add(entry);
+            for (RecipeResultCollection collection : clientRecipes(player)) {
+                for (RecipeDisplayEntry entry : collection.getAllRecipes()) {
+                    List<Ingredient> required = entry.craftingRequirements().orElse(null);
+                    if (required == null || required.isEmpty()) {
+                        continue;
+                    }
+                    ItemStack icon = outputOf(entry, world);
+                    if (icon == null || icon.isEmpty()) {
+                        continue;
+                    }
+                    String name = icon.getName().getString().toLowerCase(Locale.ROOT);
+                    if (name.contains(needle) || needle.contains(name)) {
+                        out.add(new Match(icon.getName().getString(), describeIngredients(required)));
+                    }
+                    if (out.size() >= 3) {
+                        break;
+                    }
                 }
                 if (out.size() >= 3) {
                     break;
@@ -286,11 +329,9 @@ public final class RecipeHelper {
     }
 
     /** 把一条配方渲染成人话（产物 + 材料）。 */
-    public static String describe(RecipeEntry<?> entry) {
-        Recipe<?> recipe = entry.value();
-        ItemStack icon = iconOf(recipe);
-        String output = icon == null ? Lang.tr("mcai.value.unknown") : icon.getName().getString();
-        List<String> lines = describeIngredients(recipe);
+    public static String describe(Match match) {
+        String output = match == null ? Lang.tr("mcai.value.unknown") : match.output();
+        List<String> lines = match == null ? List.of() : match.ingredients();
         String ingredients = lines.isEmpty()
                 ? Lang.tr("mcai.craft.unknown_ingredients")
                 : String.join(Lang.tr("mcai.craft.separator"), lines);
@@ -331,27 +372,31 @@ public final class RecipeHelper {
             return null;
         }
 
-        ClientWorld world = MinecraftClient.getInstance().world;
-        if (world == null) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        ClientPlayerEntity player = client.player;
+        ClientWorld world = client.world;
+        if (player == null || world == null) {
             return null;
         }
 
-        RecipeEntry<?> best = null;
+        Match best = null;
         int bestLength = 1; // 至少 2 个字才算匹配，避免单字误命中
         try {
-            for (RecipeEntry<?> entry : world.getRecipeManager().values()) {
-                Recipe<?> recipe = entry.value();
-                if (!(recipe instanceof CraftingRecipe)) {
-                    continue;
-                }
-                ItemStack icon = iconOf(recipe);
-                if (icon == null || icon.isEmpty()) {
-                    continue;
-                }
-                String name = icon.getName().getString();
-                if (name.length() > bestLength && lower.contains(name.toLowerCase(Locale.ROOT))) {
-                    best = entry;
-                    bestLength = name.length();
+            for (RecipeResultCollection collection : clientRecipes(player)) {
+                for (RecipeDisplayEntry entry : collection.getAllRecipes()) {
+                    List<Ingredient> required = entry.craftingRequirements().orElse(null);
+                    if (required == null || required.isEmpty()) {
+                        continue;
+                    }
+                    ItemStack icon = outputOf(entry, world);
+                    if (icon == null || icon.isEmpty()) {
+                        continue;
+                    }
+                    String name = icon.getName().getString();
+                    if (name.length() > bestLength && lower.contains(name.toLowerCase(Locale.ROOT))) {
+                        best = new Match(name, describeIngredients(required));
+                        bestLength = name.length();
+                    }
                 }
             }
         } catch (Throwable t) {

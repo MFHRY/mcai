@@ -20,11 +20,13 @@ public class AiModeSwitcherItem extends Item {
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, Item.TooltipContext context, List<Text> tooltip, TooltipType type) {
+    public void appendTooltip(ItemStack stack, Item.TooltipContext context,
+                              net.minecraft.component.type.TooltipDisplayComponent display,
+                              java.util.function.Consumer<Text> tooltip, TooltipType type) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         String mode = (config == null) ? null : config.mode;
 
-        tooltip.add(Text.translatable("tooltip.mcai.mode_switcher.action").formatted(Formatting.GRAY));
-        tooltip.add(Text.translatable("tooltip.mcai.current", ModeCatalog.describe(mode)).formatted(Formatting.AQUA));
+        tooltip.accept(Text.translatable("tooltip.mcai.mode_switcher.action").formatted(Formatting.GRAY));
+        tooltip.accept(Text.translatable("tooltip.mcai.current", ModeCatalog.describe(mode)).formatted(Formatting.AQUA));
     }
 }

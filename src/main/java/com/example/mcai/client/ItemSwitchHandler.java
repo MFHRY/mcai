@@ -10,7 +10,7 @@ import com.example.mcai.util.ModelCatalog;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.TypedActionResult;
+import net.minecraft.util.ActionResult;
 
 import java.util.List;
 
@@ -20,7 +20,7 @@ import java.util.List;
  * <p>1.21.1 的坑：{@code UseItemCallback.interact} 返回的是
  * {@code TypedActionResult<ItemStack>}，不是 {@code ActionResult}
  * （ActionResult 在 1.21.1 只是个普通 enum，没有泛型）。所以要用
- * {@code TypedActionResult.pass(stack)} / {@code TypedActionResult.success(stack)}。
+ * {@code ActionResult.PASS} / {@code ActionResult.SUCCESS}。
  */
 public final class ItemSwitchHandler {
 
@@ -33,33 +33,33 @@ public final class ItemSwitchHandler {
             boolean isModeSwitcher = stack.isOf(McaiItems.AI_MODE_SWITCHER);
 
             if (!isModelSwitcher && !isModeSwitcher) {
-                return TypedActionResult.pass(stack);
+                return ActionResult.PASS;
             }
 
             if (!world.isClient()) {
                 // 同一次右键的服务端侧（单人游戏）：接受但不动手，切换完全由客户端驱动，
                 // 结果再通过 McaiSwitchPayload 同步回来，避免双端各切一次。
-                return TypedActionResult.success(stack);
+                return ActionResult.SUCCESS;
             }
 
             return switchOnClient(stack, isModelSwitcher);
         });
     }
 
-    private static TypedActionResult<ItemStack> switchOnClient(ItemStack stack, boolean isModelSwitcher) {
+    private static ActionResult switchOnClient(ItemStack stack, boolean isModelSwitcher) {
         ConfigManager manager = ConfigManager.getInstance();
         ConfigManager.ConfigData config = manager.get();
 
         if (config == null) {
             ClientChat.sendLiteral(Lang.tr("mcai.switch.config_not_ready"));
-            return TypedActionResult.success(stack);
+            return ActionResult.SUCCESS;
         }
 
         if (isModelSwitcher) {
             String next = nextInCycle(config.availableModels, config.model);
             if (next == null) {
                 ClientChat.sendLiteral(Lang.tr("mcai.switch.no_models"));
-                return TypedActionResult.success(stack);
+                return ActionResult.SUCCESS;
             }
             manager.update(c -> c.model = next);
             // 服务端没装本模组时不会注册这个通道，直接 send 会抛异常/记警告。
@@ -73,7 +73,7 @@ public final class ItemSwitchHandler {
             String next = nextInCycle(config.availableModes, config.mode);
             if (next == null) {
                 ClientChat.sendLiteral(Lang.tr("mcai.switch.no_modes"));
-                return TypedActionResult.success(stack);
+                return ActionResult.SUCCESS;
             }
             manager.update(c -> c.mode = next);
             if (ClientPlayNetworking.canSend(McaiSwitchPayload.ID)) {
@@ -82,7 +82,7 @@ public final class ItemSwitchHandler {
             ClientChat.sendLiteral(Lang.tr("mcai.switch.mode_switched", ModeCatalog.describe(next)));
         }
 
-        return TypedActionResult.success(stack);
+        return ActionResult.SUCCESS;
     }
 
     /** 在列表里往前循环一格；当前值不在列表里就回到第一个。 */

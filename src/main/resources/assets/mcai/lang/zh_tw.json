@@ -8,6 +8,7 @@
   "tooltip.mcai.current": "目前：%s",
 
   "category.mcai": "mcAI 智慧助理",
+  "key.categories.mcai.hud": "mcAI 智慧助理",
   "key.mcai.vision": "截圖辨識（視覺）",
   "key.mcai.build": "分析建築 / 紅石（視覺）",
   "mcai.vision.prompt.build": "請分析這張 Minecraft 截圖裡的建築或紅石電路：先說明它的運作原理，再給出具體的改進建議。回答要簡潔。",

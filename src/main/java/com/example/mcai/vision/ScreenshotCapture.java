@@ -65,7 +65,9 @@ public final class ScreenshotCapture {
         if (framebuffer == null) {
             return null;
         }
-        return ScreenshotRecorder.takeScreenshot(framebuffer);
+        final NativeImage[] out = new NativeImage[1];
+        ScreenshotRecorder.takeScreenshot(framebuffer, image -> out[0] = image);
+        return out[0];
     }
 
     /**
@@ -323,7 +325,7 @@ public final class ScreenshotCapture {
             int rowOffset = y * width;
             for (int x = 0; x < width; x++) {
                 // getColor 已经是 ARGB，与 TYPE_INT_ARGB 完全对应
-                pixels[rowOffset + x] = image.getColor(x, y);
+                pixels[rowOffset + x] = image.getColorArgb(x, y);
             }
         }
         BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);

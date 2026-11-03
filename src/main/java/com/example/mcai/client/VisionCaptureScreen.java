@@ -80,7 +80,7 @@ public class VisionCaptureScreen extends Screen {
         context.fill(0, top, left, bottom, DIM);
         context.fill(right, top, this.width, bottom, DIM);
 
-        context.drawBorder(left, top, Math.max(1, right - left), Math.max(1, bottom - top), BORDER);
+        context.drawStrokedRectangle(left, top, Math.max(1, right - left), Math.max(1, bottom - top), BORDER);
 
         context.drawTextWithShadow(this.textRenderer, Lang.text("mcai.pick.hint"), 8, 8, 0xFFFFFF);
         int percent = (int) Math.round(100.0 * (x1 - x0) * (y1 - y0));
@@ -93,7 +93,10 @@ public class VisionCaptureScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (button == 0) {
             anchorX = clamp(mouseX / this.width);
             anchorY = clamp(mouseY / this.height);
@@ -102,11 +105,14 @@ public class VisionCaptureScreen extends Screen {
             dragging = true;
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+    public boolean mouseDragged(net.minecraft.client.gui.Click click, double deltaX, double deltaY) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (dragging && button == 0) {
             double currentX = clamp(mouseX / this.width);
             double currentY = clamp(mouseY / this.height);
@@ -117,11 +123,12 @@ public class VisionCaptureScreen extends Screen {
             y1 = Math.max(anchorY, currentY);
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(click, deltaX, deltaY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(net.minecraft.client.gui.Click click) {
+        int button = click.button();
         if (button == 0 && dragging) {
             dragging = false;
             // 只是点了一下没拖（或拖得太小）→ 退回默认的中间 60%，别让玩家卡在一个选不中的状态
@@ -133,11 +140,12 @@ public class VisionCaptureScreen extends Screen {
             }
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(click);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyInput input) {
+        int keyCode = input.key();
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             confirm();
             return true;
@@ -147,7 +155,7 @@ public class VisionCaptureScreen extends Screen {
             confirm();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     private void confirm() {

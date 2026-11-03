@@ -62,7 +62,8 @@ public final class VisionHandler {
     private static final String KEY_BUILD_TRANSLATION = "key.mcai.build";
     private static final String KEY_PICK_TRANSLATION = "key.mcai.pick";
     private static final String KEY_WHAT_TRANSLATION = "key.mcai.what";
-    private static final String KEY_CATEGORY = "category.mcai";
+    private static final net.minecraft.client.option.KeyBinding.Category KEY_CATEGORY =
+            com.example.mcai.client.McaiKeys.MCAI_CATEGORY;
 
     private static final long COOLDOWN_MILLIS = 3000L;
     private static final long MIN_INTERVAL_MS = 300L;

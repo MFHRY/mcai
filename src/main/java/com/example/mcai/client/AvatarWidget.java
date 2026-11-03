@@ -16,7 +16,6 @@ import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
@@ -139,7 +138,7 @@ public final class AvatarWidget {
      */
     public static void register() {
         bubbleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.mcai.avatar", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, "category.mcai"));
+                "key.mcai.avatar", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, McaiKeys.MCAI_CATEGORY));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (bubbleKey.wasPressed()) {
@@ -209,7 +208,7 @@ public final class AvatarWidget {
             return;
         }
 
-        float deltaTicks = tickCounter == null ? 1.0F : tickCounter.getLastFrameDuration();
+        float deltaTicks = tickCounter == null ? 1.0F : tickCounter.getDynamicDeltaTicks();
         updateQState(client, config, deltaTicks);
 
         int screenW = context.getScaledWindowWidth();
@@ -259,16 +258,17 @@ public final class AvatarWidget {
         float sy = squash;
         float sx = 2.0F - squash;
 
-        MatrixStack matrices = context.getMatrices();
-        matrices.push();
+        org.joml.Matrix3x2fStack matrices = context.getMatrices();
+        matrices.pushMatrix();
         try {
-            matrices.translate(x + w / 2.0F, y + h / 2.0F, 0.0F);
-            matrices.scale(sx, sy, 1.0F);
-            matrices.translate(-w / 2.0F, -h / 2.0F, 0.0F);
-            context.drawTexture(TEXTURE_ID, 0, 0, 0.0F, 0.0F, w, h, w, h);
+            matrices.translate(x + w / 2.0F, y + h / 2.0F);
+            matrices.scale(sx, sy);
+            matrices.translate(-w / 2.0F, -h / 2.0F);
+            context.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED,
+                    TEXTURE_ID, 0, 0, 0.0F, 0.0F, w, h, w, h);
         } finally {
             // 万一 drawTexture 抛了，也不能把矩阵栈留脏
-            matrices.pop();
+            matrices.popMatrix();
         }
     }
 
@@ -302,7 +302,7 @@ public final class AvatarWidget {
         int y = MathHelper.clamp(avatarY, 2, Math.max(2, screenH - h - 2));
 
         context.fill(x, y, x + w, y + h, 0xC0101018);
-        context.drawBorder(x, y, w, h, 0xFF55FFFF);
+        context.drawStrokedRectangle(x, y, w, h, 0xFF55FFFF);
 
         int textX = x + pad;
         int textY = y + pad;
@@ -337,7 +337,7 @@ public final class AvatarWidget {
         y = MathHelper.clamp(y, 2, Math.max(2, screenH - h - 2));
 
         context.fill(x, y, x + w, y + h, 0xB0101018);
-        context.drawBorder(x, y, w, h, 0xFF55FFFF);
+        context.drawStrokedRectangle(x, y, w, h, 0xFF55FFFF);
         context.drawTextWithShadow(textRenderer, line1, x + pad, y + pad, 0xFFFFFFFF);
         context.drawTextWithShadow(textRenderer, line2, x + pad, y + pad + textRenderer.fontHeight + 1,
                 0xFFAAAAAA);
@@ -638,7 +638,7 @@ public final class AvatarWidget {
                                      float deltaTicks) {
         boolean down;
         try {
-            down = InputUtil.isKeyPressed(client.getWindow().getHandle(), GLFW.GLFW_KEY_Q);
+            down = InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_Q);
         } catch (Throwable t) {
             down = false;
         }
@@ -667,7 +667,7 @@ public final class AvatarWidget {
             // SoundEvents.UI_BUTTON_CLICK 是 RegistryEntry.Reference<SoundEvent>，
             // 走的是 master(RegistryEntry<SoundEvent>, float) 这个重载。
             client.getSoundManager().play(
-                    PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    PositionedSoundInstance.ui(SoundEvents.UI_BUTTON_CLICK, 1.0F));
         } catch (Throwable t) {
             LOGGER.debug("[mcAI] avatar click sound failed", t);
         }
@@ -718,7 +718,7 @@ public final class AvatarWidget {
             image = NativeImage.read(bytes);
             texWidth = Math.max(1, image.getWidth());
             texHeight = Math.max(1, image.getHeight());
-            NativeImageBackedTexture texture = new NativeImageBackedTexture(image);
+            NativeImageBackedTexture texture = new NativeImageBackedTexture(() -> "mcai-avatar", image);
             image = null; // 所有权交给纹理，失败路径里不要再 close 一次
             client.getTextureManager().registerTexture(TEXTURE_ID, texture);
             textureReady = true;

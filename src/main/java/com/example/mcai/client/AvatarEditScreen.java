@@ -111,7 +111,7 @@ public final class AvatarEditScreen extends Screen {
                     width / 2, height / 2, 0xFFFF5555);
         } else {
             // 选中框暗示"这块可以拖"；拖动中换成暖色，给一点反馈
-            context.drawBorder(x - 1, y - 1, w + 2, h + 2, dragging ? 0xFFFFD040 : 0x8055FFFF);
+            context.drawStrokedRectangle(x - 1, y - 1, w + 2, h + 2, dragging ? 0xFFFFD040 : 0x8055FFFF);
             AvatarWidget.renderWidget(context, textRenderer, x, y, w, h, width, height);
         }
 
@@ -119,7 +119,10 @@ public final class AvatarEditScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (button == 0 && placed && AvatarWidget.isTextureReady()
                 && mouseX >= x && mouseX < x + (double) w
                 && mouseY >= y && mouseY < y + (double) h) {
@@ -130,20 +133,23 @@ public final class AvatarEditScreen extends Screen {
             pressY = mouseY;
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     /** 位置在 {@link #render} 里跟鼠标走，这里只需要把事件吃掉，别让它传到下面的控件。 */
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+    public boolean mouseDragged(net.minecraft.client.gui.Click click, double deltaX, double deltaY) {
         if (dragging) {
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(click, deltaX, deltaY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(net.minecraft.client.gui.Click click) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (button == 0 && dragging) {
             dragging = false;
             // 位移很小 → 玩家其实是想点一下看看气泡，不是在摆位置
@@ -155,7 +161,7 @@ public final class AvatarEditScreen extends Screen {
             }
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(click);
     }
 
     @Override

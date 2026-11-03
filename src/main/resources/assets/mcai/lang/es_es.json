@@ -8,6 +8,7 @@
   "tooltip.mcai.current": "Actual: %s",
 
   "category.mcai": "Asistente mcAI",
+  "key.categories.mcai.hud": "Asistente mcAI",
   "key.mcai.vision": "Reconocimiento de capturas (visión)",
   "key.mcai.build": "Analizar construcción / redstone (visión)",
   "mcai.vision.prompt.build": "Analiza la construcción o el circuito de redstone de Minecraft que aparece en esta captura: explica cómo funciona y luego sugiere mejoras concretas. Sé breve.",
