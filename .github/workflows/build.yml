@@ -13,8 +13,10 @@
 #      language files that drift out of sync across the 8 locales.
 #
 # The two editions need different JDKs, so the version is keyed off the branch:
-# Minecraft 1.21.1 / Fabric Loom needs 21, while the Forge 1.20.1 branch needs 17
+# the Fabric branch targets Minecraft 1.21.11 with Fabric Loom 1.19.3, which
+# refuses to resolve on anything below JVM 25; the Forge 1.20.1 branch needs 17
 # (ForgeGradle compiles its binpatched artifact with a Java 17 toolchain).
+# The mod itself still targets Java 21 bytecode (build.gradle options.release).
 
 name: build
 on: [pull_request, push]
@@ -32,8 +34,10 @@ jobs:
       - name: setup jdk
         uses: actions/setup-java@v5
         with:
-          # forge-1.20.1 -> 17, everything else (the Fabric branch) -> 21
-          java-version: ${{ github.ref_name == 'forge-1.20.1' && '17' || '21' }}
+          # forge-1.20.1 -> 17, everything else (the Fabric branches) -> 25.
+          # 25 is not optional: Fabric Loom 1.19.3 (needed for Minecraft 1.21.11)
+          # declares a minimum JVM runtime of 25 and fails to resolve on 21.
+          java-version: ${{ github.ref_name == 'forge-1.20.1' && '17' || '25' }}
           distribution: 'microsoft'
 
       - name: make gradle wrapper executable
