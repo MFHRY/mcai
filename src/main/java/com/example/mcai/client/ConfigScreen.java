@@ -332,7 +332,7 @@ public class ConfigScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
 
-        context.drawCenteredTextWithShadow(textRenderer, this.title, this.width / 2, 6, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(textRenderer, this.title, this.width / 2, 6, 0xFFFFFFFF);
 
         if (contentBottom > contentTop) {
             context.fill(contentLeft - 6, contentTop - 2, contentRight + 6, contentBottom + 2, 0x55000000);
@@ -348,7 +348,7 @@ public class ConfigScreen extends Screen {
             if (contentHeight == 0) {
                 context.drawCenteredTextWithShadow(textRenderer,
                         Lang.text("mcai.config.no_result").formatted(Formatting.GRAY),
-                        (contentLeft + contentRight) / 2, (contentTop + contentBottom) / 2 - 4, 0xFFFFFF);
+                        (contentLeft + contentRight) / 2, (contentTop + contentBottom) / 2 - 4, 0xFFFFFFFF);
             }
             context.disableScissor();
         }
@@ -358,11 +358,11 @@ public class ConfigScreen extends Screen {
         // ---- 底部：提示 + 帮助链接 + 保存/取消 ----
         context.drawCenteredTextWithShadow(textRenderer,
                 Lang.text("mcai.screen.hint").formatted(Formatting.DARK_GRAY),
-                this.width / 2, footerTop + 2, 0xFFFFFF);
+                this.width / 2, footerTop + 2, 0xFFFFFFFF);
         this.helpWidth = textRenderer.getWidth(HELP_LINK);
         this.helpX = contentLeft;
         this.helpY = footerTop + 18;
-        context.drawTextWithShadow(textRenderer, HELP_LINK, helpX, helpY, 0xFFFFFF);
+        context.drawTextWithShadow(textRenderer, HELP_LINK, helpX, helpY, 0xFFFFFFFF);
 
         searchField.render(context, mouseX, mouseY, delta);
         saveButton.render(context, mouseX, mouseY, delta);
@@ -388,10 +388,10 @@ public class ConfigScreen extends Screen {
                     hovered ? 0x44FFFFFF : 0x33000000);
             String arrow = group.isExpanded(query) ? "\u25bc " : "\u25b6 ";
             context.drawTextWithShadow(textRenderer, Text.literal(arrow).formatted(Formatting.AQUA),
-                    contentLeft + 6, y + 6, 0xFFFFFF);
+                    contentLeft + 6, y + 6, 0xFFFFFFFF);
             context.drawTextWithShadow(textRenderer,
                     Lang.text(group.titleKey).formatted(Formatting.BOLD),
-                    contentLeft + 6 + textRenderer.getWidth(arrow), y + 6, 0xFFFFFF);
+                    contentLeft + 6 + textRenderer.getWidth(arrow), y + 6, 0xFFFFFFFF);
         }
     }
 
@@ -774,7 +774,7 @@ public class ConfigScreen extends Screen {
         }
 
         void renderLabel(DrawContext context, int mouseX, int mouseY, float delta) {
-            drawTruncated(context, Lang.tr(labelKey), labelX, labelY, labelMaxWidth, 0xA0A0A0);
+            drawTruncated(context, Lang.tr(labelKey), labelX, labelY, labelMaxWidth, 0xFFA0A0A0);
         }
 
         final void layout(int x, int y, int width) {
@@ -1173,7 +1173,7 @@ public class ConfigScreen extends Screen {
             int x = controlLeft - 8 - width;
             if (x > labelX + 30) {
                 context.drawTextWithShadow(textRenderer,
-                        Text.literal(keyName).formatted(Formatting.YELLOW), x, labelY, 0xFFFFFF);
+                        Text.literal(keyName).formatted(Formatting.YELLOW), x, labelY, 0xFFFFFFFF);
             }
         }
 

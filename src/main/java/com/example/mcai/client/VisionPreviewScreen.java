@@ -112,7 +112,7 @@ public class VisionPreviewScreen extends Screen {
                     8, 40, 0xFFFF5555);
         }
 
-        context.drawTextWithShadow(this.textRenderer, this.title, 8, 8, 0xFFFFFF);
+        context.drawTextWithShadow(this.textRenderer, this.title, 8, 8, 0xFFFFFFFF);
         context.drawTextWithShadow(this.textRenderer, Lang.text(infoLine), 8, 20, 0xFFAAAAAA);
 
         // 只有在这里调用父类：它渲染按钮，而 renderBackground 已经被我们改成空实现
