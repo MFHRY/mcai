@@ -120,7 +120,7 @@ public class VisionPreviewScreen extends Screen {
                     8, 40, 0xFFFF5555);
         }
 
-        context.text(this.font, this.title, 8, 8, 0xFFFFFF);
+        context.text(this.font, this.title, 8, 8, 0xFFFFFFFF);
         context.text(this.font, Lang.text(infoLine), 8, 20, 0xFFAAAAAA);
 
         // 只有在这里调用父类：它渲染按钮，而 renderBackground 已经被我们改成空实现

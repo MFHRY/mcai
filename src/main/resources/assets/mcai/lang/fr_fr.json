@@ -6,6 +6,7 @@
   "tooltip.mcai.mode_switcher.action": "Clic droit : passer au mode suivant",
   "tooltip.mcai.current": "Actuel : %s",
   "category.mcai": "Assistant mcAI",
+  "key.categories.mcai.keys": "Assistant mcAI",
   "key.mcai.vision": "Reconnaissance de capture d'écran (vision)",
   "key.mcai.build": "Analyser une construction / redstone (vision)",
   "mcai.vision.prompt.build": "Analyse la construction ou le circuit de redstone Minecraft sur cette capture d'écran : explique d'abord son fonctionnement, puis propose des améliorations concrètes. Sois bref.",

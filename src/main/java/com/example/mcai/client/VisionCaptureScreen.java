@@ -89,7 +89,7 @@ public class VisionCaptureScreen extends Screen {
 
         context.outline(left, top, Math.max(1, right - left), Math.max(1, bottom - top), BORDER);
 
-        context.text(this.font, Lang.text("mcai.pick.hint"), 8, 8, 0xFFFFFF);
+        context.text(this.font, Lang.text("mcai.pick.hint"), 8, 8, 0xFFFFFFFF);
         int percent = (int) Math.round(100.0 * (x1 - x0) * (y1 - y0));
         context.text(this.font,
                 Lang.text("mcai.pick.size", Math.max(1, right - left), Math.max(1, bottom - top), percent),

@@ -6,6 +6,7 @@
   "tooltip.mcai.mode_switcher.action": "右クリック：次のモードに切り替え",
   "tooltip.mcai.current": "現在：%s",
   "category.mcai": "mcAI アシスタント",
+  "key.categories.mcai.keys": "mcAI アシスタント",
   "key.mcai.vision": "スクリーンショット認識（ビジョン）",
   "key.mcai.build": "建築 / レッドストーンを分析（ビジョン）",
   "mcai.vision.prompt.build": "このMinecraftのスクリーンショットにある建築物またはレッドストーン回路を分析してください。まず仕組みを説明し、次に具体的な改善案を挙げてください。回答は簡潔に。",

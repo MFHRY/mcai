@@ -6,6 +6,7 @@
   "tooltip.mcai.mode_switcher.action": "右键：切换到下一个模式",
   "tooltip.mcai.current": "当前：%s",
   "category.mcai": "mcAI 智能助手",
+  "key.categories.mcai.keys": "mcAI 智能助手",
   "key.mcai.vision": "截图识别（视觉）",
   "key.mcai.build": "分析建筑 / 红石（视觉）",
   "mcai.vision.prompt.build": "请分析这张 Minecraft 截图里的建筑或红石电路：先说明它的工作原理，再给出具体的改进建议。回答要简洁。",

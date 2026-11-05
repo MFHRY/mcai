@@ -7,6 +7,27 @@ mcAI 的所有版本改动，**最新版本在最上面**。
 
 ---
 
+## 1.0.1（Forge 26.1.2）— 2026-11-05
+
+修两个「画面上少东西」的 bug：都不报错、不进日志，只是一块内容凭空消失。
+
+### 修复
+
+- **`/ai config` 配置界面里的文字整片看不见。** 26.1 绘制文字时会读颜色的 alpha
+  通道，`0xFFFFFF` 等于**全透明**的白——文字照排版、就是不显示。标题、分组标题、
+  底部提示、按键名这些自己画的行全是这个毛病（vanilla 的按钮文字不受影响，
+  所以界面看着像"只有一半"）。现在所有文字颜色统一写成 `0xFF......`。
+- **两个切换器物品显示为紫黑错误贴图。** 1.21.4+ 的物品模型需要
+  `assets/mcai/items/<id>.json` 定义，26.1 版之前漏了这一步，已补上。
+
+### 其他
+
+- `tools/check_text_colors.py` 同时认识 26.1 的新调用名
+  （`context.text(...)` / `context.centeredText(...)`），CI 里会挡住同类回归；
+  8 个语言文件补上 `key.categories.mcai.keys`（按键分类的翻译键）。
+
+---
+
 ## 1.25.1 — 2026-10-15
 
 A security-hygiene fix for text-to-speech. Nothing else changed.

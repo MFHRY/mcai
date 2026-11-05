@@ -6,6 +6,7 @@
   "tooltip.mcai.mode_switcher.action": "우클릭: 다음 모드로 전환",
   "tooltip.mcai.current": "현재: %s",
   "category.mcai": "mcAI 어시스턴트",
+  "key.categories.mcai.keys": "mcAI 어시스턴트",
   "key.mcai.vision": "스크린샷 인식 (비전)",
   "key.mcai.build": "건축물 / 레드스톤 분석 (비전)",
   "mcai.vision.prompt.build": "이 스크린샷에 있는 마인크래프트 건축물이나 레드스톤 회로를 분석해 주세요: 작동 원리를 설명한 다음, 구체적인 개선 방법을 제안해 주세요. 짧게 답해 주세요.",

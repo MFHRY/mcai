@@ -6,6 +6,7 @@
   "tooltip.mcai.mode_switcher.action": "ПКМ: переключить на следующий режим",
   "tooltip.mcai.current": "Сейчас: %s",
   "category.mcai": "Ассистент mcAI",
+  "key.categories.mcai.keys": "Ассистент mcAI",
   "key.mcai.vision": "Распознавание скриншота (зрение)",
   "key.mcai.build": "Анализ постройки / редстоуна (зрение)",
   "mcai.vision.prompt.build": "Проанализируй постройку или схему из редстоуна в Minecraft на этом скриншоте: объясни, как это работает, а затем предложи конкретные улучшения. Отвечай кратко.",
