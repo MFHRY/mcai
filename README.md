@@ -345,7 +345,7 @@ time,model,source,tokens,cost
 ./gradlew clean build
 ```
 
-产物在 `build/libs/mcai-fabric-26.1-1.0.0.jar`。
+产物在 `build/libs/mcai-fabric-26.1-1.0.1.jar`。
 
 ### ⚠️ 关于 JDK 版本
 
