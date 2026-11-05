@@ -1,7 +1,18 @@
+// ---------------------------------------------------------------------------
+//  mcAI - Fabric 26.1 (Minecraft 26.1.2)
+//
+//  Minecraft 26.1 is no longer obfuscated: no Yarn, no intermediary, and no
+//  `mappings ...` block at all - Loom hands you the vanilla jar with its real
+//  (Mojang official) names. That is the same naming the Forge 26.1 sources use,
+//  which is why the two loaders share the whole game-API layer.
+// ---------------------------------------------------------------------------
+
 plugins {
-    // Pinned to a real release instead of '1.7-SNAPSHOT' so that a clone of this
-    // repository always builds with exactly the same Loom version.
-    id 'fabric-loom' version '1.19.3'
+    // 1.19-SNAPSHOT is the line the official 26.1.2 example mod pins: it is the
+    // one that tolerates a project with no `mappings` dependency. Use the fully
+    // qualified id - the short `fabric-loom` id only resolves through the
+    // Gradle Plugin Portal, which does not mirror the snapshot.
+    id 'net.fabricmc.fabric-loom' version '1.19-SNAPSHOT'
     id 'maven-publish'
 }
 
@@ -13,7 +24,7 @@ base {
 }
 
 repositories {
-    // Fabric Loader / Yarn / Fabric API live here. Loom injects this repository
+    // Fabric Loader / Fabric API live here. Loom injects this repository
     // automatically, but declaring it explicitly keeps the build self-explanatory.
     maven {
         name = 'Fabric'
@@ -27,18 +38,56 @@ repositories {
     mavenCentral()
 }
 
+// Holds the Fabric API aggregate jar so its modules can be unpacked below.
+configurations {
+    fabricApiModules {
+        transitive = false
+        canBeConsumed = false
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    // No `mappings ...` line: 26.1 ships un-obfuscated (official names).
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-    // Mod Menu 11.x targets Minecraft 1.21 / 1.21.1.
-    // modCompileOnly (not modImplementation): it is an OPTIONAL dependency. Players who do
-    // not install Mod Menu must still be able to run mcAI, and the class that references
-    // ModMenuApi is only ever loaded from the "modmenu" entrypoint, which Mod Menu alone reads.
-    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+    // Mod Menu is an OPTIONAL dependency. Players who do not install it must still
+    // be able to run mcAI, and the class that references ModMenuApi is only ever
+    // loaded from the "modmenu" entrypoint, which Mod Menu alone reads.
+    // 26.1 is un-obfuscated, so a plain compileOnly reference is enough.
+    compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+    // Fabric API ships as ONE jar whose real modules live inside it under
+    // META-INF/jars/. Loom unpacks those for `modImplementation`, but the
+    // 1.19-SNAPSHOT line that 26.1 requires does not register that
+    // configuration, so the modules are unpacked by hand a few lines down.
+    // Compile-only on purpose: the loader reads the nested jars at runtime, and
+    // fabric.mod.json already declares the fabric-api dependency.
+    fabricApiModules "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // ... and the game needs it at RUNTIME too: runClient and a real install
+    // both let Fabric Loader read the aggregate jar and unpack its nested
+    // modules itself. Without this line `./gradlew runClient` starts and then
+    // dies on NoClassDefFoundError for the first Fabric API class it touches.
+    runtimeOnly "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 }
+
+def fabricApiModulesDir = layout.buildDirectory.dir("fabric-api-modules")
+
+def unpackFabricApi = tasks.register("unpackFabricApi", Copy) {
+    description = "Extracts the Fabric API modules nested in the aggregate jar"
+    from(configurations.fabricApiModules.collect { zipTree(it) })
+    include "META-INF/jars/*.jar"
+    includeEmptyDirs = false
+    eachFile { details -> details.path = details.name }
+    into fabricApiModulesDir
+}
+
+// The classpath must list the .jar FILES themselves: a directory that merely
+// contains jars is not searched by javac. fileTree stays live, so it sees the
+// jars once the copy has run (compileJava depends on it).
+sourceSets.main.compileClasspath += files(fileTree(fabricApiModulesDir))
+tasks.named("compileJava") { dependsOn unpackFabricApi }
 
 processResources {
     inputs.property "version", project.version
@@ -48,16 +97,16 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    // Minecraft 1.21.1 runs on Java 21; target 21 bytecode regardless of the
-    // JDK that happens to be running Gradle.
-    it.options.release = 21
     it.options.encoding = 'UTF-8'
+    // Minecraft 26.1 runs on Java 25; target 25 bytecode regardless of the
+    // JDK that happens to be running Gradle.
+    it.options.release = 25
 }
 
 java {
     withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 
 jar {

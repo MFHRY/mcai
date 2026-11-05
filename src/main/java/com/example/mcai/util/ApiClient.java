@@ -240,7 +240,7 @@ public final class ApiClient {
         }
 
         return new StreamResult(content.toString(), reasoning.toString(),
-                usage.isEmpty() ? null : usage);
+                usage.size() == 0 ? null : usage);
     }
 
     // ------------------------------------------------------------ 内部

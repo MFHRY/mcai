@@ -4,7 +4,7 @@ import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
 
 /**
- * Mod Menu 集成（1.24 新增）：让玩家能从「Mod Menu → mcAI → 设置」打开配置界面。
+ * Mod Menu 集成：让玩家能从「Mod Menu → mcAI → 设置」打开配置界面。
  *
  * <p><b>为什么值得做：</b>之前打开设置只有两条路 —— 在聊天栏敲 {@code /ai config}，
  * 或者手动编辑 {@code config/mcai.json}。而 Fabric 玩家的默认习惯是去 Mod Menu 里找齿轮图标，

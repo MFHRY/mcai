@@ -3,10 +3,10 @@ package com.example.mcai.client;
 import com.example.mcai.util.Lang;
 import com.example.mcai.util.ScreenCrop;
 import com.example.mcai.vision.VisionHandler;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -56,19 +56,26 @@ public class VisionCaptureScreen extends Screen {
     private static final int BORDER = 0xFF55FFFF;
 
     public VisionCaptureScreen(NativeImage image, String promptOverride) {
-        super(Text.translatable("mcai.pick.title"));
+        super(Component.translatable("mcai.pick.title"));
         this.image = image;
         this.promptOverride = promptOverride;
     }
 
     /** 不要把世界暂停：多人游戏里框选时世界应该继续跑。 */
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
+
+    /** 界面背景跟随 {@code screen_background} 设置（默认仍是原版的暗色渐变）。 */
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        ScreenBackgrounds.render(this, context);
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         int left = (int) Math.round(x0 * this.width);
         int top = (int) Math.round(y0 * this.height);
         int right = (int) Math.round(x1 * this.width);
@@ -80,11 +87,11 @@ public class VisionCaptureScreen extends Screen {
         context.fill(0, top, left, bottom, DIM);
         context.fill(right, top, this.width, bottom, DIM);
 
-        context.drawStrokedRectangle(left, top, Math.max(1, right - left), Math.max(1, bottom - top), BORDER);
+        context.outline(left, top, Math.max(1, right - left), Math.max(1, bottom - top), BORDER);
 
-        context.drawTextWithShadow(this.textRenderer, Lang.text("mcai.pick.hint"), 8, 8, 0xFFFFFFFF);
+        context.text(this.font, Lang.text("mcai.pick.hint"), 8, 8, 0xFFFFFFFF);
         int percent = (int) Math.round(100.0 * (x1 - x0) * (y1 - y0));
-        context.drawTextWithShadow(this.textRenderer,
+        context.text(this.font,
                 Lang.text("mcai.pick.size", Math.max(1, right - left), Math.max(1, bottom - top), percent),
                 8, 20, 0xFFAAAAAA);
 
@@ -93,11 +100,10 @@ public class VisionCaptureScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
-        double mouseX = click.x();
-        double mouseY = click.y();
-        int button = click.button();
-        if (button == 0) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (event.button() == 0) {
             anchorX = clamp(mouseX / this.width);
             anchorY = clamp(mouseY / this.height);
             x0 = x1 = anchorX;
@@ -105,15 +111,14 @@ public class VisionCaptureScreen extends Screen {
             dragging = true;
             return true;
         }
-        return super.mouseClicked(click, doubled);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean mouseDragged(net.minecraft.client.gui.Click click, double deltaX, double deltaY) {
-        double mouseX = click.x();
-        double mouseY = click.y();
-        int button = click.button();
-        if (dragging && button == 0) {
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double deltaX, double deltaY) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (dragging && event.button() == 0) {
             double currentX = clamp(mouseX / this.width);
             double currentY = clamp(mouseY / this.height);
             // 用「起点 + 当前点」取包围盒，这样往任意方向拖都成立，不会像直接交换端点那样越拖越乱
@@ -123,13 +128,12 @@ public class VisionCaptureScreen extends Screen {
             y1 = Math.max(anchorY, currentY);
             return true;
         }
-        return super.mouseDragged(click, deltaX, deltaY);
+        return super.mouseDragged(event, deltaX, deltaY);
     }
 
     @Override
-    public boolean mouseReleased(net.minecraft.client.gui.Click click) {
-        int button = click.button();
-        if (button == 0 && dragging) {
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        if (event.button() == 0 && dragging) {
             dragging = false;
             // 只是点了一下没拖（或拖得太小）→ 退回默认的中间 60%，别让玩家卡在一个选不中的状态
             if (x1 - x0 < 0.03 || y1 - y0 < 0.03) {
@@ -140,12 +144,12 @@ public class VisionCaptureScreen extends Screen {
             }
             return true;
         }
-        return super.mouseReleased(click);
+        return super.mouseReleased(event);
     }
 
     @Override
-    public boolean keyPressed(net.minecraft.client.input.KeyInput input) {
-        int keyCode = input.key();
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             confirm();
             return true;
@@ -155,7 +159,7 @@ public class VisionCaptureScreen extends Screen {
             confirm();
             return true;
         }
-        return super.keyPressed(input);
+        return super.keyPressed(event);
     }
 
     private void confirm() {
@@ -163,12 +167,12 @@ public class VisionCaptureScreen extends Screen {
         NativeImage picked = this.image;
         this.handedOff = true;
         // super.close() 让 Screen 自己关掉界面；截图所有权已经移交给 VisionHandler
-        super.close();
+        super.onClose();
         VisionHandler.onRegionPicked(picked, region, promptOverride);
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         if (!handedOff) {
             // 取消：这张截图是堆外内存，必须自己释放，否则真的会泄漏
             try {
@@ -177,7 +181,7 @@ public class VisionCaptureScreen extends Screen {
                 // 已经关过就算了
             }
         }
-        super.close();
+        super.onClose();
     }
 
     private static double clamp(double value) {

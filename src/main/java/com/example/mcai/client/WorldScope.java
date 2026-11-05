@@ -1,9 +1,8 @@
 package com.example.mcai.client;
 
 import com.example.mcai.util.HistoryStore;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ServerData;
 
 import java.util.Locale;
 
@@ -27,29 +26,29 @@ public final class WorldScope {
 
     private WorldScope() {}
 
-    /** 在 McaiModClient.onInitializeClient() 里调用。 */
-    public static void register() {
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
-                HistoryStore.setScope(current()));
+    /** 进入世界：把历史切到这个世界的桶。由 {@code McaiModClient} 的登入事件调用。 */
+    public static void onJoin() {
+        HistoryStore.setScope(current());
+    }
 
-        // 离开世界就把所有桶丢掉：既修掉了串味，也顺手把内存还回去
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
-                HistoryStore.clearAll());
+    /** 离开世界就把所有桶丢掉：既修掉了串味，也顺手把内存还回去。 */
+    public static void onDisconnect() {
+        HistoryStore.clearAll();
     }
 
     /** 当前世界的标识；取不到时返回 {@code unknown}（所有这种情况共用一个桶）。 */
     public static String current() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return "unknown";
         }
         try {
-            ServerInfo server = client.getCurrentServerEntry();
-            if (server != null && server.address != null && !server.address.isBlank()) {
-                return "server:" + server.address.toLowerCase(Locale.ROOT);
+            ServerData server = client.getCurrentServer();
+            if (server != null && server.ip != null && !server.ip.isBlank()) {
+                return "server:" + server.ip.toLowerCase(Locale.ROOT);
             }
-            if (client.getServer() != null) {
-                return "local:" + System.identityHashCode(client.getServer());
+            if (client.getSingleplayerServer() != null) {
+                return "local:" + System.identityHashCode(client.getSingleplayerServer());
             }
         } catch (Throwable ignored) {
             // 拿不到就不区分，退化成原来的全局行为，不影响可用性

@@ -1,15 +1,16 @@
 package com.example.mcai.client;
 
+import com.example.mcai.McaiMod;
 import com.example.mcai.util.Lang;
 import com.example.mcai.util.ScreenCrop;
 import com.example.mcai.vision.VisionHandler;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Button;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 /**
  * 发送前预览（1.24 新增）：在把图发到第三方之前，先让你亲眼确认一次。
@@ -21,13 +22,13 @@ import net.minecraft.util.Identifier;
  * <p>默认关闭（{@code vision_preview = false}），因为多一步确认会打断连续操作。
  * 想用的人自己去 {@code /ai preview on} 打开。
  *
- * <p><b>纹理所有权：</b>{@code NativeImageBackedTexture} 会持有并负责关闭它拿到的那张
+ * <p><b>纹理所有权：</b>{@code DynamicTexture} 会持有并负责关闭它拿到的那张
  * NativeImage。所以预览图交给纹理，原始截图仍由本界面持有 ——
  * 两者生命周期分开，避免"纹理关掉了、编码时又在读"这种野指针式的崩溃。
  */
 public class VisionPreviewScreen extends Screen {
 
-    private static final Identifier TEXTURE_ID = Identifier.of("mcai", "vision_preview");
+    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath(McaiMod.MOD_ID, "vision_preview");
 
     private final NativeImage original;
     private final NativeImage preview;
@@ -35,12 +36,12 @@ public class VisionPreviewScreen extends Screen {
     private final String promptOverride;
     private final String infoLine;
 
-    private NativeImageBackedTexture texture;
+    private DynamicTexture texture;
     private boolean handedOff = false;
 
     public VisionPreviewScreen(NativeImage original, NativeImage preview,
                                ScreenCrop.Region region, String promptOverride, String infoLine) {
-        super(Text.translatable("mcai.preview.title"));
+        super(Component.translatable("mcai.preview.title"));
         this.original = original;
         this.preview = preview;
         this.region = region;
@@ -49,14 +50,20 @@ public class VisionPreviewScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
-    /** 默认实现会铺一层暗色，把预览图压暗 —— 这里不要它。 */
+    /**
+     * 背景走全局设置。
+     *
+     * <p>这里的默认值原本是"故意什么都不画"（怕暗色把预览图压暗）。现在改成
+     * 跟随 {@code screen_background}：默认仍是 {@code dim}，而预览图本身是画在
+     * 背景之上的独立控件，压暗的只是底下的游戏画面，不影响预览图本身。
+     */
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 故意什么都不做
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        ScreenBackgrounds.render(this, context);
     }
 
     @Override
@@ -65,8 +72,9 @@ public class VisionPreviewScreen extends Screen {
 
         // 把预览图上传成纹理。它不会被修改，所以不需要每帧 upload()。
         try {
-            texture = new NativeImageBackedTexture(() -> "mcai-preview", preview);
-            this.client.getTextureManager().registerTexture(TEXTURE_ID, texture);
+            // 26.1 的 DynamicTexture 第一个参数改成"标签"（Supplier<String>）
+            texture = new DynamicTexture(() -> "mcai:vision_preview", preview);
+            this.minecraft.getTextureManager().register(TEXTURE_ID, texture);
         } catch (Throwable t) {
             texture = null;
         }
@@ -78,14 +86,14 @@ public class VisionPreviewScreen extends Screen {
         int startX = (this.width - totalWidth) / 2;
         int y = this.height - 40;
 
-        addDrawableChild(ButtonWidget.builder(Lang.text("mcai.preview.send"), button -> send())
-                .dimensions(startX, y, buttonWidth, buttonHeight).build());
-        addDrawableChild(ButtonWidget.builder(Lang.text("mcai.preview.discard"), button -> close())
-                .dimensions(startX + buttonWidth + gap, y, buttonWidth, buttonHeight).build());
+        addRenderableWidget(Button.builder(Lang.text("mcai.preview.send"), button -> send())
+                .bounds(startX, y, buttonWidth, buttonHeight).build());
+        addRenderableWidget(Button.builder(Lang.text("mcai.preview.discard"), button -> onClose())
+                .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight).build());
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, this.width, this.height, 0xE0101010);
 
         if (texture != null && preview != null) {
@@ -103,27 +111,27 @@ public class VisionPreviewScreen extends Screen {
             int x = (this.width - drawWidth) / 2;
             int y = Math.max(34, (this.height - drawHeight) / 2 - 10);
 
-            context.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED,
-                    TEXTURE_ID, x, y, 0.0f, 0.0f,
-                    drawWidth, drawHeight, drawWidth, drawHeight);
-            context.drawStrokedRectangle(x - 1, y - 1, drawWidth + 2, drawHeight + 2, 0xFF55FFFF);
+            // 26.1 的 blit 改成"目标矩形 + 归一化 uv"：x0,y0,x1,y1 + u0,u1,v0,v1
+            context.blit(TEXTURE_ID, x, y, x + drawWidth, y + drawHeight,
+                    0.0F, 1.0F, 0.0F, 1.0F);
+            context.outline(x - 1, y - 1, drawWidth + 2, drawHeight + 2, 0xFF55FFFF);
         } else {
-            context.drawTextWithShadow(this.textRenderer, Lang.text("mcai.preview.no_texture"),
+            context.text(this.font, Lang.text("mcai.preview.no_texture"),
                     8, 40, 0xFFFF5555);
         }
 
-        context.drawTextWithShadow(this.textRenderer, this.title, 8, 8, 0xFFFFFFFF);
-        context.drawTextWithShadow(this.textRenderer, Lang.text(infoLine), 8, 20, 0xFFAAAAAA);
+        context.text(this.font, this.title, 8, 8, 0xFFFFFFFF);
+        context.text(this.font, Lang.text(infoLine), 8, 20, 0xFFAAAAAA);
 
         // 只有在这里调用父类：它渲染按钮，而 renderBackground 已经被我们改成空实现
-        super.render(context, mouseX, mouseY, delta);
+        super.extractRenderState(context, mouseX, mouseY, delta);
     }
 
     private void send() {
         NativeImage picked = this.original;
         this.handedOff = true;
-        // super.close() → client.setScreen(null) → removed() → 释放纹理（连带预览图）
-        super.close();
+        // super.close() → minecraft.setScreen(null) → removed() → 释放纹理（连带预览图）
+        super.onClose();
         VisionHandler.sendPicked(picked, region, promptOverride);
     }
 
@@ -134,7 +142,7 @@ public class VisionPreviewScreen extends Screen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         if (!handedOff) {
             // 放弃：原始截图是堆外内存，必须释放
             try {
@@ -143,7 +151,7 @@ public class VisionPreviewScreen extends Screen {
                 // 已经关过就算了
             }
         }
-        super.close();
+        super.onClose();
     }
 
     private void releaseTexture() {
@@ -157,8 +165,8 @@ public class VisionPreviewScreen extends Screen {
             texture = null;
         }
         try {
-            if (this.client != null && this.client.getTextureManager() != null) {
-                this.client.getTextureManager().destroyTexture(TEXTURE_ID);
+            if (this.minecraft != null && this.minecraft.getTextureManager() != null) {
+                this.minecraft.getTextureManager().release(TEXTURE_ID);
             }
         } catch (Throwable ignored) {
             // 纹理本来就不存在时 destroyTexture 可能抛，忽略

@@ -8,9 +8,8 @@ import com.example.mcai.util.TokenStats;
 import com.example.mcai.util.WorldContext;
 import com.example.mcai.vision.ScreenshotCapture;
 import com.example.mcai.vision.VisionHandler;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.platform.NativeImage;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,19 +45,15 @@ public final class DeathRecap {
         return thread;
     });
 
-    /** 在 McaiModClient.onInitializeClient() 里调用。 */
-    public static void register() {
-        ClientTickEvents.END_CLIENT_TICK.register(DeathRecap::onTick);
-    }
-
-    private static void onTick(MinecraftClient client) {
-        if (client.player == null || client.world == null) {
+    /** 由 {@code McaiModClient} 的统一 tick 分发器调用。 */
+    public static void onTick(Minecraft client) {
+        if (client.player == null || client.level == null) {
             wasDead = false;
             captureAt = 0L;
             return;
         }
 
-        boolean dead = client.player.isDead() || client.player.getHealth() <= 0.0f;
+        boolean dead = client.player.isDeadOrDying() || client.player.getHealth() <= 0.0f;
         long now = System.currentTimeMillis();
 
         if (!dead) {
@@ -80,7 +75,7 @@ public final class DeathRecap {
         }
     }
 
-    private static void recap(MinecraftClient client) {
+    private static void recap(Minecraft client) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null) {
             return;
@@ -97,42 +92,37 @@ public final class DeathRecap {
             return;
         }
 
-        NativeImage image;
-        try {
-            // 渲染线程上抓图
-            image = ScreenshotCapture.grab();
-        } catch (Throwable t) {
-            return;
-        }
-        if (image == null) {
-            return;
-        }
-
         final boolean sendAi = wantAi;
         final String playerName = client.player == null ? "?" : client.player.getName().getString();
         // 世界环境在渲染线程上取好，避免后台线程访问客户端状态
         final String context = WorldContext.snapshot();
 
-        WORKER.execute(() -> {
-            try {
-                ScreenshotCapture.EncodedImage encoded =
-                        ScreenshotCapture.encode(image, config.visionResolution, null);
-
-                if (wantDiscord) {
-                    DiscordWebhook.sendAsync(config.discordWebhook,
-                            Lang.tr("mcai.death.broadcast", playerName),
-                            encoded.jpeg(), "death.jpg");
-                }
-
-                if (sendAi) {
-                    String prompt = Lang.tr("mcai.death.prompt")
-                            + (context == null ? "" : "\n\n" + context);
-                    // 复用截图识别那条链路：token 统计、超时、错误提示都是现成的
-                    VisionHandler.sendEncoded(config, encoded.base64(), prompt, prompt);
-                }
-            } catch (Throwable t) {
-                System.err.println("[mcAI] Death recap failed: " + t.getMessage());
+        // 26.1 的截图是回调式的：GPU 拷贝排队，下一帧才拿到图，所以后续处理全放进回调
+        ScreenshotCapture.grabAsync(image -> {
+            if (image == null) {
+                return;
             }
+            WORKER.execute(() -> {
+                try {
+                    ScreenshotCapture.EncodedImage encoded =
+                            ScreenshotCapture.encode(image, config.visionResolution, null);
+
+                    if (wantDiscord) {
+                        DiscordWebhook.sendAsync(config.discordWebhook,
+                                Lang.tr("mcai.death.broadcast", playerName),
+                                encoded.jpeg(), "death.jpg");
+                    }
+
+                    if (sendAi) {
+                        String prompt = Lang.tr("mcai.death.prompt")
+                                + (context == null ? "" : "\n\n" + context);
+                        // 复用截图识别那条链路：token 统计、超时、错误提示都是现成的
+                        VisionHandler.sendEncoded(config, encoded.base64(), prompt, prompt);
+                    }
+                } catch (Throwable t) {
+                    System.err.println("[mcAI] Death recap failed: " + t.getMessage());
+                }
+            });
         });
     }
 }

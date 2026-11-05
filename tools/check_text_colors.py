@@ -8,6 +8,8 @@ Minecraft 1.21.11 changed text rendering so the colour you pass to
 out and simply never appears - no exception, no log line, nothing to grep for.
 The 1.26.0 config screen shipped exactly like that: the vanilla widgets drew
 their own labels fine while every line the mod drew itself was invisible.
+26.1 renamed the calls to `GuiGraphicsExtractor#text(...)` /
+`#centeredText(...)` and kept the behaviour, so both spellings are checked.
 
 Any colour that reaches a text call therefore needs 8 hex digits (0xAARRGGBB).
 
@@ -24,9 +26,16 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_PATHS = [os.path.join(ROOT, "src", "main", "java")]
 
-# 文本绘制入口：DrawContext 的 drawText / drawCenteredText / drawTextWithBackground，
-# 以及本项目里把这些包了一层的助手方法。
-TEXT_CALL = re.compile(r"\b(?:draw[A-Za-z]*Text[A-Za-z]*|drawTruncated|drawLabel)\s*\(")
+# 文本绘制入口。两套都要管：
+#   1.21.x  DrawContext.drawText / drawCenteredText，以及本项目包的一层助手
+#   26.x    GuiGraphicsExtractor.text(...) / .centeredText(...)（名字换了，
+#           alpha 语义没变）—— 漏掉这一套时，配置界面的标题、分组标题、
+#           底部提示和按键名会整片看不见，而 CI 一路绿灯。
+TEXT_CALL = re.compile(
+    r"\b(?:draw[A-Za-z]*Text[A-Za-z]*|drawTruncated|drawLabel)\s*\("
+    r"|\b(?:context|graphics|guiGraphics|graphicsExtractor|extractor)"
+    r"\s*\.\s*(?:text|centeredText|drawString)\s*\("
+)
 HEX6 = re.compile(r"\b0x([0-9A-Fa-f]{6})\b")
 HEX8 = re.compile(r"\b0x([0-9A-Fa-f]{8})\b")
 

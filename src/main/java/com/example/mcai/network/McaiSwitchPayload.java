@@ -1,36 +1,46 @@
 package com.example.mcai.network;
 
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import com.example.mcai.McaiMod;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
- * 1.21.1 标准的 CustomPayload（C2S）：客户端切换完，把**结果值**同步给服务端。
+ * 客户端切换完，把**结果值**同步给服务端（C2S，Fabric 26.1）。
  *
- * <p>关键设计：包里传的是**绝对的新值**（例如 "deepseek-v4-pro"），不是"切换一次"这种指令。
- * 因为单人游戏里客户端和整合服务端共用同一个 ConfigManager 单例，如果传"切换指令"
- * 就会被执行两次、连跳两个模型。传绝对值就天然幂等。
+ * <p>Fabric 版走 1.20.5+ 的 {@code CustomPayload} 体系：record + {@code TYPE} +
+ * {@code StreamCodec}，在 {@link McaiNetworking#initCommon()} 里注册进
+ * {@code PayloadTypeRegistry.serverboundPlay()}。
  *
- * <p>1.21.1 的坑：{@code PacketCodecs.STRING} 的类型是 {@code PacketCodec<ByteBuf, String>}，
- * 而 {@code PacketByteBuf extends ByteBuf}，所以能直接喂给 {@code PacketCodec.tuple}。
+ * <p>关键设计没变：包里传的是**绝对的新值**（例如 "deepseek-v4-pro"），不是"切换一次"
+ * 这种指令。因为单人游戏里客户端和整合服务端共用同一个 ConfigManager 单例，
+ * 如果传"切换指令"就会被执行两次、连跳两个模型。传绝对值天然幂等。
  */
-public record McaiSwitchPayload(String kind, String value) implements CustomPayload {
+public record McaiSwitchPayload(String kind, String value) implements CustomPacketPayload {
 
     public static final String KIND_MODEL = "model";
     public static final String KIND_MODE = "mode";
 
-    public static final CustomPayload.Id<McaiSwitchPayload> ID =
-            new CustomPayload.Id<>(Identifier.of("mcai", "switch"));
+    public static final CustomPacketPayload.Type<McaiSwitchPayload> TYPE =
+            new CustomPacketPayload.Type<>(
+                    Identifier.fromNamespaceAndPath(McaiMod.MOD_ID, "switch"));
 
-    public static final PacketCodec<PacketByteBuf, McaiSwitchPayload> CODEC = PacketCodec.tuple(
-            PacketCodecs.STRING, McaiSwitchPayload::kind,
-            PacketCodecs.STRING, McaiSwitchPayload::value,
-            McaiSwitchPayload::new);
+    public static final StreamCodec<RegistryFriendlyByteBuf, McaiSwitchPayload> CODEC =
+            StreamCodec.composite(
+                    ByteBufCodecs.STRING_UTF8, McaiSwitchPayload::kind,
+                    ByteBufCodecs.STRING_UTF8, McaiSwitchPayload::value,
+                    McaiSwitchPayload::new);
+
+    public McaiSwitchPayload {
+        // 防御：两个字段都不能是 null，否则 writeUtf 会炸
+        kind = kind == null ? "" : kind;
+        value = value == null ? "" : value;
+    }
 
     @Override
-    public CustomPayload.Id<? extends CustomPayload> getId() {
-        return ID;
+    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 }

@@ -2,17 +2,12 @@
 
 在 Minecraft 里和 AI 聊天，还能按键让它**看你屏幕**。
 
-一个客户端模组：在聊天栏用 `!ai` 提问、按 `H` 截取当前画面交给多模态模型识别，并附带思考过程显示、耗时统计和 Token 用量记录。
+一个面向 **Minecraft 26.1.2 / Fabric** 的客户端模组：在聊天栏用 `!ai` 提问、按 `H` 截取当前画面交给多模态模型识别，并附带思考过程显示、耗时统计和 Token 用量记录。
 
-提供两个加载器版本，**功能基本一致**：
-
-| | 版本线 | Minecraft | 加载器 | Java | 前置 |
-| --- | --- | --- | --- | --- | --- |
-| **Fabric 版** | `1.25.x` | 1.21.1 | Fabric Loader 0.19.5+ | **21** | Fabric API |
-| **Forge 版** | `1.0.x` | 1.20.1 | Forge 47.x | **17** | 无 |
-
-> Forge 版是独立移植，版本号**单独从 1.0.0 起算**（它历史短，沿用 Fabric 的 1.25.x 会误导）。
-> 因此不存在「Forge 1.25.1」这个版本。
+> **本分支是 Fabric 26.1 版**（`main` 是 Fabric 1.21.11，`forge-26.1` 是 Forge 26.1 版，`forge-1.20.1` 是旧的 Forge 版）。
+> 26.1 从 Forge 搬到 Fabric 的决策、Loom / Fabric API 的装配方式、
+> 以及"没有 Yarn、没有混淆"带来的差异，都记在
+> [PORTING-26.1-FABRIC.md](PORTING-26.1-FABRIC.md) 里。
 
 > **1.20 起，不花钱也能用**：把接口地址指向本机模型（Ollama / LM Studio）就不需要 API Key，完全离线。
 > 另有 `/ai craft` 这类**零 token** 的本地功能——它读服务器已经同步给你的配方表，不联网、不花钱。
@@ -139,8 +134,7 @@
 | 发给 AI 的系统提示词 | `mcai.prompt.system` | 决定 AI 用哪种语言回答（四种语言各自指定） |
 
 想加别的语言，只要在 `src/main/resources/assets/mcai/lang/` 下新建 `xx_xx.json`，
-把那 **408 个键**翻译一遍即可，**不用改任何 Java 代码**。（Forge 分支目前是 415 个键，
-多出的部分是界面背景相关选项；键集合是超集关系，翻译时以所在分支为准。）
+把那 **401 个键**翻译一遍即可，**不用改任何 Java 代码**。
 所有语言文件的键名必须完全一致——`%s` 占位符的个数也要一致。
 
 仓库里带了两个校验脚本，加语言或改文案后请跑一遍（它们能抓出肉眼看不出的漏键和少写的 `%s`）：
@@ -159,24 +153,15 @@ python tools/check_lang_usage.py   # Java 里引用的键是否都真的定义�
 
 ### 1. 安装
 
-**Fabric 版（1.21.1）** —— 需要 **Minecraft 1.21.1** + **Fabric Loader** + **[Fabric API](https://modrinth.com/mod/fabric-api)**：
+需要 **Minecraft 1.21.1** + **Fabric Loader** + **[Fabric API](https://modrinth.com/mod/fabric-api)**。
+
+把 `mcai-x.y.z.jar` 和 Fabric API 一起放进 `.minecraft/mods/`：
 
 ```
 .minecraft/mods/
 ├── fabric-api-0.116.17+1.21.1.jar
 └── mcai-1.25.1.jar
 ```
-
-**Forge 版（1.20.1）** —— 需要 **Minecraft 1.20.1** + **Forge 47.x**（开发基线 47.4.28），**不需要任何前置模组**：
-
-```
-.minecraft/mods/
-└── mcai-forge-1.0.1.jar
-```
-
-> 两个版本**不要同时装**：它们是同一个 modId（`mcai`），Forge 版只认 1.20.1、Fabric 版只认 1.21.1，
-> 同时放进同一个 `mods/` 目录会因加载器不匹配而报错。
-> 另外**不要**把 `-sources.jar` 放进 `mods/`，那是源码包。
 
 ### 2. 填写 API Key
 
@@ -354,40 +339,26 @@ time,model,source,tokens,cost
 
 ## 构建
 
-**Fabric 版（本分支）必须使用 JDK 21。**
+**必须使用 JDK 25。**
 
 ```bash
 ./gradlew clean build
 ```
 
-产物在 `build/libs/mcai-1.25.1.jar`。
-
-**Forge 版在 `forge-1.20.1` 分支**，需要 **JDK 17**（1.20.1 就是 Java 17），构建方式相同：
-
-```bash
-git checkout forge-1.20.1
-./gradlew clean build      # 产物：build/libs/mcai-forge-1.0.1.jar
-```
-
-> ForgeGradle **内部**会用 Java 17 工具链编译 binpatched 产物，所以只设
-> `options.release = 17` 不够，机器上必须真的有一个 JDK 17。
-> 若没有，可在 `settings.gradle` 里启用 `org.gradle.toolchains.foojay-resolver-convention`
-> 让 Gradle 自动下载（本项目已声明该插件；注意它走 GitHub，网络受限时会失败）。
+产物在 `build/libs/mcai-fabric-26.1-1.0.0.jar`。
 
 ### ⚠️ 关于 JDK 版本
 
-Minecraft 1.21.1、Fabric Loom 1.7.x、Gradle 8.8 **都要求 JDK 21**。用 JDK 25 会失败：
+Minecraft 26.1 起 Mojang 直接把 **Java 25** 发给玩家，所以这个分支的
+toolchain 和 `options.release` 都是 25 —— 用 JDK 21 会编译不过，用 25 编译出
+21 字节码则会在客户端里 `UnsupportedClassVersionError`。
 
-```
-Unsupported class file major version 69
-```
-
-如果你的 `java` 不是 JDK 21，请在**本机级**（不要提交进仓库）指定：
+如果你的 `java` 不是 JDK 25，请在**本机级**（不要提交进仓库）指定：
 
 ```properties
 # %USERPROFILE%\.gradle\gradle.properties   (Windows)
 # ~/.gradle/gradle.properties               (Linux / macOS)
-org.gradle.java.home=C:/path/to/your/jdk-21
+org.gradle.java.home=C:/path/to/your/jdk-25
 ```
 
 > 本项目刻意**没有**把 `org.gradle.java.home` 写进仓库的 `gradle.properties`：
@@ -399,11 +370,20 @@ org.gradle.java.home=C:/path/to/your/jdk-21
 ./gradlew runClient
 ```
 
+> 这个分支**没有 `mappings` 这一行**：Minecraft 26.1 起游戏不再混淆，
+> Loom 直接给官方名称的原版 jar。Fabric API 的模块拆包、
+> Forge → Fabric 装配层对照、以及 Loom 必须用 `1.19-SNAPSHOT` 的原因，
+> 都写在 [PORTING-26.1-FABRIC.md](PORTING-26.1-FABRIC.md)。
+
 ---
 
 ## 实现札记
 
 开发过程中踩到的一批 **1.21.1 特有的 API 陷阱**，记录下来供后来者参考 —— 这些用新版教程的写法**全都编译不过**：
+
+> 下面这张表是 `main`（Fabric 1.21.1）的经验，很多条目在 26.1 里反过来又变了
+> （比如 `KeyBinding` 又叫回 `KeyMapping`、并且真的有了 `Category`）。
+> 本分支对应的清单在 [PORTING-26.1-FABRIC.md](PORTING-26.1-FABRIC.md)。
 
 | 常见写法 | 1.21.1 的真实情况 |
 | --- | --- |

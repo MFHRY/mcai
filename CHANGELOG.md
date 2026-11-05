@@ -7,6 +7,35 @@ mcAI 的所有版本改动，**最新版本在最上面**。
 
 ---
 
+## 1.0.0（Fabric 26.1.2）— 2026-11-04
+
+**新平台**：mcAI 现在也有 **Fabric 26.1.2** 版了。功能与 1.21.11 / Forge 26.1
+版完全一致（1.25.1 的全部特性），只是加载器和游戏 API 换到了 26.1。
+
+### 新增
+
+- **Fabric 26.1.2 支持**：入口点 / 事件 / 按键 / 客户端指令 / 网络全部改用
+  Fabric API；Java 25 字节码；Fabric API `0.155.3+26.1.2`、Loader `0.20.1`。
+- Minecraft 26.1 **不再混淆**：这一版没有 Yarn 映射，源码直接用 Mojang 官方名，
+  和 Forge 26.1 版共用同一套游戏 API 调用。
+
+### 修复
+
+- **两个切换器物品不再显示为紫黑错误贴图**：补上了 1.21.4+ 必需的
+  `assets/mcai/items/<id>.json` 物品定义（Forge 26.1 分支当时漏了这一步）。
+- **`/ai config` 里的文字不再消失**：26.1 绘制文字时会读取颜色的 alpha 通道，
+  `0xFFFFFF` 等于全透明。所有文字颜色统一写成 `0xFF......`，并加了
+  `tools/check_text_colors.py` 在 CI 里守住这条不变量。
+
+### 兼容性
+
+- 需要 **Fabric Loader ≥ 0.20.1**、**Fabric API**、**Java 25**。
+- Mod Menu 为可选前置（18.0.2），装了才能从 Mod Menu 里点进设置界面。
+- 核心链路（`!ai` 问答、`H/G/R/V` 截图识别）是纯客户端的，原版服务器可用；
+  「切换器物品」的发放需要服务端也装本模组。
+
+---
+
 ## 1.25.1 — 2026-10-15
 
 A security-hygiene fix for text-to-speech. Nothing else changed.

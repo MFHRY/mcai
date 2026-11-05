@@ -1,16 +1,20 @@
 package com.example.mcai.util;
 
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.block.entity.SignText;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.network.Filterable;
+import net.minecraft.world.item.component.WritableBookContent;
+import net.minecraft.world.item.component.WrittenBookContent;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,14 +54,14 @@ public final class TextReader {
     // ------------------------------------------------------------- 告示牌
 
     private static Found readSign() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        World world = client.world;
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        Level world = client.level;
         if (player == null || world == null) {
             return null;
         }
 
-        HitResult hit = client.crosshairTarget;
+        HitResult hit = client.hitResult;
         if (!(hit instanceof BlockHitResult blockHit) || hit.getType() != HitResult.Type.BLOCK) {
             return null;
         }
@@ -84,13 +88,13 @@ public final class TextReader {
         if (side == null) {
             return;
         }
-        Text[] messages;
+        Component[] messages;
         try {
             messages = side.getMessages(false);
         } catch (Throwable t) {
             return;
         }
-        for (Text message : messages) {
+        for (Component message : messages) {
             if (message == null) {
                 continue;
             }
@@ -111,13 +115,13 @@ public final class TextReader {
      * 不影响告示牌那条路径。
      */
     private static Found readHeldBook() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
         if (player == null) {
             return null;
         }
-        Found main = bookOf(player.getMainHandStack());
-        return main != null ? main : bookOf(player.getOffHandStack());
+        Found main = bookOf(player.getMainHandItem());
+        return main != null ? main : bookOf(player.getOffhandItem());
     }
 
     private static Found bookOf(ItemStack stack) {
@@ -125,27 +129,38 @@ public final class TextReader {
             return null;
         }
         try {
-            var content = stack.get(net.minecraft.component.DataComponentTypes.WRITTEN_BOOK_CONTENT);
-            if (content == null) {
-                return null;
-            }
+            // 1.20.5+ 起物品内容不再存在 NBT 里（没有 stack.getTag() 了），
+            // 而是"数据组件"。成书读 WRITTEN_BOOK_CONTENT，书与笔读 WRITABLE_BOOK_CONTENT。
             List<String> lines = new ArrayList<>();
-            // title 字段是 Filterable<String>
-            String title = content.title() == null ? "" : content.title().raw();
-            if (!title.isBlank()) {
-                lines.add(title.trim());
-            }
-            for (var page : content.pages()) {
-                if (page == null) {
-                    continue;
+
+            WrittenBookContent written = stack.get(DataComponents.WRITTEN_BOOK_CONTENT);
+            if (written != null) {
+                String title = written.title().get(false);
+                if (title != null && !title.isBlank()) {
+                    lines.add(title.trim());
                 }
-                // pages 的元素是 Filterable<Text>，要再取一次字符串
-                Text pageText = page.raw();
-                String raw = pageText == null ? null : pageText.getString();
-                if (raw != null && !raw.isBlank()) {
-                    lines.add(raw.trim());
+                for (Filterable<Component> page : written.pages()) {
+                    Component pageText = page.get(false);
+                    String text = pageText == null ? null : pageText.getString();
+                    if (text != null && !text.isBlank()) {
+                        lines.add(text.trim());
+                    }
+                }
+            } else {
+                WritableBookContent writable = stack.get(DataComponents.WRITABLE_BOOK_CONTENT);
+                if (writable == null) {
+                    return null;
+                }
+                for (Filterable<String> page : writable.pages()) {
+                    String text = page.get(false);
+                    if (text == null || text.isBlank()) {
+                        continue;
+                    }
+                    // 书与笔里存的是纯文本，可能带着 § 颜色码，去掉再发
+                    lines.add(Component.literal(text).getString().trim());
                 }
             }
+
             String text = String.join("\n", lines).trim();
             return text.isEmpty() ? null : new Found(Lang.tr("mcai.read.source_book"), text);
         } catch (Throwable t) {

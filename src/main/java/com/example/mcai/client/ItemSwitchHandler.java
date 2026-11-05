@@ -2,87 +2,95 @@ package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
 import com.example.mcai.item.McaiItems;
+import com.example.mcai.network.McaiNetworking;
 import com.example.mcai.network.McaiSwitchPayload;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.Lang;
 import com.example.mcai.util.ModeCatalog;
 import com.example.mcai.util.ModelCatalog;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.event.player.UseItemCallback;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 import java.util.List;
 
 /**
  * 客户端右键逻辑：循环切换模型 / 模式。
  *
- * <p>1.21.1 的坑：{@code UseItemCallback.interact} 返回的是
- * {@code TypedActionResult<ItemStack>}，不是 {@code ActionResult}
- * （ActionResult 在 1.21.1 只是个普通 enum，没有泛型）。所以要用
- * {@code ActionResult.PASS} / {@code ActionResult.SUCCESS}。
+ * <p><b>Forge 版与 Fabric 版的差异：</b>
+ * <ol>
+ *   <li>Fabric 的 {@code ItemEvents.USE} 直接返回
+ *       {@link InteractionResult}（PASS = 没处理，SUCCESS = 吃掉这次右键）；
+ *       Forge 的 {@code RightClickItem} 没有返回值，靠
+ *       {@code setCanceled(true)} / {@code setCancellationResult(...)}。</li>
+ *   <li>物品是普通常量，不需要 {@code .get()}。</li>
+ *   <li>发包走 {@link McaiNetworking#sendSwitchToServer}（内部已经吞掉了
+ *       "服务端没装模组"的失败）。</li>
+ * </ol>
+ *
+ * <p>为什么要在服务端那一侧"接受但不动手"：切换完全由客户端驱动，服务端只是把
+ * 结果<b>回写</b>配置。如果两侧都切一次，就会连跳两格。
  */
 public final class ItemSwitchHandler {
 
     private ItemSwitchHandler() {}
 
-    public static void register() {
-        UseItemCallback.EVENT.register((player, world, hand) -> {
-            ItemStack stack = player.getStackInHand(hand);
-            boolean isModelSwitcher = stack.isOf(McaiItems.AI_MODEL_SWITCHER);
-            boolean isModeSwitcher = stack.isOf(McaiItems.AI_MODE_SWITCHER);
+    /**
+     * 右键监听器（{@code ItemEvents.USE}）。
+     *
+     * @return PASS = 不是切换器，交给原版；SUCCESS = 已吃掉这次右键
+     */
+    public static InteractionResult onUse(Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        // 1.21.2+ 没有 is(Item)，直接比物品实例
+        boolean isModelSwitcher = stack.getItem() == McaiItems.AI_MODEL_SWITCHER;
+        boolean isModeSwitcher = stack.getItem() == McaiItems.AI_MODE_SWITCHER;
 
-            if (!isModelSwitcher && !isModeSwitcher) {
-                return ActionResult.PASS;
-            }
+        if (!isModelSwitcher && !isModeSwitcher) {
+            return InteractionResult.PASS;
+        }
 
-            if (!world.isClient()) {
-                // 同一次右键的服务端侧（单人游戏）：接受但不动手，切换完全由客户端驱动，
-                // 结果再通过 McaiSwitchPayload 同步回来，避免双端各切一次。
-                return ActionResult.SUCCESS;
-            }
+        if (!level.isClientSide()) {
+            // 同一次右键的服务端侧（单人游戏）：接受但不动手，避免双端各切一次
+            return InteractionResult.SUCCESS;
+        }
 
-            return switchOnClient(stack, isModelSwitcher);
-        });
+        switchOnClient(stack, isModelSwitcher);
+
+        // 客户端处理完就吃掉这个事件：不要让原版的"使用物品"再跑一遍
+        return InteractionResult.SUCCESS;
     }
 
-    private static ActionResult switchOnClient(ItemStack stack, boolean isModelSwitcher) {
+    private static void switchOnClient(ItemStack stack, boolean isModelSwitcher) {
         ConfigManager manager = ConfigManager.getInstance();
         ConfigManager.ConfigData config = manager.get();
 
         if (config == null) {
             ClientChat.sendLiteral(Lang.tr("mcai.switch.config_not_ready"));
-            return ActionResult.SUCCESS;
+            return;
         }
 
         if (isModelSwitcher) {
             String next = nextInCycle(config.availableModels, config.model);
             if (next == null) {
                 ClientChat.sendLiteral(Lang.tr("mcai.switch.no_models"));
-                return ActionResult.SUCCESS;
+                return;
             }
             manager.update(c -> c.model = next);
-            // 服务端没装本模组时不会注册这个通道，直接 send 会抛异常/记警告。
-            // 切换模型/模式本来就是纯客户端的（config 已改好），拿不到服务器回执也能用，
-            // 所以这里先探测再发，发给原版服务器也不会报错。
-            if (ClientPlayNetworking.canSend(McaiSwitchPayload.ID)) {
-                ClientPlayNetworking.send(new McaiSwitchPayload(McaiSwitchPayload.KIND_MODEL, next));
-            }
+            McaiNetworking.sendSwitchToServer(McaiSwitchPayload.KIND_MODEL, next);
             ClientChat.sendLiteral(Lang.tr("mcai.switch.model_switched", ModelCatalog.describe(next)));
         } else {
             String next = nextInCycle(config.availableModes, config.mode);
             if (next == null) {
                 ClientChat.sendLiteral(Lang.tr("mcai.switch.no_modes"));
-                return ActionResult.SUCCESS;
+                return;
             }
             manager.update(c -> c.mode = next);
-            if (ClientPlayNetworking.canSend(McaiSwitchPayload.ID)) {
-                ClientPlayNetworking.send(new McaiSwitchPayload(McaiSwitchPayload.KIND_MODE, next));
-            }
+            McaiNetworking.sendSwitchToServer(McaiSwitchPayload.KIND_MODE, next);
             ClientChat.sendLiteral(Lang.tr("mcai.switch.mode_switched", ModeCatalog.describe(next)));
         }
-
-        return ActionResult.SUCCESS;
     }
 
     /** 在列表里往前循环一格；当前值不在列表里就回到第一个。 */

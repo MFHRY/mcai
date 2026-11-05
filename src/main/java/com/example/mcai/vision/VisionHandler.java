@@ -19,14 +19,11 @@ import com.example.mcai.util.RequestController;
 import com.example.mcai.util.ScreenCrop;
 import com.example.mcai.util.SystemPrompt;
 import com.example.mcai.util.TokenStats;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.util.InputUtil;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.platform.InputConstants;
 import org.lwjgl.glfw.GLFW;
 
 import java.net.URI;
@@ -44,7 +41,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p><b>1.21.1 的坑（已核实）：</b>
  * <ul>
- *   <li>快捷键类叫 {@code net.minecraft.client.option.KeyBinding}，<b>不叫 KeyMapping</b>；
+ *   <li>快捷键类叫 {@code net.minecraft.client.KeyMapping}，<b>不叫 KeyMapping</b>；
  *       而且 1.21.1 <b>没有 KeyMapping.Category</b> 这种东西，分类参数就是一个普通的
  *       String 翻译键（这里用 "category.mcai"）。</li>
  *   <li>{@code KeyBindingHelper.registerKeyBinding} 必须在客户端初始化阶段调用。</li>
@@ -62,18 +59,22 @@ public final class VisionHandler {
     private static final String KEY_BUILD_TRANSLATION = "key.mcai.build";
     private static final String KEY_PICK_TRANSLATION = "key.mcai.pick";
     private static final String KEY_WHAT_TRANSLATION = "key.mcai.what";
-    private static final net.minecraft.client.option.KeyBinding.Category KEY_CATEGORY =
-            com.example.mcai.client.McaiKeys.MCAI_CATEGORY;
+    /**
+     * 快捷键分类（与挂件用的那一份相同，见 {@link com.example.mcai.client.KeyCategories}）。
+     *
+     * <p>26.1 起 {@code KeyMapping} 的分类不再是字符串，而是 {@link KeyMapping.Category}。
+     */
+    private static final KeyMapping.Category KEY_CATEGORY = com.example.mcai.client.KeyCategories.MCAI;
 
     private static final long COOLDOWN_MILLIS = 3000L;
     private static final long MIN_INTERVAL_MS = 300L;
 
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(90);
 
-    private static KeyBinding visionKey;
-    private static KeyBinding buildKey;
-    private static KeyBinding pickKey;
-    private static KeyBinding whatKey;
+    private static KeyMapping visionKey;
+    private static KeyMapping buildKey;
+    private static KeyMapping pickKey;
+    private static KeyMapping whatKey;
 
     private static final AtomicLong nextAllowedTime = new AtomicLong(0L);
     private static volatile long lastTriggerAt = 0L;
@@ -86,38 +87,61 @@ public final class VisionHandler {
 
     private VisionHandler() {}
 
-    /** 在 McaiModClient.onInitializeClient() 里调用。 */
-    public static void register() {
-        // 1.21.1：分类是普通 String，不是 KeyMapping.Category
-        visionKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                KEY_TRANSLATION, InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_H, KEY_CATEGORY));
+    /**
+     * 注册四个快捷键。
+     *
+     * <p><b>Forge 版与 Fabric 版的差异：</b>Fabric 的
+     * {@code KeyBindingHelper.registerKeyBinding(...)} 是"创建 + 登记"一步到位。
+     * Forge 要拆成两步：这里先 {@code new KeyMapping(...)} 并把对象存下来，
+     * 然后由 {@code RegisterKeyMappingsEvent}（mod 事件总线）逐个
+     * {@code event.register(...)} 登记。见 {@link #registerKeyMappings}。
+     */
+    public static void createKeyMappings() {
+        // 1.20.1：分类是普通 String，不是 KeyMapping.Category
+        visionKey = new KeyMapping(
+                KEY_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, KEY_CATEGORY);
 
         // #2 红石 / 建筑读图：另开一个键，走同一条截图链路但换提示词
-        buildKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                KEY_BUILD_TRANSLATION, InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, KEY_CATEGORY));
+        buildKey = new KeyMapping(
+                KEY_BUILD_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, KEY_CATEGORY);
 
         // 1.24 框选截图：只把框住的那一块发出去，直接省下视觉 token
-        pickKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                KEY_PICK_TRANSLATION, InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, KEY_CATEGORY));
+        pickKey = new KeyMapping(
+                KEY_PICK_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, KEY_CATEGORY);
 
         // 1.25 准星查询：看准一个方块/生物按一下，把它的名字和 ID 交给 AI 解释
-        whatKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                KEY_WHAT_TRANSLATION, InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V, KEY_CATEGORY));
+        whatKey = new KeyMapping(
+                KEY_WHAT_TRANSLATION, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, KEY_CATEGORY);
+    }
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (visionKey.wasPressed()) {
-                trigger(null);
-            }
-            while (buildKey.wasPressed()) {
-                trigger(Lang.tr("mcai.vision.prompt.build"));
-            }
-            while (pickKey.wasPressed()) {
-                beginRegionPick(null);
-            }
-            while (whatKey.wasPressed()) {
-                com.example.mcai.client.CrosshairQuery.trigger();
-            }
-        });
+    /** Fabric 版：KeyMappingHelper 一步到位（create + register）。 */
+    public static void registerKeyMappings() {
+        if (visionKey == null) {
+            createKeyMappings();
+        }
+        visionKey = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.registerKeyMapping(visionKey);
+        buildKey = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.registerKeyMapping(buildKey);
+        pickKey = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.registerKeyMapping(pickKey);
+        whatKey = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.registerKeyMapping(whatKey);
+    }
+
+    /** 由 {@code McaiModClient} 的统一 tick 分发器调用：检查四个快捷键有没有被按下。 */
+    public static void onClientTick(Minecraft client) {
+        if (visionKey == null) {
+            return;
+        }
+        while (visionKey.consumeClick()) {
+            trigger(null);
+        }
+        while (buildKey.consumeClick()) {
+            trigger(Lang.tr("mcai.vision.prompt.build"));
+        }
+        while (pickKey.consumeClick()) {
+            beginRegionPick(null);
+        }
+        while (whatKey.consumeClick()) {
+            com.example.mcai.client.CrosshairQuery.trigger();
+        }
     }
 
     // ------------------------------------------------------------ 1.25 改键入口
@@ -130,13 +154,13 @@ public final class VisionHandler {
      * 如果我们再存一份，玩家在原版界面里改了之后两边就打架了，而"哪个才算数"取决于
      * 启动顺序——这种 bug 极难排查。所以这里只暴露对象给界面去改，不引入第二份状态。
      */
-    public static KeyBinding visionKeyBinding() { return visionKey; }
+    public static KeyMapping visionKeyBinding() { return visionKey; }
 
-    public static KeyBinding buildKeyBinding() { return buildKey; }
+    public static KeyMapping buildKeyBinding() { return buildKey; }
 
-    public static KeyBinding pickKeyBinding() { return pickKey; }
+    public static KeyMapping pickKeyBinding() { return pickKey; }
 
-    public static KeyBinding whatKeyBinding() { return whatKey; }
+    public static KeyMapping whatKeyBinding() { return whatKey; }
 
     // ------------------------------------------------------------ 1.24 框选截图
 
@@ -148,8 +172,8 @@ public final class VisionHandler {
      * 先抓帧还有一个好处——玩家框选时参考的就是<b>即将发送的那一帧</b>。
      */
     public static void beginRegionPick(String promptOverride) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.world == null) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.level == null) {
             return;
         }
 
@@ -161,38 +185,36 @@ public final class VisionHandler {
         if (config == null) {
             return;
         }
-        if (client.currentScreen != null) {
+        if (client.screen != null) {
             // 已经开着别的界面（背包/聊天）时不要叠加，否则框选会被上层界面挡住
             ClientChat.sendLiteral(Lang.tr("mcai.pick.close_screen"));
             return;
         }
 
-        NativeImage image;
-        try {
-            image = ScreenshotCapture.grab();
-        } catch (Throwable t) {
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
-            return;
-        }
-        if (image == null) {
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_null"));
-            return;
-        }
-
-        lastTriggerAt = now;
-        nextAllowedTime.set(now + COOLDOWN_MILLIS);
-
-        try {
-            client.setScreen(new com.example.mcai.client.VisionCaptureScreen(image, promptOverride));
-        } catch (Throwable t) {
-            // 界面没打开就必须自己把这张堆外内存放掉
-            try {
-                image.close();
-            } catch (Throwable ignored) {
-                // 忽略
+        // 26.1 的截图是异步的：这里只是把 GPU 拷贝命令排队，回调在下一帧 flush 时到达。
+        // 顺序仍然是"先抓这一帧、后开界面"，所以框选时参考的依旧是要发出去的那一帧。
+        final long triggerAt = now;
+        ScreenshotCapture.grabAsync(image -> {
+            if (image == null) {
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_null"));
+                return;
             }
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
-        }
+
+            lastTriggerAt = triggerAt;
+            nextAllowedTime.set(triggerAt + COOLDOWN_MILLIS);
+
+            try {
+                client.setScreen(new com.example.mcai.client.VisionCaptureScreen(image, promptOverride));
+            } catch (Throwable t) {
+                // 界面没打开就必须自己把这张堆外内存放掉
+                try {
+                    image.close();
+                } catch (Throwable ignored) {
+                    // 忽略
+                }
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
+            }
+        });
     }
 
     /** 框选界面点了确认：按配置决定是先预览，还是直接发。 */
@@ -215,7 +237,7 @@ public final class VisionHandler {
             return;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         String info = Lang.tr("mcai.preview.info", preview.getWidth(), preview.getHeight(),
                 estimateLine(config, region));
         client.setScreen(new com.example.mcai.client.VisionPreviewScreen(
@@ -306,7 +328,7 @@ public final class VisionHandler {
      * <p>抽出来是为了让「按 H」「按 G」「按 R 框选」「危险预警」四条入口
      * 走<b>完全同一套</b>校验，不会出现某个入口漏掉预算拦截这种情况。
      */
-    private static ConfigManager.ConfigData preflight(MinecraftClient client) {
+    private static ConfigManager.ConfigData preflight(Minecraft client) {
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
         if (config == null) {
             ClientChat.sendLiteral(Lang.tr("mcai.error.config_load"));
@@ -347,8 +369,8 @@ public final class VisionHandler {
      * @param promptOverride 自定提示词；null 表示用默认的 {@code mcai.vision.prompt}
      */
     public static void trigger(String promptOverride) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.world == null) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.level == null) {
             return;
         }
 
@@ -383,22 +405,15 @@ public final class VisionHandler {
         com.example.mcai.util.ScreenCrop.Region crop =
                 com.example.mcai.util.ScreenCrop.forCurrentScreen();
 
-        NativeImage image;
-        try {
-            // 必须在渲染线程抓取（END_CLIENT_TICK 就在渲染线程上）
-            image = ScreenshotCapture.grab();
-        } catch (Throwable t) {
-            thinking.finish();
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_failed", rootMessage(t)));
-            return;
-        }
-        if (image == null) {
-            thinking.finish();
-            ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_null"));
-            return;
-        }
-
-        processAsync(config, image, thinking, promptOverride, crop, masksFromConfig(config));
+        // 26.1：截图回调式，编码/上传仍然在下面的后台线程里做
+        ScreenshotCapture.grabAsync(image -> {
+            if (image == null) {
+                thinking.finish();
+                ClientChat.sendLiteral(Lang.tr("mcai.vision.grab_null"));
+                return;
+            }
+            processAsync(config, image, thinking, promptOverride, crop, masksFromConfig(config));
+        });
     }
 
     /** 像素转换 / 裁剪 / 缩放 / JPEG / HTTP 全部在后台线程完成，绝不占用渲染线程。 */

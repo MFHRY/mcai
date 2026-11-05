@@ -1,20 +1,20 @@
 package com.example.mcai.util;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.Holder;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.biome.Biome;
 
 /**
  * 世界环境快照（#3 F3 地理顾问）。
  *
  * <p><b>为什么不直接去读 F3 调试屏的文字：</b>那些字符串是在
- * {@code DebugHud} 内部临时拼出来的，既没有公开访问器，排版也随版本变化。
+ * {@code DebugScreenOverlay} 内部临时拼出来的，既没有公开访问器，排版也随版本变化。
  * 这里改成自己调 API 拼一份"人话版"环境摘要，稳定且可控。
  *
- * <p>全部取值都在客户端主线程上做（读的是 {@code client.player}/{@code client.world}），
+ * <p>全部取值都在客户端主线程上做（读的是 {@code client.player}/{@code client.level}），
  * 拼好的字符串可以直接塞进提示词。
  */
 public final class WorldContext {
@@ -23,26 +23,26 @@ public final class WorldContext {
 
     /** 当前环境的文字摘要；玩家不在世界里时返回 null。 */
     public static String snapshot() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        ClientWorld world = client.world;
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        ClientLevel world = client.level;
         if (player == null || world == null) {
             return null;
         }
 
-        BlockPos pos = player.getBlockPos();
+        BlockPos pos = player.blockPosition();
         StringBuilder sb = new StringBuilder();
         sb.append(Lang.tr("mcai.ctx.header")).append('\n');
         sb.append(Lang.tr("mcai.ctx.dimension",
-                world.getRegistryKey().getValue().toString())).append('\n');
+                world.dimension().identifier().toString())).append('\n');
         sb.append(Lang.tr("mcai.ctx.coords",
                 pos.getX(), pos.getY(), pos.getZ())).append('\n');
 
-        // 群系：1.21.1 的 getBiome 返回 RegistryEntry<Biome>
+        // 群系：1.21.1 的 getBiome 返回 Holder<Biome>
         try {
-            RegistryEntry<Biome> biome = world.getBiome(pos);
-            String biomeName = biome.getKey()
-                    .map(key -> key.getValue().getPath())
+            Holder<Biome> biome = world.getBiome(pos);
+            String biomeName = biome.unwrapKey()
+                    .map(key -> key.identifier().getPath())
                     .orElse(Lang.tr("mcai.value.unknown"));
             sb.append(Lang.tr("mcai.ctx.biome", biomeName)).append('\n');
         } catch (Throwable ignored) {
@@ -50,11 +50,11 @@ public final class WorldContext {
         }
 
         sb.append(Lang.tr("mcai.ctx.light",
-                world.getLightLevel(pos))).append('\n');
+                world.getMaxLocalRawBrightness(pos))).append('\n');
         sb.append(Lang.tr("mcai.ctx.y_level",
                 player.getY(), world.getSeaLevel())).append('\n');
         sb.append(Lang.tr("mcai.ctx.time",
-                world.getTimeOfDay() % 24000L)).append('\n');
+                world.getOverworldClockTime() % 24000L)).append('\n');
         sb.append(Lang.tr("mcai.ctx.health",
                 Math.round(player.getHealth()), Math.round(player.getMaxHealth())));
 

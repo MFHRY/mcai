@@ -1,24 +1,22 @@
 package com.example.mcai.client;
 
 import com.example.mcai.ConfigManager;
+import com.example.mcai.McaiMod;
 import com.example.mcai.util.ClientChat;
 import com.example.mcai.util.Lang;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.hud.DebugHud;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.DebugScreenOverlay;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,7 +61,7 @@ public final class AvatarWidget {
     private static final Logger LOGGER = LoggerFactory.getLogger("mcai-avatar");
 
     /** 动态纹理 ID。不带 textures/ 前缀是故意的，见类注释。 */
-    private static final Identifier TEXTURE_ID = Identifier.of("mcai", "avatar_widget");
+    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath(McaiMod.MOD_ID, "avatar_widget");
 
     /** avatarScale == 1.0 时头像长边的 GUI 像素数。 */
     private static final int BASE_SIZE = 64;
@@ -119,7 +117,7 @@ public final class AvatarWidget {
     private static boolean hovered = false;
 
     /** 打开/收起气泡的快捷键（默认 B）。鼠标点不到 HUD，所以这件事必须由键盘承担。 */
-    private static KeyBinding bubbleKey;
+    private static KeyMapping bubbleKey;
 
     /** "还没配头像图"的提示是否已经发过。每个游戏进程只提示一次，避免变成骚扰。 */
     private static boolean hintShown = false;
@@ -136,18 +134,40 @@ public final class AvatarWidget {
      * <p>按键轮询走 tick 事件而不是渲染回调：渲染回调在开着界面时不会被调用，
      * 那样按键就会"卡住"到界面关闭才生效。
      */
-    public static void register() {
-        bubbleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.mcai.avatar", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, McaiKeys.MCAI_CATEGORY));
+    /**
+     * 创建快捷键对象。
+     *
+     * <p>Forge 把"创建 {@code KeyMapping}"和"登记到游戏"拆成了两步：
+     * 这里只 new，登记交给 {@link #registerKeyMappings}（mod 事件总线）。
+     * Fabric 的 {@code KeyBindingHelper} 是一步到位，所以这里是结构差异。
+     */
+    public static void createKeyMappings() {
+        // 26.1：分类是 KeyMapping.Category，不是字符串，而且要和截图那几个键共用同一份
+        bubbleKey = new KeyMapping(
+                "key.mcai.avatar", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, KeyCategories.MCAI);
+    }
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (bubbleKey.wasPressed()) {
+    /** Fabric 版：KeyMappingHelper 一步到位（create + register）。 */
+    public static void registerKeyMappings() {
+        if (bubbleKey == null) {
+            createKeyMappings();
+        }
+        bubbleKey = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.registerKeyMapping(bubbleKey);
+    }
+
+    /**
+     * 由 {@code McaiModClient} 的统一 tick 分发器调用。
+     *
+     * <p>按键轮询走 tick 而不是渲染回调：渲染回调在开着界面时不会被调用，
+     * 那样按键会"卡住"，等到界面关闭才一次性生效。
+     */
+    public static void onClientTick(Minecraft client) {
+        if (bubbleKey != null) {
+            while (bubbleKey.consumeClick()) {
                 toggleBubble();
             }
-            hintOnce(client);
-        });
-
-        HudRenderCallback.EVENT.register(AvatarWidget::onHudRender);
+        }
+        hintOnce(client);
     }
 
     /**
@@ -158,8 +178,8 @@ public final class AvatarWidget {
      *
      * <p>也不做成常驻 HUD 文字：那会一直挡着游戏画面。一次、并且说清楚去哪儿配，就够了。
      */
-    private static void hintOnce(MinecraftClient client) {
-        if (hintShown || client == null || client.player == null || client.world == null) {
+    private static void hintOnce(Minecraft client) {
+        if (hintShown || client == null || client.player == null || client.level == null) {
             return;
         }
         ConfigManager.ConfigData config = ConfigManager.getInstance().get();
@@ -179,8 +199,19 @@ public final class AvatarWidget {
 
     // ================================================================ 渲染入口
 
-    private static void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    /**
+     * HUD 渲染入口，由 {@code RenderGuiEvent.Post} 调用。
+     *
+     * <p><b>Forge 版与 Fabric 版的差异：</b>Fabric 的 {@code HudRenderCallback} 回调是
+     * {@code (DrawContext, RenderTickCounter)}。{@code RenderTickCounter} 是 <b>1.20.5+</b>
+     * 才有的类，1.20.1 里根本不存在 —— 这里改成接收事件给出的 {@code partialTick}
+     * （当前 tick 内的时间比例，0~1），语义上正对原代码里的 {@code getLastFrameDuration()}。
+     *
+     * <p>夹到 {@code [0.001, 1]} 是给 Q 弹弹簧用的：partialTick 在极端情况下可能为 0
+     * （同一帧内被调用多次），而弹簧的积分步长一旦是 0 就会除以零。
+     */
+    public static void onRenderGui(GuiGraphicsExtractor context, float partialTick) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
@@ -190,12 +221,13 @@ public final class AvatarWidget {
             return;
         }
         // 不在世界里（标题界面 / 断开连接）不画
-        if (client.player == null || client.world == null) {
+        if (client.player == null || client.level == null) {
             return;
         }
-        // F3 打开时让位给调试信息
-        DebugHud debugHud = client.getDebugHud();
-        if (debugHud != null && debugHud.shouldShowDebugHud()) {
+        // F3 打开时让位给调试信息。
+        // 26.1：{@code options.renderDebug} 这个字段没了，改成问调试层自己
+        // （"到底显示没显示" 的判断也归 DebugScreenOverlay 管了）。
+        if (client.getDebugOverlay().showDebugScreen()) {
             return;
         }
 
@@ -208,11 +240,11 @@ public final class AvatarWidget {
             return;
         }
 
-        float deltaTicks = tickCounter == null ? 1.0F : tickCounter.getDynamicDeltaTicks();
+        float deltaTicks = Math.max(0.001F, Math.min(1.0F, partialTick));
         updateQState(client, config, deltaTicks);
 
-        int screenW = context.getScaledWindowWidth();
-        int screenH = context.getScaledWindowHeight();
+        int screenW = context.guiWidth();
+        int screenH = context.guiHeight();
 
         int[] size = computeDrawSize(config);
         int drawW = size[0];
@@ -240,10 +272,10 @@ public final class AvatarWidget {
 
         drawAvatar(context, curX, curY, drawW, drawH);
         if (bubbleOpen) {
-            drawBubble(context, client.textRenderer, curX, curY, drawW, drawH, screenW, screenH);
+            drawBubble(context, client.font, curX, curY, drawW, drawH, screenW, screenH);
         }
         if (hovered && !dragging) {
-            drawTooltip(context, client.textRenderer, curX, curY, drawH, screenW, screenH);
+            drawTooltip(context, client.font, curX, curY, drawH, screenW, screenH);
         }
     }
 
@@ -251,29 +283,34 @@ public final class AvatarWidget {
 
     /**
      * 画头像。纵向压扁靠 {@code squash} 做非等比缩放——必须走矩阵，
-     * 因为 {@code drawTexture} 的宽高是 int，塞不下 0.62 这种小数。
+     * 因为 blit 的宽高是整数，塞不下 0.62 这种小数。
+     *
+     * <p><b>26.1 的矩阵换了类型：</b>{@code context.pose()} 现在返回
+     * {@code org.joml.Matrix3x2fStack}（二维仿射），不再是 {@code PoseStack}。
+     * 所以 {@code pushPose/popPose} 变成 {@code pushMatrix/popMatrix}，
+     * 平移与缩放也只剩两个分量（z 轴在这个管线里没有意义）。
      */
-    private static void drawAvatar(DrawContext context, int x, int y, int w, int h) {
+    private static void drawAvatar(GuiGraphicsExtractor context, int x, int y, int w, int h) {
         // 体积守恒的挤压：纵向 sy，横向补 2 - sy
         float sy = squash;
         float sx = 2.0F - squash;
 
-        org.joml.Matrix3x2fStack matrices = context.getMatrices();
+        org.joml.Matrix3x2fStack matrices = context.pose();
         matrices.pushMatrix();
         try {
             matrices.translate(x + w / 2.0F, y + h / 2.0F);
             matrices.scale(sx, sy);
             matrices.translate(-w / 2.0F, -h / 2.0F);
-            context.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED,
-                    TEXTURE_ID, 0, 0, 0.0F, 0.0F, w, h, w, h);
+            // 新签名：目标矩形 x0,y0,x1,y1 + 归一化 uv
+            context.blit(TEXTURE_ID, 0, 0, w, h, 0.0F, 1.0F, 0.0F, 1.0F);
         } finally {
-            // 万一 drawTexture 抛了，也不能把矩阵栈留脏
+            // 万一 blit 抛了，也不能把矩阵栈留脏
             matrices.popMatrix();
         }
     }
 
     /** 点击头像弹出的气泡：半透明底 + 边框 + 逐行文字。 */
-    private static void drawBubble(DrawContext context, TextRenderer textRenderer,
+    private static void drawBubble(GuiGraphicsExtractor context, Font textRenderer,
                                    int avatarX, int avatarY, int avatarW, int avatarH,
                                    int screenW, int screenH) {
         List<String> lines = bubbleLines;
@@ -282,10 +319,10 @@ public final class AvatarWidget {
         }
 
         int pad = 4;
-        int lineHeight = textRenderer.fontHeight + 1;
+        int lineHeight = textRenderer.lineHeight + 1;
         int textWidth = 0;
         for (String line : lines) {
-            textWidth = Math.max(textWidth, textRenderer.getWidth(line));
+            textWidth = Math.max(textWidth, textRenderer.width(line));
         }
         int w = textWidth + pad * 2;
         int h = lines.size() * lineHeight + pad * 2 - 1;
@@ -298,11 +335,11 @@ public final class AvatarWidget {
         if (x + w > screenW - 2) {
             x = avatarX - w - 4;
         }
-        x = MathHelper.clamp(x, 2, Math.max(2, screenW - w - 2));
-        int y = MathHelper.clamp(avatarY, 2, Math.max(2, screenH - h - 2));
+        x = Mth.clamp(x, 2, Math.max(2, screenW - w - 2));
+        int y = Mth.clamp(avatarY, 2, Math.max(2, screenH - h - 2));
 
         context.fill(x, y, x + w, y + h, 0xC0101018);
-        context.drawStrokedRectangle(x, y, w, h, 0xFF55FFFF);
+        context.outline(x, y, w, h, 0xFF55FFFF);
 
         int textX = x + pad;
         int textY = y + pad;
@@ -310,7 +347,7 @@ public final class AvatarWidget {
         try {
             for (String line : lines) {
                 // 行文本自带 § 颜色码，这里的 0xFFFFFFFF 只是兜底基色
-                context.drawTextWithShadow(textRenderer, line, textX, textY, 0xFFFFFFFF);
+                context.text(textRenderer, line, textX, textY, 0xFFFFFFFF);
                 textY += lineHeight;
             }
         } finally {
@@ -319,27 +356,27 @@ public final class AvatarWidget {
     }
 
     /** 悬浮提示：一小段说明，放头像下方，下面放不下就翻到上方。 */
-    private static void drawTooltip(DrawContext context, TextRenderer textRenderer,
+    private static void drawTooltip(GuiGraphicsExtractor context, Font textRenderer,
                                     int avatarX, int avatarY, int avatarH,
                                     int screenW, int screenH) {
         String line1 = Lang.tr("mcai.avatar.tip_click");
         String line2 = Lang.tr("mcai.avatar.tip_drag");
 
         int pad = 4;
-        int w = Math.max(textRenderer.getWidth(line1), textRenderer.getWidth(line2)) + pad * 2;
-        int h = (textRenderer.fontHeight + 1) * 2 + pad * 2 - 1;
+        int w = Math.max(textRenderer.width(line1), textRenderer.width(line2)) + pad * 2;
+        int h = (textRenderer.lineHeight + 1) * 2 + pad * 2 - 1;
 
-        int x = MathHelper.clamp(avatarX, 2, Math.max(2, screenW - w - 2));
+        int x = Mth.clamp(avatarX, 2, Math.max(2, screenW - w - 2));
         int y = avatarY + avatarH + 4;
         if (y + h > screenH - 2) {
             y = avatarY - h - 4;
         }
-        y = MathHelper.clamp(y, 2, Math.max(2, screenH - h - 2));
+        y = Mth.clamp(y, 2, Math.max(2, screenH - h - 2));
 
         context.fill(x, y, x + w, y + h, 0xB0101018);
-        context.drawStrokedRectangle(x, y, w, h, 0xFF55FFFF);
-        context.drawTextWithShadow(textRenderer, line1, x + pad, y + pad, 0xFFFFFFFF);
-        context.drawTextWithShadow(textRenderer, line2, x + pad, y + pad + textRenderer.fontHeight + 1,
+        context.outline(x, y, w, h, 0xFF55FFFF);
+        context.text(textRenderer, line1, x + pad, y + pad, 0xFFFFFFFF);
+        context.text(textRenderer, line2, x + pad, y + pad + textRenderer.lineHeight + 1,
                 0xFFAAAAAA);
     }
 
@@ -351,7 +388,7 @@ public final class AvatarWidget {
         if (!Double.isFinite(scale) || scale <= 0.0) {
             scale = 1.0;
         }
-        scale = MathHelper.clamp(scale, 0.25, 4.0);
+        scale = Mth.clamp(scale, 0.25, 4.0);
         int base = Math.max(8, (int) Math.round(BASE_SIZE * scale));
 
         double aspect = texWidth / (double) Math.max(1, texHeight);
@@ -422,13 +459,13 @@ public final class AvatarWidget {
      * 那是个普通界面，鼠标本来就是自由的，命中判断和点击消费都由它自己负责。
      * 下面这段代码保留着，是为了将来若真的引入 mixin，可以直接接上而不用重写。
      */
-    private static boolean interactionEnabled(MinecraftClient client) {
-        return client.currentScreen == null && !client.mouse.isCursorLocked();
+    private static boolean interactionEnabled(Minecraft client) {
+        return client.screen == null && !client.mouseHandler.isMouseGrabbed();
     }
 
-    private static void handleMouse(MinecraftClient client, ConfigManager.ConfigData config,
+    private static void handleMouse(Minecraft client, ConfigManager.ConfigData config,
                                     int x, int y, int w, int h, int screenW, int screenH) {
-        long handle = client.getWindow().getHandle();
+        long handle = client.getWindow().handle();
         boolean down;
         try {
             down = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
@@ -439,8 +476,8 @@ public final class AvatarWidget {
         // Mouse 里是窗口像素；换算公式抄自原版 Mouse.onMouseButton
         int winW = Math.max(1, client.getWindow().getWidth());
         int winH = Math.max(1, client.getWindow().getHeight());
-        double mouseX = client.mouse.getX() * screenW / (double) winW;
-        double mouseY = client.mouse.getY() * screenH / (double) winH;
+        double mouseX = client.mouseHandler.xpos() * screenW / (double) winW;
+        double mouseY = client.mouseHandler.ypos() * screenH / (double) winH;
 
         boolean inside = mouseX >= x && mouseX < x + (double) w
                 && mouseY >= y && mouseY < y + (double) h;
@@ -467,8 +504,8 @@ public final class AvatarWidget {
             double dx = mouseX - dragStartCursorX;
             double dy = mouseY - dragStartCursorY;
             dragDistance = Math.max(dragDistance, (float) Math.hypot(dx, dy));
-            dragX = MathHelper.clamp(dragStartX + (int) Math.round(dx), 0, Math.max(0, screenW - w));
-            dragY = MathHelper.clamp(dragStartY + (int) Math.round(dy), 0, Math.max(0, screenH - h));
+            dragX = Mth.clamp(dragStartX + (int) Math.round(dx), 0, Math.max(0, screenW - w));
+            dragY = Mth.clamp(dragStartY + (int) Math.round(dy), 0, Math.max(0, screenH - h));
         } else if (!down && leftWasDown && dragging) {
             dragging = false;
             if (dragDistance < MIN_DRAG_DISTANCE) {
@@ -539,7 +576,7 @@ public final class AvatarWidget {
      * <p>必须显式调用：纹理加载挂在 HUD 渲染回调里，而<b>界面开着时 HUD 渲染回调根本不跑</b>，
      * 不主动触发的话编辑界面里会是一片空白，玩家以为坏了。
      */
-    public static void prepare(MinecraftClient client, ConfigManager.ConfigData config) {
+    public static void prepare(Minecraft client, ConfigManager.ConfigData config) {
         if (client == null || config == null) {
             return;
         }
@@ -613,7 +650,7 @@ public final class AvatarWidget {
      * <p>编辑界面走的是<b>同一个</b>绘制方法，这样"编辑时看到的"和"实际显示的"
      * 一定一致；各画各的话迟早会出现"摆好了但实际偏几像素"这种没法排查的问题。
      */
-    public static void renderWidget(DrawContext context, TextRenderer textRenderer,
+    public static void renderWidget(GuiGraphicsExtractor context, Font textRenderer,
                                     int x, int y, int w, int h, int screenW, int screenH) {
         drawAvatar(context, x, y, w, h);
         if (bubbleOpen) {
@@ -634,11 +671,11 @@ public final class AvatarWidget {
     // ================================================================ Q 键 + 音效
 
     /** 按住 Q 纵向压扁，松开弹回；用弹簧插值，不瞬间跳变。 */
-    private static void updateQState(MinecraftClient client, ConfigManager.ConfigData config,
+    private static void updateQState(Minecraft client, ConfigManager.ConfigData config,
                                      float deltaTicks) {
         boolean down;
         try {
-            down = InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_Q);
+            down = InputConstants.isKeyDown(client.getWindow(), GLFW.GLFW_KEY_Q);
         } catch (Throwable t) {
             down = false;
         }
@@ -652,22 +689,22 @@ public final class AvatarWidget {
         }
 
         // getLastFrameDuration() 的单位是 tick（20 tick = 1 秒）
-        float dt = MathHelper.clamp(deltaTicks / 20.0F, 0.0F, 0.1F);
+        float dt = Mth.clamp(deltaTicks / 20.0F, 0.0F, 0.1F);
         float target = down ? 0.62F : 1.0F;
 
         squashVelocity += (target - squash) * 320.0F * dt;
         squashVelocity *= (float) Math.exp(-22.0 * dt);
         squash += squashVelocity * dt;
         // 夹一下，避免极端掉帧时弹簧发散
-        squash = MathHelper.clamp(squash, 0.45F, 1.25F);
+        squash = Mth.clamp(squash, 0.45F, 1.25F);
     }
 
-    private static void playClick(MinecraftClient client) {
+    private static void playClick(Minecraft client) {
         try {
-            // SoundEvents.UI_BUTTON_CLICK 是 RegistryEntry.Reference<SoundEvent>，
-            // 走的是 master(RegistryEntry<SoundEvent>, float) 这个重载。
+            // SoundEvents.UI_BUTTON_CLICK 是 Holder.Reference<SoundEvent>，
+            // 走的是 master(Holder<SoundEvent>, float) 这个重载。
             client.getSoundManager().play(
-                    PositionedSoundInstance.ui(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
         } catch (Throwable t) {
             LOGGER.debug("[mcAI] avatar click sound failed", t);
         }
@@ -680,7 +717,7 @@ public final class AvatarWidget {
      *
      * <p>渲染线程上不做任何磁盘操作——读字节在 {@link #LOADER} 上，这里只 poll 结果。
      */
-    private static void ensureTexture(MinecraftClient client, ConfigManager.ConfigData config) {
+    private static void ensureTexture(Minecraft client, ConfigManager.ConfigData config) {
         String spec = config.avatarImage == null ? "" : config.avatarImage.trim();
 
         if (textureSpec == null || !textureSpec.equals(spec)) {
@@ -718,9 +755,9 @@ public final class AvatarWidget {
             image = NativeImage.read(bytes);
             texWidth = Math.max(1, image.getWidth());
             texHeight = Math.max(1, image.getHeight());
-            NativeImageBackedTexture texture = new NativeImageBackedTexture(() -> "mcai-avatar", image);
+            DynamicTexture texture = new DynamicTexture(() -> "mcai:avatar_widget", image);
             image = null; // 所有权交给纹理，失败路径里不要再 close 一次
-            client.getTextureManager().registerTexture(TEXTURE_ID, texture);
+            client.getTextureManager().register(TEXTURE_ID, texture);
             textureReady = true;
             textureFailed = false;
         } catch (Throwable t) {
@@ -762,14 +799,14 @@ public final class AvatarWidget {
         return null;
     }
 
-    private static void releaseTexture(MinecraftClient client) {
+    private static void releaseTexture(Minecraft client) {
         textureReady = false;
         pendingBytes = null;
         if (client == null) {
             return;
         }
         try {
-            client.getTextureManager().destroyTexture(TEXTURE_ID);
+            client.getTextureManager().release(TEXTURE_ID);
         } catch (Throwable t) {
             LOGGER.debug("[mcAI] failed to release avatar texture", t);
         }

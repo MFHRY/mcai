@@ -7,10 +7,9 @@ import com.example.mcai.util.LocalProvider;
 import com.example.mcai.util.ModeCatalog;
 import com.example.mcai.util.ModelCatalog;
 import com.example.mcai.util.VisionResolution;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
 
 /**
  * 进入世界后，在聊天栏打印一份「本模组所有触发方式 + 功能」清单。
@@ -30,22 +29,25 @@ public final class StartupGuide {
 
     private StartupGuide() {}
 
-    /** 在 McaiModClient.onInitializeClient() 里调用。 */
-    public static void register() {
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            if (!alreadyShown) {
-                pending = true;
-            }
-        });
+    /** 进入世界时由 {@code McaiModClient} 调用：只登记意图，真正打印推迟到下一个 tick。 */
+    public static void onJoin() {
+        if (!alreadyShown) {
+            pending = true;
+        }
+    }
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (pending && client.player != null && client.inGameHud != null) {
-                pending = false;
-                alreadyShown = true;
-                // 进世界只打精简版；完整版随时可以用 /ai help 调出来
-                show(false);
-            }
-        });
+    /**
+     * 由 {@code McaiModClient} 的统一 tick 分发器调用。
+     *
+     * <p>JOURNAL 触发的瞬间聊天栏可能还没准备好，所以这里等到 player / gui 都就绪才打印。
+     */
+    public static void onClientTick(Minecraft client) {
+        if (pending && client.player != null && client.gui != null) {
+            pending = false;
+            alreadyShown = true;
+            // 进世界只打精简版；完整版随时可以用 /ai help 调出来
+            show(false);
+        }
     }
 
     /** 完整清单：{@code /ai help} 用。 */
@@ -127,9 +129,11 @@ public final class StartupGuide {
 
         // 还没填 Key 时给一条醒目、可点击的提示。
         // 指向本机推理服务（Ollama / LM Studio）时不需要 key，别把人吓着去办 key。
+        // 26.1 的 ClickEvent 是 sealed record 家族，不能再 new ClickEvent(Action, value)，
+        // 而是直接构造对应子类型：SuggestCommand / RunCommand / CopyToClipboard / OpenUrl
         if (config != null && LocalProvider.requiresApiKey(config.apiUrl, config.apiKey)) {
-            ClientChat.send(Text.literal(Lang.tr("mcai.guide.no_key"))
-                    .styled(style -> style.withClickEvent(
+            ClientChat.send(Component.literal(Lang.tr("mcai.guide.no_key"))
+                    .withStyle(style -> style.withClickEvent(
                             new ClickEvent.SuggestCommand("/ai config"))));
         }
     }

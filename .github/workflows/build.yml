@@ -6,17 +6,16 @@
 #      shipped without pack.mcmeta, so Forge dropped the whole resource pack:
 #      item textures rendered as the missing-texture checkerboard and the chat
 #      showed raw keys like mcai.cmd.status. `./gradlew build` was green the
-#      whole time. tools/check_jar.py closes that gap.
+#      whole time. tools/check_jar.py closes that gap (it also checks the item
+#      definitions and textures that 1.21.4+ needs for a non-purple/black item).
 #
 #   2. Committing code that passes javac but breaks an invariant - unbalanced
 #      braces (which javac reports as a cascade of misleading errors) or
 #      language files that drift out of sync across the 8 locales.
 #
-# The two editions need different JDKs, so the version is keyed off the branch:
-# the Fabric branch targets Minecraft 1.21.11 with Fabric Loom 1.19.3, which
-# refuses to resolve on anything below JVM 25; the Forge 1.20.1 branch needs 17
-# (ForgeGradle compiles its binpatched artifact with a Java 17 toolchain).
-# The mod itself still targets Java 21 bytecode (build.gradle options.release).
+# Minecraft 26.1 runs on Java 25 and Fabric Loom 1.19-SNAPSHOT declares a
+# minimum JVM runtime of 25, so the toolchain is pinned to 25 everywhere.
+# (The 26.1 line ships un-obfuscated: there is no Yarn and no intermediary.)
 
 name: build
 on: [pull_request, push]
@@ -34,10 +33,7 @@ jobs:
       - name: setup jdk
         uses: actions/setup-java@v5
         with:
-          # forge-1.20.1 -> 17, everything else (the Fabric branches) -> 25.
-          # 25 is not optional: Fabric Loom 1.19.3 (needed for Minecraft 1.21.11)
-          # declares a minimum JVM runtime of 25 and fails to resolve on 21.
-          java-version: ${{ github.ref_name == 'forge-1.20.1' && '17' || '25' }}
+          java-version: '25'
           distribution: 'microsoft'
 
       - name: make gradle wrapper executable
@@ -55,8 +51,9 @@ jobs:
       - name: check every referenced lang key exists
         run: python3 tools/check_lang_usage.py
 
-      # 1.21.11 treats a text colour's alpha as meaningful: 0xFFFFFF is invisible
-      # white, not white. Nothing logs when text is invisible, so check it here.
+      # 1.21.11+ treats a text colour's alpha as meaningful: 0xFFFFFF is
+      # invisible white, not white. Nothing logs when text is invisible, so
+      # check it here.
       - name: check text colours carry an alpha channel
         run: python3 tools/check_text_colors.py
 

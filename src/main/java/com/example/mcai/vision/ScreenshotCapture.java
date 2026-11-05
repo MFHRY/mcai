@@ -1,10 +1,10 @@
 package com.example.mcai.vision;
 
 import com.example.mcai.util.VisionResolution;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.util.ScreenshotRecorder;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.Screenshot;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -24,13 +24,13 @@ import java.util.Iterator;
  *
  * <p><b>1.21.1 的关键事实（全部用真实字节码/真实类实测核实过）：</b>
  * <ul>
- *   <li>{@code ScreenshotRecorder.takeScreenshot(Framebuffer)} 是<b>同步返回 NativeImage</b>，
+ *   <li>{@code Screenshot.takeScreenshot(RenderTarget)} 是<b>同步返回 NativeImage</b>，
  *       不是新版那种回调 API，且必须在渲染线程调用。</li>
  *   <li>它<b>内部已经调用过 mirrorVertically()</b>（字节码 offset 35），
  *       所以<b>绝不能再翻一次</b>，否则截图上下颠倒。</li>
  *   <li>{@code NativeImage} 占<b>堆外内存</b>，不 close 会真泄漏 —— vanilla 的保存路径
  *       也是在 finally 里 close 的。这是整个流程里唯一真正的泄漏风险。</li>
- *   <li>{@code NativeImage.getColor(x, y)} 返回 <b>ARGB</b>（我构造真实 NativeImage 实测过
+ *   <li>{@code NativeImage.getPixelRGBA(x, y)} 返回 <b>ARGB</b>（我构造真实 NativeImage 实测过
  *       4 个像素的往返），可以直接喂给 {@code BufferedImage.setRGB}。</li>
  * </ul>
  *
@@ -57,17 +57,28 @@ public final class ScreenshotCapture {
     /**
      * 步骤 1：抓取当前画面。<b>必须在客户端渲染线程调用。</b>
      *
-     * @return 截图；失败返回 null。拿到后必须交给 {@link #encode} 处理（由它负责释放）。
+     * <p><b>26.1 是异步的。</b>1.20.1 的 {@code Screenshot.takeScreenshot(RenderTarget)} 直接
+     * 返回一张 NativeImage；26.1 改成把「把纹理拷到缓冲区」这条 GPU 命令排进队列，
+     * 拷完（下一帧 flush 时）才回调给调用方。所以这里也改成回调式：
+     * {@code callback} 一定会被调用一次，失败时传 null。
+     *
+     * <p>注意回调<b>不是在渲染线程上"立刻"</b>执行的，但仍在渲染线程上一个安全的位置，
+     * 因此里面可以放心地 {@code client.setScreen(...)}。
+     *
+     * @param callback 拿到截图（或 null）；拿到后必须交给 {@link #encode} 处理（由它负责释放）
      */
-    public static NativeImage grab() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        Framebuffer framebuffer = client.getFramebuffer();
+    public static void grabAsync(java.util.function.Consumer<NativeImage> callback) {
+        Minecraft client = Minecraft.getInstance();
+        RenderTarget framebuffer = client.getMainRenderTarget();
         if (framebuffer == null) {
-            return null;
+            callback.accept(null);
+            return;
         }
-        final NativeImage[] out = new NativeImage[1];
-        ScreenshotRecorder.takeScreenshot(framebuffer, image -> out[0] = image);
-        return out[0];
+        try {
+            Screenshot.takeScreenshot(framebuffer, 1, callback);
+        } catch (Throwable t) {
+            callback.accept(null);
+        }
     }
 
     /**
@@ -222,8 +233,11 @@ public final class ScreenshotCapture {
             NativeImage out = new NativeImage(targetWidth, targetHeight, false);
             for (int y = 0; y < targetHeight; y++) {
                 for (int x = 0; x < targetWidth; x++) {
-                    // getRGB 返回 ARGB，NativeImage.setColor 也接受 ARGB，可以直接搬
-                    out.setColor(x, y, scaled.getRGB(x, y));
+                    // getRGB 返回 ARGB；NativeImage 只收 ABGR，所以 R/B 要换位
+                    int argb = scaled.getRGB(x, y);
+                    out.setPixel(x, y, (argb & 0xFF00FF00)
+                            | ((argb & 0xFF) << 16)
+                            | ((argb >> 16) & 0xFF));
                 }
             }
             scaled.flush();
@@ -324,8 +338,12 @@ public final class ScreenshotCapture {
         for (int y = 0; y < height; y++) {
             int rowOffset = y * width;
             for (int x = 0; x < width; x++) {
-                // getColor 已经是 ARGB，与 TYPE_INT_ARGB 完全对应
-                pixels[rowOffset + x] = image.getColorArgb(x, y);
+                // 26.1 的 NativeImage 只有 getPixel/setPixel，字节序是 ABGR（不是旧的 RGBA）。
+                // TYPE_INT_ARGB 要的是 A-R-G-B，所以这里把 R 与 B 对调。
+                int abgr = image.getPixel(x, y);
+                pixels[rowOffset + x] = (abgr & 0xFF00FF00)
+                        | ((abgr & 0xFF) << 16)
+                        | ((abgr >> 16) & 0xFF);
             }
         }
         BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
